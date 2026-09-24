@@ -1,0 +1,1 @@
+gcloud logging read 'resource.type="gae_app" AND timestamp>="2026-09-24T03:30:00Z" AND NOT textPayload:"level=INFO" AND NOT textPayload:"pid1"' --order=asc --format='value(timestamp,protoPayload.resource,protoPayload.status,textPayload)'

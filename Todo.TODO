@@ -1,0 +1,3 @@
+Fix manage_exits.  Calculate exit date on entry fill date and order id.
+Fix submit_orders. Make submit_orders, generate exit dates but correct them based on fill date
+Fix check_health.  Make submit_orders, generate exit dates but correct them based on fill date
