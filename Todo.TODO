@@ -1,3 +1,6 @@
 Fix manage_exits.  Calculate exit date on entry fill date and order id.
 Fix submit_orders. Make submit_orders, generate exit dates but correct them based on fill date
 Fix check_health.  Make submit_orders, generate exit dates but correct them based on fill date
+
+Make /killswitch - turns off cron, kills current executions.
+Make /exit_market - loops through all managed accounts and exits all positions at market. pkg/cli/ but not cron.
