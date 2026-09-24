@@ -1,0 +1,94 @@
+# already in git
+backtestgosqlite/
+schwaber/
+trade_orchestrator/
+
+# Binaries and compiled output
+bin/
+dist/
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+wc_2022
+listfiles
+gae/go/listfiles/listfiles
+
+# Test and coverage artifacts
+*.out
+*.test
+*.prof
+coverage/
+
+# Data and SQLite databases
+data/*.db
+data/*.sqlite
+data/*.db-shm
+data/*.db-wal
+data/*.sqlite-shm
+data/*.sqlite-wal
+*.sqlite
+*.db
+*.db-shm
+*.db-wal
+*.sqlite-shm
+*.sqlite-wal
+!data/README.md
+
+# Secrets, Tokens, and Live Configurations
+config/config.json
+!config/config.example.json
+gae/go/config.json
+gae/go/PAPER/config.json
+*.secret
+*.secret.json
+*.pem
+*.key
+*.env
+*.env.*
+**/stock-*.json
+**/service-account.json
+**/wc2022_gae_default.secret
+config/config.local.json
+
+# Generated Reports & HTML Dashboards
+reports/*.html
+reports/
+/*.html
+
+# Logs & scratch
+logs/
+scratch/
+scratch.txt
+*.log
+
+# OS / Editor artifacts
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.pickle
+.venv/
+venv/
+ENV/
+reports/strategies.db
+reports/strategy_evals.db
+
+# built binaries at repo root
+/compare_annual_report
