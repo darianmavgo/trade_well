@@ -1,0 +1,8 @@
+.env
+ibkr_token.json
+ibkr_token.json.lock
+*.db
+*.log
+bin/
+keys/
+oauth1_keys/

@@ -1,0 +1,6 @@
+What's ready (in the ibkr-oauth folder under your outputs):
+
+Public files, uploaded to IBKR: public_signature.pem, public_encryption.pem, dhparam.pem
+Private files, never shared: private_signature.pem, private_encryption.pem
+dh_prime.txt: a value ibind needs later
+consumer_key.txt: the consumer key I generated, SMVWDWQBZ
