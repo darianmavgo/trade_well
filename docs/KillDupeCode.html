@@ -1,0 +1,276 @@
+<title>KillDupeCode</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#1b2430; --muted:#5d6b7c; --line:#dde2e9;
+  --accent:#1f5f8b; --sw:#7a4fb0; --sw-bg:#efe8f8; --bt:#0f7a5c; --bt-bg:#e2f3ed;
+  --warn:#a35a00; --warn-bg:#fdf0dc; --code-bg:#eef1f5;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#12171e; --panel:#1a212b; --ink:#e4e9f0; --muted:#98a5b6; --line:#2b3542;
+    --accent:#6fb1dd; --sw:#c3a3ec; --sw-bg:#2c2440; --bt:#62d0ac; --bt-bg:#14342b;
+    --warn:#f0b866; --warn-bg:#3a2b12; --code-bg:#222b37;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#12171e; --panel:#1a212b; --ink:#e4e9f0; --muted:#98a5b6; --line:#2b3542;
+  --accent:#6fb1dd; --sw:#c3a3ec; --sw-bg:#2c2440; --bt:#62d0ac; --bt-bg:#14342b;
+  --warn:#f0b866; --warn-bg:#3a2b12; --code-bg:#222b37;
+}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;padding-inline:16px;padding-block:28px 56px}
+.wrap{max-width:1240px;margin:0 auto}
+h1{font:600 28px/1.15 "IBM Plex Sans",system-ui,sans-serif;margin:0 0 6px;text-wrap:balance}
+h2{font:600 17px/1.3 "IBM Plex Sans",system-ui,sans-serif;margin:34px 0 4px;text-wrap:balance}
+p{margin:0 0 10px;max-width:70ch}
+.lede{color:var(--muted);max-width:75ch}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+code{background:var(--code-bg);padding:1px 5px;border-radius:3px;word-break:break-word}
+.sub{color:var(--muted);margin-bottom:12px}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin:14px 0 4px;color:var(--muted);font-size:13px}
+.tag{display:inline-block;font:600 10.5px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius:3px;margin-right:6px;vertical-align:1px}
+.tag.sw{background:var(--sw-bg);color:var(--sw)}
+.tag.bt{background:var(--bt-bg);color:var(--bt)}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:860px}
+th{position:sticky;top:0;text-align:left;font:600 11px/1.2 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+td{vertical-align:top;padding:11px 12px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+td.n{color:var(--muted);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;width:38px}
+td.l{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;width:70px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px}
+td.a{width:27%} td.b{width:27%} td.c{width:36%}
+td ul{margin:4px 0 0;padding-left:18px} td li{margin:2px 0}
+.note{margin-top:10px;font-size:13px;color:var(--muted)}
+.callout{border:1px solid var(--line);border-left:3px solid var(--warn);background:var(--panel);padding:10px 14px;border-radius:4px;margin:18px 0;max-width:80ch}
+.tot td{font-weight:600;background:var(--code-bg)}
+footer{margin-top:34px;color:var(--muted);font-size:13px}
+footer li{margin:3px 0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+
+<div class="wrap">
+<h1>KillDupeCode</h1>
+<p class="lede">Code in <code>trade_orchestrator</code> that duplicates, or should live in, <code>schwaber</code> or <code>backtestgosqlite</code>. For each row: where it is in trade_orchestrator, where the same thing already exists, and what it takes to switch over.</p>
+<div class="legend">
+  <span><span class="tag sw">SW</span>schwaber</span>
+  <span><span class="tag bt">BT</span>backtestgosqlite</span>
+  <span><span class="tag warn">Promote</span>the target exists only in <code>package main</code> or unexported, so it must be exported/moved first</span>
+</div>
+<div class="callout"><strong>Before starting:</strong> <code>go.mod</code> has <code>replace</code> directives to <code>../schwaber</code> and <code>../backtestgosqlite</code> <em>and</em> trade_orchestrator has a <code>vendor/</code> dir. Run <code>go mod vendor</code> after every change in SW/BT, or replace vendoring with a <code>go.work</code> file.</div>
+
+<h2>Update: what has been deduped</h2>
+<p class="sub">Section B is done in all three repos: <code>go build</code> and <code>go test</code> pass in each. Nothing was run against live Schwab or GCS. The tables below are the original plan; this section is the result.</p>
+<div class="scroll"><table style="min-width:760px">
+<thead><tr><th>#</th><th>Status</th><th>Where the code lives now</th><th>What trade_orchestrator no longer has</th></tr></thead>
+<tbody>
+<tr><td class="n">B1</td><td><span class="tag bt">Done</span></td>
+<td><span class="tag sw">SW</span><code>tokensync</code> (added <code>Push</code>, exported <code>GCSAccessToken</code>)</td>
+<td>The <code>sync_schwab_token.sh</code> script, its path search and the <code>exec.Command</code> call. <code>token pull|push</code> now calls the package. Pull only overwrites a strictly newer token; both fail if <code>GCS_BUCKET</code> is unset.</td></tr>
+<tr><td class="n">B2</td><td><span class="tag bt">Done</span></td>
+<td><span class="tag sw">SW</span><code>config.LoadSecretManagerEnv</code> (now exported)</td>
+<td><code>writeSecret</code>, the <code>.env</code> parser and the temp <code>.env</code> file in <code>appserve/secrets.go</code>. TO's direct <code>secretmanager</code> dependency became indirect.</td></tr>
+<tr><td class="n">B3</td><td><span class="tag bt">Done</span></td>
+<td><span class="tag sw">SW</span>new <code>pkg/oauthcli</code>; <code>schwab.IsPermanentAuthError</code></td>
+<td><code>RunInteractiveAuth</code> and <code>IsPermanentAuthError</code>. <code>pkg/auth</code> keeps only the audit-log writer (<code>auth.Recorder</code>) and <code>SyncToken</code>. <code>schwaber auth</code> now uses the same flow.</td></tr>
+<tr><td class="n">B4</td><td><span class="tag bt">Done</span></td>
+<td><span class="tag sw">SW</span>new <code>pkg/accountstore</code> (table names are a parameter)</td>
+<td>All <code>parseAndSave*</code>, <code>saveRawResponse</code>, <code>idFrom</code>, <code>boolToInt</code>, the schema DDL, the summary query, sort/cap helpers. <code>account_state</code> keeps only its orchestration. <code>schwaber listall</code> dropped about 400 lines and uses the same code.</td></tr>
+<tr><td class="n">B5</td><td><span class="tag bt">Done</span></td>
+<td><span class="tag sw">SW</span><code>trader.FilterLinkedAccounts</code>, also used by <code>GetAccounts</code></td>
+<td><code>filterLinkedAccounts</code>. The DB-row to <code>ResolvedAccount</code> mapper stays in TO on purpose.</td></tr>
+<tr><td class="n">B6</td><td><span class="tag bt">Done</span></td>
+<td><span class="tag bt">BT</span><code>appenv.MarketDB()</code></td>
+<td>The hand-built default path. <code>MARKET_DB</code> still wins; <code>BACKTEST_ROOT</code> is kept as a fallback only when appenv's file is absent.</td></tr>
+<tr><td class="n">B7</td><td><span class="tag bt">Done</span></td>
+<td><span class="tag bt">BT</span>new <code>runner.RunLiveScan</code> and <code>runner.DefaultBarsTable</code></td>
+<td><code>scan_market/livescan.go</code>. TO's result type renamed to <code>SignalScanSummary</code> so it no longer shadows BT's <code>SignalScanResult</code>.</td></tr>
+<tr><td class="n">B8</td><td><span class="tag bt">Done</span></td>
+<td><span class="tag bt">BT</span>new <code>pkg/calendar</code> (<code>TradingDaysBetween</code>, <code>IsHoliday</code>, <code>IsSession</code>)</td>
+<td><code>CalculateTradingDays</code> and its 3-holiday list. <strong>Behavior change:</strong> days-held now skips all NYSE holidays (Good Friday, Thanksgiving, Labor Day…). The old TO test expected the wrong count for Sep 2026 and was removed.</td></tr>
+<tr><td class="n">B9</td><td><span class="tag bt">Done</span></td>
+<td><span class="tag bt">BT</span><code>strategy.IsStack</code>, <code>ParseStack</code>, <code>StackID</code></td>
+<td><code>IsStack</code>, <code>ParseStack</code> in <code>pkg/strategies</code>. BT's <code>SharedAccountID</code> and <code>backtest/main.go</code> use them too. <code>MemberGreenlit</code> stays in TO.</td></tr>
+<tr><td class="n">B10</td><td><span class="tag warn">Partial</span></td>
+<td><span class="tag sw">SW</span>new <code>pkg/dbutil.Open</code></td>
+<td>TO's pragma code (<code>appconfig.OpenDB</code> now one line). <strong>Not switched:</strong> BT's <code>storage.OpenSQLite</code> and SW's <code>orderintent.Open</code>, which need different settings (sqlx, single writer, 10s timeout).</td></tr>
+</tbody></table></div>
+
+<h2>Update: numbers</h2>
+<div class="scroll"><table style="min-width:520px">
+<thead><tr><th>Measure</th><th style="text-align:right">Before</th><th style="text-align:right">After</th></tr></thead>
+<tbody>
+<tr><td>trade_orchestrator Go lines (<code>cmd/</code> + <code>pkg/</code>, incl. tests)</td><td class="l">12,161</td><td class="l">11,190</td></tr>
+<tr><td>schwaber <code>cmd/schwaber/main.go</code></td><td class="l">1,247</td><td class="l">842</td></tr>
+<tr><td>Shell scripts called from Go in trade_orchestrator</td><td class="l">1</td><td class="l">0</td></tr>
+<tr><td>Copies of the account-ingest code</td><td class="l">2</td><td class="l">1</td></tr>
+</tbody></table></div>
+<p class="note">New shared code and tests added to schwaber and backtestgosqlite (<code>accountstore</code>, <code>oauthcli</code>, <code>dbutil</code>, <code>calendar</code>, <code>stack</code>, <code>livescan</code>, and their tests) is about 850 lines. The net is that the logic exists once, and the orchestrator is about 970 lines smaller. The plan estimated about 925 lines for group B; the difference is the tests I moved out and helpers I kept.</p>
+
+<h2>Update: still open</h2>
+<ul>
+<li><strong>Section A</strong> (A1 to A6: <code>gcsAccessToken</code> in <code>dbsync</code>, <code>orderNumericID</code>, <code>flattenOrders</code> and order helpers, the duplicate <code>windowForSignal</code>, the <code>Contains</code> wrappers). Not started. I exported <code>tokensync.GCSAccessToken</code> for A1 but did not switch <code>dbsync</code> to it, so <code>x/oauth2</code> is still a direct dependency.</li>
+<li><strong>Section C1</strong> (<code>dbsync</code> and Litestream, the only remaining external binary). Not started, optional.</li>
+<li><strong>B10</strong> remainder and two spots in BT that still split or join stack IDs by hand (<code>backtest/main.go</code> around the <code>strings.Split</code>, and <code>livescan/main.go</code>'s <code>+</code> to <code>,</code> replace).</li>
+<li><strong>Risk to check by hand:</strong> schwaber's <code>listall</code> now stores large order and activity IDs as full integers, not scientific notation. Existing <code>schwaber.db</code> rows with the old IDs may be duplicated on the next run. Also run the real <code>token pull|push</code>, <code>auth</code> and GAE Secret Manager paths once; they are unit-tested only.</li>
+</ul>
+
+<h2>A. Identical or near-identical code</h2>
+<p class="sub">Diffed side by side. Lowest risk: export, then delete the copy.</p>
+<div class="scroll"><table>
+<thead><tr><th>#</th><th>trade_orchestrator</th><th>Same thing in SW / BT</th><th>Work needed</th><th>~Lines</th></tr></thead>
+<tbody>
+<tr><td class="n">A1</td>
+<td class="a"><code>pkg/dbsync/gcs.go</code><br><code>gcsAccessToken</code></td>
+<td class="b"><span class="tag sw">SW</span><code>pkg/tokensync/tokensync.go</code><br><code>gcsAccessToken</code> (identical ADC lookup, scope <code>devstorage.read_write</code>)</td>
+<td class="c"><span class="tag warn">Promote</span>Export <code>GCSAccessToken(ctx)</code> from SW. Change <code>dbsync</code> to call it; delete the local copy and its dead <code>_ = oauth2.TokenSource(ts)</code> line. Drops TO's direct <code>x/oauth2</code> import.</td>
+<td class="l">15</td></tr>
+
+<tr><td class="n">A2</td>
+<td class="a"><code>pkg/submit_orders/submit_orders.go</code><br><code>orderNumericID</code></td>
+<td class="b"><span class="tag sw">SW</span><code>pkg/schwab/place_idempotent.go</code><br><code>locationOrderID</code> (same body)</td>
+<td class="c"><span class="tag warn">Promote</span>Rename to exported <code>schwab.LocationOrderID</code>; replace TO call sites; delete TO copy.</td>
+<td class="l">8</td></tr>
+
+<tr><td class="n">A3</td>
+<td class="a"><code>pkg/submit_orders/submit_orders.go</code> <code>flattenOrders</code><br><code>pkg/manage_exits/manage_exits.go</code> <code>flattenOrders</code>, <code>orderSymbol</code>, <code>orderIsSell</code>, <code>findWorkingSellLimitID</code>, <code>sellFillOnSymbol</code></td>
+<td class="b"><span class="tag sw">SW</span><code>pkg/schwab/types.go</code> owns <code>Order</code> (and <code>ChildOrderStrategies</code>); <code>pkg/trader/orders.go</code> <code>ParseOrderLegs</code> does related leg extraction. No flatten helper exists.</td>
+<td class="c"><span class="tag warn">Promote</span>Add <code>schwab.FlattenOrders</code> plus symbol/side/working-sell helpers beside <code>Order</code>. Delete both TO copies (the split exists only to avoid a package import).</td>
+<td class="l">75</td></tr>
+
+<tr><td class="n">A4</td>
+<td class="a"><code>pkg/manage_exits/window.go</code> <code>windowForSignal</code><br><code>pkg/stage_orders/window.go</code> <code>windowForSignal</code> (identical to each other)</td>
+<td class="b"><span class="tag bt">BT</span><code>pkg/strategy</code> owns <code>Strategy</code>, <code>StrategyConfig</code>; <code>pkg/models</code> owns <code>Signal</code>. No helper for the signal-override-else-DefaultConfig rule.</td>
+<td class="c">Add <code>strategy.WindowFor(strat, sig)</code> in BT. Delete both TO copies; <code>windowForTrade</code> stays as a thin wrapper.</td>
+<td class="l">35</td></tr>
+
+<tr><td class="n">A5</td>
+<td class="a"><code>pkg/appserve/secrets.go</code><br><code>loadDotEnv</code>, <code>envOr</code>, <code>firstNonEmpty</code></td>
+<td class="b"><span class="tag sw">SW</span><code>pkg/config/config.go</code> <code>loadDotEnv</code>, <code>getEnvDefault</code><br><span class="tag sw">SW</span><code>pkg/config/secretmanager.go</code> (same key=value loop)<br><span class="tag bt">BT</span><code>pkg/appenv/appenv.go</code> <code>load()</code></td>
+<td class="c"><span class="tag warn">Promote</span>Export <code>config.LoadDotEnv(path)</code> / <code>ParseDotEnv([]byte)</code> in SW. TO deletes its parser and helpers. BT can import it too (3 copies today).</td>
+<td class="l">30</td></tr>
+
+<tr><td class="n">A6</td>
+<td class="a"><code>pkg/strategies/strategies.go</code> <code>Parse</code>, <code>Contains</code><br><code>pkg/account_allowlist/allowlist.go</code> <code>Parse</code>, <code>Contains</code></td>
+<td class="b">Stdlib <code>slices.Contains</code>.<br><span class="tag bt">BT</span><code>pkg/runner/resolve.go</code> <code>ResolveStrategies</code> parses a similar CSV.</td>
+<td class="c">Delete both <code>Contains</code> wrappers (call <code>slices.Contains</code>). Merge the two <code>Parse</code> functions into one <code>splitDedupe(raw)</code> helper in TO (only the error text differs).</td>
+<td class="l">30</td></tr>
+</tbody></table></div>
+
+<h2>B. Already implemented in SW / BT: TO should call it</h2>
+<p class="sub">The library does the job; TO re-implements or shells out.</p>
+<div class="scroll"><table>
+<thead><tr><th>#</th><th>trade_orchestrator</th><th>Same thing in SW / BT</th><th>Work needed</th><th>~Lines</th></tr></thead>
+<tbody>
+<tr><td class="n">B1</td>
+<td class="a"><code>pkg/auth/token_sync.go</code><br><code>SyncToken</code>, <code>ResolveSyncSchwabTokenScript</code><br><code>deploy_gae/sync_schwab_token.sh</code><br><code>cmd/orchestrator/main.go</code> <code>runTokenSync</code></td>
+<td class="b"><span class="tag sw">SW</span><code>pkg/tokensync/tokensync.go</code> <code>SyncBeforeUse</code>, <code>SyncAfterSave</code>, called inside <code>schwab.Client</code> on every token load/save (<code>appserve/secrets.go</code> already says so).</td>
+<td class="c">Make <code>token-sync pull|push</code> call <code>tokensync.SyncBeforeUse</code> / <code>SyncAfterSave</code> directly, or drop the subcommand. Delete <code>SyncToken</code>, the script-path search, and the shell script. Keep only the <code>auth</code> audit-log writes if wanted.</td>
+<td class="l">95</td></tr>
+
+<tr><td class="n">B2</td>
+<td class="a"><code>pkg/appserve/secrets.go</code><br><code>LoadSecretsIfCloud</code>, <code>writeSecret</code></td>
+<td class="b"><span class="tag sw">SW</span><code>pkg/config/secretmanager.go</code> <code>loadSecretManagerEnv</code> (unexported): same <code>AccessSecretVersion(…/versions/latest)</code></td>
+<td class="c"><span class="tag warn">Promote</span>Export it as <code>config.LoadSecretManagerEnv(ctx, project, name)</code>. <code>LoadSecretsIfCloud</code> keeps only the GAE detection and project-id lookup. Drops TO's direct <code>cloud.google.com/go/secretmanager</code> dependency and vendored copy. First check whether <code>config.Load()</code> already triggers this by env var.</td>
+<td class="l">45</td></tr>
+
+<tr><td class="n">B3</td>
+<td class="a"><code>pkg/auth/oauth.go</code> <code>RunInteractiveAuth</code><br><code>pkg/auth/auth.go</code> <code>IsPermanentAuthError</code></td>
+<td class="b"><span class="tag sw">SW</span><code>cmd/schwaber/main.go</code> <code>runAuth</code>: same flow (print <code>AuthorizeURL</code>, read pasted URL, <code>ExtractCodeFromURL</code>, <code>ExchangeAuthCode</code>, <code>ListLinkedAccounts</code>)<br><span class="tag sw">SW</span><code>pkg/schwab/client.go</code> <code>IsReauthRequired</code></td>
+<td class="c"><span class="tag warn">Promote</span>Move the flow into a new <code>schwaber/pkg/oauthcli</code> with an optional <code>func(event, detail string)</code> hook; SW's <code>runAuth</code> and TO both call it, TO passing <code>logEvent</code>. Fold TO's extra string matches (<code>invalid_grant</code>, <code>unsupported_token_type</code>…) into <code>IsReauthRequired</code> and delete <code>IsPermanentAuthError</code>.</td>
+<td class="l">85</td></tr>
+
+<tr><td class="n">B4</td>
+<td class="a"><code>pkg/account_state/account_state.go</code><br><code>parseAndSaveAccounts / Orders / Transactions / UserPreferences</code>, <code>saveRawResponse</code>, <code>boolToInt</code><br><code>account_state/summary.go</code> <code>Summary</code><br><code>account_state/schema.go</code></td>
+<td class="b"><span class="tag sw">SW</span><code>cmd/schwaber/main.go</code> (<code>listall</code>): <code>initDatabase</code>, <code>runListAll</code>, <code>parseAndSave*</code>, <code>saveRawResponse</code>, <code>boolToInt</code>, <code>printSummaryReport</code>. Same endpoints and JSON; different table names (<code>accounts</code> vs <code>account_state_account</code>).</td>
+<td class="c"><span class="tag warn">Promote</span>New <code>schwaber/pkg/accountstore</code>, built from TO's version (it has the tx/no-op <code>execer</code> and progress events) with a table-prefix parameter. SW <code>listall</code> and TO <code>account_state.Sync</code> both become thin callers. No table renames, so no migration. <strong>Biggest item.</strong> Add a schema-compat test first.</td>
+<td class="l">450</td></tr>
+
+<tr><td class="n">B5</td>
+<td class="a"><code>pkg/account_state/account_state.go</code> <code>filterLinkedAccounts</code><br><code>pkg/account_allowlist/resolve_db.go</code> <code>ResolveFromDB</code>, <code>ResolveAllFromDB</code><br><code>cmd/orchestrator/main.go</code> <code>resolveAccounts</code></td>
+<td class="b"><span class="tag sw">SW</span><code>pkg/trader/client.go</code> <code>GetAccounts(ctx, targets)</code>, <code>GetRothAccount</code><br><span class="tag sw">SW</span><code>pkg/trader/account.go</code> <code>ResolvedAccount</code>, <code>ResolveRothAccount</code></td>
+<td class="c">Use <code>tc.GetAccounts</code> for live filtering and delete <code>filterLinkedAccounts</code>. If the DB path needs the same match logic, add <code>trader.ResolveFromLinked(linked, targets)</code> in SW. TO keeps only the DB-row to <code>ResolvedAccount</code> mapper.</td>
+<td class="l">50</td></tr>
+
+<tr><td class="n">B6</td>
+<td class="a"><code>pkg/scan_market/scan.go</code> <code>resolveMarketDB</code>, <code>pathExists</code><br><code>pkg/dbsync/dbsync.go</code> <code>marketDBPath</code><br><code>pkg/appconfig</code> <code>MarketDB</code>, <code>BacktestRoot</code></td>
+<td class="b"><span class="tag bt">BT</span><code>pkg/appenv/appenv.go</code> <code>MarketDB()</code>, <code>Data()</code>, <code>Folder()</code> (same <code>APP_FOLDER</code> convention)</td>
+<td class="c">Import <code>appenv</code>; replace the resolver and the <code>BACKTEST_ROOT</code> fallback with <code>appenv.MarketDB()</code>. Confirm the GAE <code>/tmp</code> path still resolves via <code>APP_FOLDER</code>.</td>
+<td class="l">30</td></tr>
+
+<tr><td class="n">B7</td>
+<td class="a"><code>pkg/scan_market/livescan.go</code> <code>RunLivescan</code> (hard-codes table <code>backtest_start</code>, <code>runtime.NumCPU()</code>, empty-as_of check)<br><code>pkg/scan_market/signal_scan.go</code> defines its own <code>SignalScanResult</code></td>
+<td class="b"><span class="tag bt">BT</span><code>pkg/runner/signal_scan.go</code> <code>RunSignalScan</code>, <code>SignalScanOptions</code>, <code>SignalScanResult</code> (same type name)<br><span class="tag bt">BT</span><code>pkg/livescan/main.go</code> repeats the same defaults</td>
+<td class="c">Add <code>runner.RunLiveScan(strats, marketDB, outDir)</code> in BT with those defaults and the as_of check; BT's own livescan uses it too. Delete <code>livescan.go</code>. Rename TO's <code>SignalScanResult</code> (e.g. <code>ScanRun</code>) to stop shadowing BT's.</td>
+<td class="l">55</td></tr>
+
+<tr><td class="n">B8</td>
+<td class="a"><code>pkg/manage_exits/trade.go</code><br><code>CalculateTradingDays</code>, <code>isStandardMarketHoliday</code></td>
+<td class="b"><span class="tag bt">BT</span><code>pkg/runner/asof.go</code> <code>LastCompletedEquitySession</code>, <code>NextEquitySession</code>, <code>ResolveLiveAsOf</code> (session logic exists, but no day-count function)</td>
+<td class="c"><span class="tag warn">Promote</span>Add <code>calendar.TradingDaysBetween</code> and a full NYSE holiday table in BT beside <code>asof.go</code>; make <code>asof.go</code> use it too. TO calls it. <strong>Also a bug fix:</strong> TO hard-codes only 3 holidays (Jan 1, Jul 4, Dec 25) and skips Good Friday, MLK, Presidents, Memorial, Juneteenth, Labor, Thanksgiving, so <code>trading_days_held</code> is overcounted and time-stop exits can fire early.</td>
+<td class="l">40</td></tr>
+
+<tr><td class="n">B9</td>
+<td class="a"><code>pkg/strategies/stack.go</code> <code>IsStack</code>, <code>ParseStack</code>, <code>MemberGreenlit</code><br><code>pkg/strategies/strategies.go</code> <code>ResolveGreenlit</code> (stack expansion)</td>
+<td class="b"><span class="tag bt">BT</span><code>pkg/runner/shared_account.go</code> <code>SharedAccountID</code>, <code>StackRequest</code><br><span class="tag bt">BT</span><code>pkg/runner/stack_eval.go</code>: BT builds and consumes the <code>a+b+c</code> id but has no shared parser.</td>
+<td class="c"><span class="tag warn">Promote</span>Add <code>strategy.IsStack / ParseStack / StackID</code> in BT; use in BT's runner and in TO. <code>MemberGreenlit</code> and the log-to-DB piece stay in TO.</td>
+<td class="l">40</td></tr>
+
+<tr><td class="n">B10</td>
+<td class="a"><code>pkg/appconfig/opendb.go</code> <code>OpenDB</code> (WAL, synchronous, busy_timeout, <code>SQLITE_FUSE_SAFE</code>)</td>
+<td class="b"><span class="tag bt">BT</span><code>pkg/storage/sqlite.go</code> <code>OpenSQLite</code><br><span class="tag bt">BT</span><code>pkg/refdb/refdb.go</code> <code>Open</code><br><span class="tag sw">SW</span><code>pkg/orderintent/store.go</code> <code>Open</code>, <code>cmd/schwaber/main.go</code> <code>initDatabase</code></td>
+<td class="c"><span class="tag warn">Promote</span>Four near-identical pragma sets. Add one <code>dbutil.Open(path, opts)</code> in SW and use everywhere. <strong>Check first:</strong> which SQLite driver each repo registers (<code>modernc.org/sqlite</code> vs <code>mattn/go-sqlite3</code>); they use different driver names.</td>
+<td class="l">35</td></tr>
+</tbody></table></div>
+
+<h2>C. Generic code that only TO has today (optional)</h2>
+<p class="sub">No counterpart exists; moving it out of the orchestrator is a choice, not a fix.</p>
+<div class="scroll"><table>
+<thead><tr><th>#</th><th>trade_orchestrator</th><th>Same thing in SW / BT</th><th>Work needed</th><th>~Lines</th></tr></thead>
+<tbody>
+<tr><td class="n">C1</td>
+<td class="a"><code>pkg/dbsync/*</code> (<code>binary.go</code>, <code>config.go</code>, <code>dbsync.go</code>, <code>gcs.go</code>, <code>meta.go</code>): Litestream download, config generation, restore/replicate, freshness meta</td>
+<td class="b">None. SW's <code>orderintent.Store</code> and <code>schwaber.db</code> would use it; SW already owns the GCS/ADC code (A1).</td>
+<td class="c"><span class="tag warn">Promote</span>Move to <code>schwaber/pkg/dbsync</code> after A1 and B10. Replace the hard-coded <code>/tmp/trade_orchestrator</code> default and <code>primaryDBPath</code> with config. Low priority; do only if SW's DBs need replication.</td>
+<td class="l">870</td></tr>
+</tbody></table></div>
+
+<h2>Totals</h2>
+<div class="scroll"><table style="min-width:520px">
+<thead><tr><th>Group</th><th>Rows</th><th style="text-align:right">~Lines removed from TO</th></tr></thead>
+<tbody>
+<tr><td>A. Identical code</td><td>A1–A6</td><td class="l">195</td></tr>
+<tr><td>B. Already in SW / BT</td><td>B1–B10</td><td class="l">925</td></tr>
+<tr class="tot"><td>Subtotal (non-test code)</td><td></td><td class="l">~1,100</td></tr>
+<tr><td>C. Optional move</td><td>C1</td><td class="l">870</td></tr>
+<tr class="tot"><td>Total with C1</td><td></td><td class="l">~2,000</td></tr>
+</tbody></table></div>
+<p class="note">Matching test code would move with each item. Line counts are estimated from function boundaries. B4 alone is about 40% of the subtotal.</p>
+
+<footer>
+<h2 style="margin-top:0">Suggested order</h2>
+<ol>
+<li>Sync <code>vendor/</code> or add <code>go.work</code>; get all three test suites green.</li>
+<li>Small exports in SW: A1, A2, A3, A5, B2. Mechanical and low risk.</li>
+<li>BT: A4, B9, and B8 (the calendar, since it fixes a real bug).</li>
+<li>SW: <code>oauthcli</code> and token sync cleanup (B1, B3).</li>
+<li>B6, B7, B10 wiring.</li>
+<li>B4 <code>accountstore</code> extraction, the largest change, with a schema-compat test.</li>
+<li>Optional: C1.</li>
+</ol>
+<h2>Left in trade_orchestrator on purpose</h2>
+<ul>
+<li><code>stage_orders</code>, <code>submit_orders</code>, <code>manage_exits</code>, <code>check_health</code>, <code>job_runs</code>, <code>scan_market/buy_signals.go</code>: the orchestrator's own logic and tables.</li>
+<li><code>dashboard</code>, <code>send_email</code>, <code>appserve/cron.go</code>, <code>runtimeenv</code>: deployment-specific.</li>
+<li>Gap, not a duplicate: SW's <code>trader.SafetyGuard.ValidateOrder</code> is not called anywhere in TO. Worth deciding whether <code>submit_orders</code> should use it.</li>
+</ul>
+<h2>Not verified</h2>
+<ul>
+<li>Nothing was compiled or run. A1, A2, A4 were diffed; other rows were judged from signatures, comments and a skim.</li>
+<li><code>deploy_gae/</code>, <code>ARCHIVE/</code>, <code>scripts/*.go</code> and <code>tmp/</code> were not audited; <code>ARCHIVE/</code> is likely deletable outright.</li>
+<li>SW and BT also duplicate each other (<code>.env</code> loading, <code>APP_FOLDER</code>) and BT has large near-identical decision-tree study files under <code>pkg/study</code> and <code>pkg/strategy</code>; both are outside this doc's scope.</li>
+</ul>
+</footer>
+</div>

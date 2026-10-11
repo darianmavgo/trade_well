@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Endpoints</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#1b2430; --muted:#5d6b7c; --line:#dde2e9; --code-bg:#eef1f5;
+  --ok:#0f7a5c; --ok-bg:#e2f3ed; --warn:#a35a00; --warn-bg:#fdf0dc; --danger:#a3242b; --danger-bg:#fbe5e6; --lib:#4a5a6e; --lib-bg:#e8edf3;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#12171e; --panel:#1a212b; --ink:#e4e9f0; --muted:#98a5b6; --line:#2b3542; --code-bg:#222b37;
+    --ok:#62d0ac; --ok-bg:#14342b; --warn:#f0b866; --warn-bg:#3a2b12; --danger:#ff8b92; --danger-bg:#3f1a1d; --lib:#a9b7c9; --lib-bg:#242e3b;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#12171e; --panel:#1a212b; --ink:#e4e9f0; --muted:#98a5b6; --line:#2b3542; --code-bg:#222b37;
+  --ok:#62d0ac; --ok-bg:#14342b; --warn:#f0b866; --warn-bg:#3a2b12; --danger:#ff8b92; --danger-bg:#3f1a1d; --lib:#a9b7c9; --lib-bg:#242e3b;
+}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;padding-inline:16px;padding-block:28px 56px}
+.wrap{max-width:1480px;margin:0 auto}
+h1{font:600 28px/1.15 "IBM Plex Sans",system-ui,sans-serif;margin:0 0 6px}
+h2{font:600 18px/1.3 "IBM Plex Sans",system-ui,sans-serif;margin:34px 0 6px;text-wrap:balance}
+p{margin:0 0 10px;max-width:88ch}
+.lede{color:var(--muted)}
+code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:var(--code-bg);padding:1px 5px;border-radius:3px;word-break:break-word}
+a{color:inherit}
+.tag{display:inline-block;font:600 10.5px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius:3px;margin-right:6px;vertical-align:1px;white-space:nowrap}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.tag.danger{background:var(--danger-bg);color:var(--danger)}
+.tag.lib{background:var(--lib-bg);color:var(--lib)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:1100px}
+th{text-align:left;font:600 11px/1.2 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+td.path{font-weight:600;white-space:nowrap;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px}
+td.url{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;word-break:break-all}
+td.url a{text-decoration:none;border-bottom:1px solid var(--line)}
+td.url a:hover{border-bottom-color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--muted);font-size:13px;margin:10px 0 0}
+.callout{border:1px solid var(--line);border-left:3px solid var(--warn);background:var(--panel);padding:12px 16px;border-radius:4px;margin:18px 0}
+.callout.ok{border-left-color:var(--ok)}
+footer{margin-top:34px;color:var(--muted);font-size:13px;max-width:88ch}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Endpoints</h1>
+<p class="lede">Localhost and deployed URLs for every dashboard, report, and HTTP route on the two App Engine versions that have traffic. Snapshot from <code>gcloud app versions list --project=trade-orchestrator-508722 --filter='traffic_split&gt;0'</code> on 2026-09-30. Versions with no traffic are left out. <code>backtestgosqlite</code> has no HTTP server.</p>
+
+<div class="legend">
+  <span><span class="tag ok">Read</span>opening the page does not call Schwab and does not write</span>
+  <span><span class="tag warn">Sync</span>opening the page calls Schwab or writes the local mirror</span>
+  <span><span class="tag danger">Live</span>the POST on this page can sell, liquidate, or place orders</span>
+  <span><span class="tag lib">Cron</span>App Engine cron, or an allowlisted identity token. A browser gets 403</span>
+</div>
+
+<h2>Serving hosts</h2>
+<p>Project <code>trade-orchestrator-508722</code>. Each service has its own hostname. <code>dispatch.yaml</code> sends every path on the default host to the default service, so the report is only on the <code>reconcile-report</code> host. The version URL stays on that binary after a later deploy takes the service hostname.</p>
+<div class="scroll"><table>
+<thead><tr><th>Service</th><th>Version</th><th>Deployed</th><th>Localhost</th><th>Deployed (100% traffic)</th><th>This version</th></tr></thead>
+<tbody>
+<tr>
+  <td>default<br><span class="lede">trading, dashboard, cron</span></td>
+  <td class="path">20260924t142600<br><span class="lede">git cfdbfa4</span></td>
+  <td>2026-09-24 14:28:34 UTC</td>
+  <td class="url"><a href="http://localhost:8080/">http://localhost:8080/</a><br><span class="lede">deploy_live_local/servelocal.sh</span></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/">https://trade-orchestrator-508722.uc.r.appspot.com/</a></td>
+  <td class="url"><a href="https://20260924t142600-dot-trade-orchestrator-508722.uc.r.appspot.com/">https://20260924t142600-dot-trade-orchestrator-508722.uc.r.appspot.com/</a></td>
+</tr>
+<tr>
+  <td>reconcile-report<br><span class="lede">live vs backtest</span></td>
+  <td class="path">20260930t071937</td>
+  <td>2026-09-30 07:22:32 UTC</td>
+  <td class="url"><a href="http://localhost:8081/">http://localhost:8081/</a><br><span class="lede">deploy_report_local/servelocal.sh</span></td>
+  <td class="url"><a href="https://reconcile-report-dot-trade-orchestrator-508722.uc.r.appspot.com/">https://reconcile-report-dot-trade-orchestrator-508722.uc.r.appspot.com/</a></td>
+  <td class="url"><a href="https://20260930t071937-dot-reconcile-report-dot-trade-orchestrator-508722.uc.r.appspot.com/">https://20260930t071937-dot-reconcile-report-dot-trade-orchestrator-508722.uc.r.appspot.com/</a></td>
+</tr>
+</tbody></table></div>
+<p class="lede">Dashboard and report pages use HTTP basic auth (<code>DASHBOARD_USERNAME</code> / <code>DASHBOARD_PASSWORD</code>). <code>/_ah/warmup</code> and <code>/_ah/health</code> are public and return <code>ok</code>. On 2026-09-30 the report process was listening on port 8081. Start the trading app with <code>deploy_live_local/servelocal.sh</code> to open port 8080.</p>
+
+<h2>Default service — dashboards</h2>
+<p>Same paths on <a href="http://localhost:8080/">localhost:8080</a> and <a href="https://trade-orchestrator-508722.uc.r.appspot.com/">the deployed trading host</a>. Basic auth.</p>
+<div class="scroll"><table>
+<thead><tr><th>Path</th><th></th><th>What it does</th><th>Localhost</th><th>Deployed</th></tr></thead>
+<tbody>
+<tr>
+  <td class="path">GET /<br>GET /index.html</td>
+  <td><span class="tag ok">Read</span></td>
+  <td>Job-state page. Buy signals, staged orders, active trades, and the latest health rows.</td>
+  <td class="url"><a href="http://localhost:8080/">http://localhost:8080/</a><br><a href="http://localhost:8080/index.html">http://localhost:8080/index.html</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/">https://trade-orchestrator-508722.uc.r.appspot.com/</a><br><a href="https://trade-orchestrator-508722.uc.r.appspot.com/index.html">https://trade-orchestrator-508722.uc.r.appspot.com/index.html</a></td>
+</tr>
+<tr>
+  <td class="path">GET /api/tables</td>
+  <td><span class="tag ok">Read</span></td>
+  <td>JSON of those job tables: <code>scan_market_buy_signal</code>, <code>scan_market_signal</code>, <code>stage_order</code>, <code>manage_exit</code>, <code>check_health_audit</code>, <code>check_health_finding</code>, <code>check_health</code>.</td>
+  <td class="url"><a href="http://localhost:8080/api/tables">http://localhost:8080/api/tables</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/api/tables">https://trade-orchestrator-508722.uc.r.appspot.com/api/tables</a></td>
+</tr>
+<tr>
+  <td class="path">GET /account_state</td>
+  <td><span class="tag warn">Sync</span></td>
+  <td>Calls Schwab and writes the account, order, and transaction mirror, then streams the result. Same job as <code>/cron/account_state</code>.</td>
+  <td class="url"><a href="http://localhost:8080/account_state">http://localhost:8080/account_state</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/account_state">https://trade-orchestrator-508722.uc.r.appspot.com/account_state</a></td>
+</tr>
+<tr>
+  <td class="path">GET /stage_orders</td>
+  <td><span class="tag ok">Read</span></td>
+  <td>Dry-run preview of staging against live cash and positions. Writes nothing. A real stage is <code>/cron/stage_orders</code>.</td>
+  <td class="url"><a href="http://localhost:8080/stage_orders">http://localhost:8080/stage_orders</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/stage_orders">https://trade-orchestrator-508722.uc.r.appspot.com/stage_orders</a></td>
+</tr>
+<tr>
+  <td class="path">GET /check_health</td>
+  <td><span class="tag ok">Read</span></td>
+  <td>Stored health verdicts: each scheduled job, the latest audit, and findings. Reload reads only.</td>
+  <td class="url"><a href="http://localhost:8080/check_health">http://localhost:8080/check_health</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/check_health">https://trade-orchestrator-508722.uc.r.appspot.com/check_health</a></td>
+</tr>
+<tr>
+  <td class="path">POST /check_health/run</td>
+  <td><span class="tag warn">Sync</span></td>
+  <td>Button on <code>/check_health</code>. Runs <code>check_health</code>, stores it, emails the report, then redirects back. Same-origin POST. Does not place an order.</td>
+  <td class="url"><a href="http://localhost:8080/check_health/run">http://localhost:8080/check_health/run</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/check_health/run">https://trade-orchestrator-508722.uc.r.appspot.com/check_health/run</a></td>
+</tr>
+<tr>
+  <td class="path">GET /manage_exit</td>
+  <td><span class="tag ok">Read</span></td>
+  <td>The <code>manage_exit</code> table: open, pending, and closed. Does not sell. The operator run is <code>/manage_exits</code>.</td>
+  <td class="url"><a href="http://localhost:8080/manage_exit">http://localhost:8080/manage_exit</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/manage_exit">https://trade-orchestrator-508722.uc.r.appspot.com/manage_exit</a></td>
+</tr>
+<tr>
+  <td class="path">GET /runtime</td>
+  <td><span class="tag ok">Read</span></td>
+  <td>Plain text: project, service, and Litestream freshness.</td>
+  <td class="url"><a href="http://localhost:8080/runtime">http://localhost:8080/runtime</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/runtime">https://trade-orchestrator-508722.uc.r.appspot.com/runtime</a></td>
+</tr>
+<tr>
+  <td class="path">GET /dbsync</td>
+  <td><span class="tag ok">Read</span></td>
+  <td>JSON freshness for the orchestrator database replica.</td>
+  <td class="url"><a href="http://localhost:8080/dbsync">http://localhost:8080/dbsync</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/dbsync">https://trade-orchestrator-508722.uc.r.appspot.com/dbsync</a></td>
+</tr>
+</tbody></table></div>
+
+<h2>Default service — operator pages</h2>
+<div class="callout">
+<p>The link opens the GET page. Nothing trades until the form on that page is posted with its one-time token. <strong>POST /manage_exits</strong> with <code>mode=live</code> sells due positions at market. <strong>POST /exit_market</strong> with <code>mode=live</code> cancels working orders and sells long equity and ETF positions. <strong>POST /run_e2e_live</strong> places real orders. <code>mode=dry</code> on manage_exits and exit_market changes nothing.</p>
+</div>
+<div class="scroll"><table>
+<thead><tr><th>Path</th><th></th><th>What it does</th><th>Localhost</th><th>Deployed</th></tr></thead>
+<tbody>
+<tr>
+  <td class="path">GET /manage_exits<br>POST mode=dry|live</td>
+  <td><span class="tag danger">Live</span></td>
+  <td>Browser form for the exit manager. Preview adopts and lists rows and writes nothing. Live sells. This is separate from <code>/cron/manage_exits</code>.</td>
+  <td class="url"><a href="http://localhost:8080/manage_exits">http://localhost:8080/manage_exits</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/manage_exits">https://trade-orchestrator-508722.uc.r.appspot.com/manage_exits</a></td>
+</tr>
+<tr>
+  <td class="path">GET /exit_market<br>POST mode=dry|live</td>
+  <td><span class="tag danger">Live</span></td>
+  <td>Liquidation page. Operator only. There is no <code>/cron/exit_market</code>.</td>
+  <td class="url"><a href="http://localhost:8080/exit_market">http://localhost:8080/exit_market</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/exit_market">https://trade-orchestrator-508722.uc.r.appspot.com/exit_market</a></td>
+</tr>
+<tr>
+  <td class="path">GET /run_e2e_live<br>POST</td>
+  <td><span class="tag danger">Live</span></td>
+  <td>Runs the live pipeline in-process through the same <code>/cron</code> handlers. Output streams. Closing the tab does not stop the run.</td>
+  <td class="url"><a href="http://localhost:8080/run_e2e_live">http://localhost:8080/run_e2e_live</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/run_e2e_live">https://trade-orchestrator-508722.uc.r.appspot.com/run_e2e_live</a></td>
+</tr>
+<tr>
+  <td class="path">GET /killswitch<br>POST action=engage|release</td>
+  <td><span class="tag danger">Live</span></td>
+  <td>Stops or releases the scheduled pipeline. While engaged, <code>/cron/*</code> returns 503 and a running job is cancelled.</td>
+  <td class="url"><a href="http://localhost:8080/killswitch">http://localhost:8080/killswitch</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/killswitch">https://trade-orchestrator-508722.uc.r.appspot.com/killswitch</a></td>
+</tr>
+</tbody></table></div>
+
+<h2>Default service — Schwab auth and health</h2>
+<div class="scroll"><table>
+<thead><tr><th>Path</th><th></th><th>What it does</th><th>Localhost</th><th>Deployed</th></tr></thead>
+<tbody>
+<tr>
+  <td class="path">GET /auth/schwab</td>
+  <td><span class="tag warn">Sync</span></td>
+  <td>Basic auth, then redirect to Schwab to replace an expired refresh token.</td>
+  <td class="url"><a href="http://localhost:8080/auth/schwab">http://localhost:8080/auth/schwab</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/auth/schwab">https://trade-orchestrator-508722.uc.r.appspot.com/auth/schwab</a></td>
+</tr>
+<tr>
+  <td class="path">GET /auth/schwab/callback</td>
+  <td><span class="tag lib">Public</span></td>
+  <td>Schwab redirect target on that host. Exchanges the code and stores the token. No basic auth.</td>
+  <td class="url"><a href="http://localhost:8080/auth/schwab/callback">http://localhost:8080/auth/schwab/callback</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/auth/schwab/callback">https://trade-orchestrator-508722.uc.r.appspot.com/auth/schwab/callback</a></td>
+</tr>
+<tr>
+  <td class="path">GET /schwabcallback</td>
+  <td><span class="tag lib">Public</span></td>
+  <td>Registered Schwab redirect. Cloudflare 302 to the deployed callback, keeping <code>code</code> and <code>state</code>.</td>
+  <td class="url">Registered redirect is the deployed URL.</td>
+  <td class="url"><a href="https://mavgo.com/schwabcallback">https://mavgo.com/schwabcallback</a></td>
+</tr>
+<tr>
+  <td class="path">GET /_ah/warmup<br>GET /_ah/health</td>
+  <td><span class="tag lib">Public</span></td>
+  <td>App Engine probes. Body is <code>ok</code>.</td>
+  <td class="url"><a href="http://localhost:8080/_ah/warmup">http://localhost:8080/_ah/warmup</a><br><a href="http://localhost:8080/_ah/health">http://localhost:8080/_ah/health</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/_ah/warmup">https://trade-orchestrator-508722.uc.r.appspot.com/_ah/warmup</a><br><a href="https://trade-orchestrator-508722.uc.r.appspot.com/_ah/health">https://trade-orchestrator-508722.uc.r.appspot.com/_ah/health</a></td>
+</tr>
+</tbody></table></div>
+
+<h2>Default service — cron</h2>
+<p>Schedule is <code>America/New_York</code>, from <code>deploy_gae/cron.yaml</code> on the serving revision. A browser request is forbidden. From a laptop, <code>ORCHESTRATOR_URL=http://localhost:8080 bin/orchestrator cron &lt;job&gt;</code>, or:</p>
+<p><code>curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" https://trade-orchestrator-508722.uc.r.appspot.com/cron/&lt;job&gt;</code></p>
+<div class="scroll"><table>
+<thead><tr><th>Path</th><th>Schedule</th><th>What it does</th><th>Localhost</th><th>Deployed</th></tr></thead>
+<tbody>
+<tr>
+  <td class="path">GET /cron/account_state</td>
+  <td>09:15 and 16:15 Mon–Fri</td>
+  <td>Pre-market account sync, and the 16:15 post-market reconciliation. Calls Schwab and writes the mirror.</td>
+  <td class="url"><a href="http://localhost:8080/cron/account_state">http://localhost:8080/cron/account_state</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/cron/account_state">https://trade-orchestrator-508722.uc.r.appspot.com/cron/account_state</a></td>
+</tr>
+<tr>
+  <td class="path">GET /cron/scan_market</td>
+  <td>18:00 Sun–Thu</td>
+  <td>Evening strategy scan. Writes buy signals.</td>
+  <td class="url"><a href="http://localhost:8080/cron/scan_market">http://localhost:8080/cron/scan_market</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/cron/scan_market">https://trade-orchestrator-508722.uc.r.appspot.com/cron/scan_market</a></td>
+</tr>
+<tr>
+  <td class="path">GET /cron/stage_orders</td>
+  <td>18:15 Sun–Thu</td>
+  <td>Sizes the 18:00 signals against live cash and writes <code>stage_order</code> rows.</td>
+  <td class="url"><a href="http://localhost:8080/cron/stage_orders">http://localhost:8080/cron/stage_orders</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/cron/stage_orders">https://trade-orchestrator-508722.uc.r.appspot.com/cron/stage_orders</a></td>
+</tr>
+<tr>
+  <td class="path">GET /cron/stage_orders?dry_run=1</td>
+  <td>manual</td>
+  <td>Same job, sizes and reports, writes nothing.</td>
+  <td class="url"><a href="http://localhost:8080/cron/stage_orders?dry_run=1">http://localhost:8080/cron/stage_orders?dry_run=1</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/cron/stage_orders?dry_run=1">https://trade-orchestrator-508722.uc.r.appspot.com/cron/stage_orders?dry_run=1</a></td>
+</tr>
+<tr>
+  <td class="path">GET /cron/submit_orders</td>
+  <td>09:28, 09:45, and 16:20 Mon–Fri</td>
+  <td>09:28 submits staged entries. 09:45 records which filled. 16:20 closes out the day’s entry orders.</td>
+  <td class="url"><a href="http://localhost:8080/cron/submit_orders">http://localhost:8080/cron/submit_orders</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/cron/submit_orders">https://trade-orchestrator-508722.uc.r.appspot.com/cron/submit_orders</a></td>
+</tr>
+<tr>
+  <td class="path">GET /cron/manage_exits</td>
+  <td>09:35 and 15:50 Mon–Fri</td>
+  <td>Exit manager. 15:50 is the last pass before the close. Sells due positions.</td>
+  <td class="url"><a href="http://localhost:8080/cron/manage_exits">http://localhost:8080/cron/manage_exits</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/cron/manage_exits">https://trade-orchestrator-508722.uc.r.appspot.com/cron/manage_exits</a></td>
+</tr>
+<tr>
+  <td class="path">GET /cron/manage_exits?dry_run=1</td>
+  <td>manual</td>
+  <td>Same job, lists what it would do, sells nothing and writes nothing.</td>
+  <td class="url"><a href="http://localhost:8080/cron/manage_exits?dry_run=1">http://localhost:8080/cron/manage_exits?dry_run=1</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/cron/manage_exits?dry_run=1">https://trade-orchestrator-508722.uc.r.appspot.com/cron/manage_exits?dry_run=1</a></td>
+</tr>
+<tr>
+  <td class="path">GET /cron/check_health</td>
+  <td>10:00 Mon–Fri</td>
+  <td>Health audit. Stores the verdict and emails the report. Places no order.</td>
+  <td class="url"><a href="http://localhost:8080/cron/check_health">http://localhost:8080/cron/check_health</a></td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/cron/check_health">https://trade-orchestrator-508722.uc.r.appspot.com/cron/check_health</a></td>
+</tr>
+</tbody></table></div>
+
+<h2>reconcile-report</h2>
+<p>Live-versus-backtest HTML. Basic auth on <code>/</code>. The page is cached for two minutes; <code>?refresh=1</code> rebuilds it. Response header <code>X-Reconcile-Report</code> is <code>OK</code>, <code>OK, with warnings</code>, or <code>FAILED</code>. These paths are on the report host and on port 8081. They are absent from the default host.</p>
+<div class="scroll"><table>
+<thead><tr><th>Path</th><th></th><th>What it does</th><th>Localhost</th><th>Deployed</th></tr></thead>
+<tbody>
+<tr>
+  <td class="path">GET /</td>
+  <td><span class="tag ok">Read</span></td>
+  <td>The report. Restores the shared GCS databases, then serves the HTML. Does not call Schwab and does not push a replica.</td>
+  <td class="url"><a href="http://localhost:8081/">http://localhost:8081/</a></td>
+  <td class="url"><a href="https://reconcile-report-dot-trade-orchestrator-508722.uc.r.appspot.com/">https://reconcile-report-dot-trade-orchestrator-508722.uc.r.appspot.com/</a></td>
+</tr>
+<tr>
+  <td class="path">GET /?refresh=1</td>
+  <td><span class="tag ok">Read</span></td>
+  <td>Same page, rebuilt on this request.</td>
+  <td class="url"><a href="http://localhost:8081/?refresh=1">http://localhost:8081/?refresh=1</a></td>
+  <td class="url"><a href="https://reconcile-report-dot-trade-orchestrator-508722.uc.r.appspot.com/?refresh=1">https://reconcile-report-dot-trade-orchestrator-508722.uc.r.appspot.com/?refresh=1</a></td>
+</tr>
+<tr>
+  <td class="path">GET /_ah/warmup<br>GET /_ah/health</td>
+  <td><span class="tag lib">Public</span></td>
+  <td>App Engine probes. Body is <code>ok</code>.</td>
+  <td class="url"><a href="http://localhost:8081/_ah/warmup">http://localhost:8081/_ah/warmup</a><br><a href="http://localhost:8081/_ah/health">http://localhost:8081/_ah/health</a></td>
+  <td class="url"><a href="https://reconcile-report-dot-trade-orchestrator-508722.uc.r.appspot.com/_ah/warmup">https://reconcile-report-dot-trade-orchestrator-508722.uc.r.appspot.com/_ah/warmup</a><br><a href="https://reconcile-report-dot-trade-orchestrator-508722.uc.r.appspot.com/_ah/health">https://reconcile-report-dot-trade-orchestrator-508722.uc.r.appspot.com/_ah/health</a></td>
+</tr>
+</tbody></table></div>
+
+<footer>
+Routes are the ones mounted on default version <code>20260924t142600</code> (commit <code>cfdbfa4</code>, 2026-09-24 14:27 −0500) and reconcile-report version <code>20260930t071937</code>. The route list on that default commit matches the current source. This file is static. It is not a route on either service.
+</footer>
+</div>
+</body>
+</html>

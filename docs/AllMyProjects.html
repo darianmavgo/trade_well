@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>All my projects</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#1b2430; --muted:#5d6b7c; --line:#dde2e9; --code-bg:#eef1f5;
+  --ok:#0f7a5c; --ok-bg:#e2f3ed; --warn:#a35a00; --warn-bg:#fdf0dc; --danger:#a3242b; --danger-bg:#fbe5e6; --lib:#4a5a6e; --lib-bg:#e8edf3;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#12171e; --panel:#1a212b; --ink:#e4e9f0; --muted:#98a5b6; --line:#2b3542; --code-bg:#222b37;
+    --ok:#62d0ac; --ok-bg:#14342b; --warn:#f0b866; --warn-bg:#3a2b12; --danger:#ff8b92; --danger-bg:#3f1a1d; --lib:#a9b7c9; --lib-bg:#242e3b;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#12171e; --panel:#1a212b; --ink:#e4e9f0; --muted:#98a5b6; --line:#2b3542; --code-bg:#222b37;
+  --ok:#62d0ac; --ok-bg:#14342b; --warn:#f0b866; --warn-bg:#3a2b12; --danger:#ff8b92; --danger-bg:#3f1a1d; --lib:#a9b7c9; --lib-bg:#242e3b;
+}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;padding-inline:16px;padding-block:28px 56px}
+.wrap{max-width:1280px;margin:0 auto}
+h1{font:600 28px/1.15 "IBM Plex Sans",system-ui,sans-serif;margin:0 0 6px}
+h2{font:600 18px/1.3 "IBM Plex Sans",system-ui,sans-serif;margin:34px 0 6px;text-wrap:balance}
+p{margin:0 0 10px;max-width:88ch}
+.lede{color:var(--muted)}
+code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:var(--code-bg);padding:1px 5px;border-radius:3px;word-break:break-word}
+a{color:inherit}
+.tag{display:inline-block;font:600 10.5px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius:3px;margin-right:6px;vertical-align:1px;white-space:nowrap}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.tag.lib{background:var(--lib-bg);color:var(--lib)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--panel);margin-top:8px}
+table{border-collapse:collapse;width:100%;min-width:720px}
+th{text-align:left;font:600 11px/1.2 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+td.path{font-weight:600;white-space:nowrap;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px}
+td.url{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;word-break:break-all}
+td.url a{text-decoration:none;border-bottom:1px solid var(--line)}
+td.url a:hover{border-bottom-color:var(--ink)}
+.callout{border:1px solid var(--line);border-left:3px solid var(--ok);background:var(--panel);padding:12px 16px;border-radius:4px;margin:18px 0;max-width:100ch}
+.callout.warn{border-left-color:var(--warn)}
+ul{margin:6px 0 12px;padding-left:22px;max-width:88ch}
+li{margin:4px 0}
+footer{margin-top:34px;color:var(--muted);font-size:13px;max-width:88ch}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>All my projects</h1>
+<p class="lede">Where code is actually running, checked from this laptop on 2026-09-30. GitHub user <code>darianmavgo</code> has 124 repositories. A hand-written endpoints page per repo cannot cover that. Most of those repositories are not deployed services. The route list for the two App Engine services is in <a href="Endpoints.html">Endpoints.html</a>.</p>
+
+<div class="callout">
+<p>The durable record is one row per running thing: platform, account, kind, name, URL, repo, git SHA, updated. A <code>where</code> command can fill those rows by calling <code>gcloud</code> and <code>wrangler</code> today. Netlify, Turso, AWS, and Replit light up after one login each. Bolt, uploaded Workers, and Pages projects whose git provider is “no” get a row written at publish time, because those hosts never stored the repo.</p>
+</div>
+
+<h2>Signed in on this machine</h2>
+<div class="scroll"><table>
+<thead><tr><th>Platform</th><th>Account</th><th>What listed</th></tr></thead>
+<tbody>
+<tr>
+  <td class="path">Google Cloud</td>
+  <td>darian.device@gmail.com</td>
+  <td>App Engine versions with traffic. Cloud Run listed empty on the trading project. Cloud Functions is not enabled there.</td>
+</tr>
+<tr>
+  <td class="path">Cloudflare</td>
+  <td>darian.hickman@gmail.com</td>
+  <td>Pages projects and D1 databases. Wrangler describes a Worker only when the script name is already known.</td>
+</tr>
+<tr>
+  <td class="path">GitHub</td>
+  <td>darianmavgo</td>
+  <td>124 repositories. Code search did not return deploy-config files.</td>
+</tr>
+</tbody></table></div>
+
+<h2>Google Cloud</h2>
+<p>One App Engine app, project <code>trade-orchestrator-508722</code>. The other project, <code>gen-lang-client-0878891790</code>, has no App Engine app. Version ids are timestamps, so the console does not name the commit. <code>default</code> matches git <code>cfdbfa4</code> (2026-09-24 14:27 −0500).</p>
+<div class="scroll"><table>
+<thead><tr><th>Service</th><th>Version</th><th>Deployed</th><th>URL</th><th>Local</th></tr></thead>
+<tbody>
+<tr>
+  <td class="path">default</td>
+  <td class="path">20260924t142600</td>
+  <td>2026-09-24 14:28:34 UTC</td>
+  <td class="url"><a href="https://trade-orchestrator-508722.uc.r.appspot.com/">https://trade-orchestrator-508722.uc.r.appspot.com/</a></td>
+  <td class="url"><a href="http://localhost:8080/">http://localhost:8080/</a><br><span class="lede">deploy_live_local/servelocal.sh</span></td>
+</tr>
+<tr>
+  <td class="path">reconcile-report</td>
+  <td class="path">20260930t071937</td>
+  <td>2026-09-30 07:22:32 UTC</td>
+  <td class="url"><a href="https://reconcile-report-dot-trade-orchestrator-508722.uc.r.appspot.com/">https://reconcile-report-dot-trade-orchestrator-508722.uc.r.appspot.com/</a></td>
+  <td class="url"><a href="http://localhost:8081/">http://localhost:8081/</a><br><span class="lede">deploy_report_local/servelocal.sh</span></td>
+</tr>
+</tbody></table></div>
+<p class="lede">Dashboards, cron, auth, and the report paths are listed in <a href="Endpoints.html">Endpoints.html</a>.</p>
+
+<h2>Cloudflare Pages</h2>
+<p>Account <code>darian.hickman@gmail.com</code>. “Git linked” is what Wrangler reported. Projects marked no were uploaded, and the repo is not stored on Cloudflare.</p>
+<div class="scroll"><table>
+<thead><tr><th>Project</th><th>URL</th><th>Git linked</th><th>Last change</th></tr></thead>
+<tbody>
+<tr>
+  <td class="path">darianhickman-com</td>
+  <td class="url"><a href="https://darianhickman.com">https://darianhickman.com</a><br><a href="https://www.darianhickman.com">https://www.darianhickman.com</a><br><a href="https://darianhickman-com.pages.dev">https://darianhickman-com.pages.dev</a></td>
+  <td><span class="tag ok">Yes</span></td>
+  <td>1 month ago</td>
+</tr>
+<tr>
+  <td class="path">mavgo-com</td>
+  <td class="url"><a href="https://mavgo.com">https://mavgo.com</a><br><a href="https://www.mavgo.com">https://www.mavgo.com</a><br><a href="https://mavgo-com.pages.dev">https://mavgo-com.pages.dev</a></td>
+  <td><span class="tag warn">No</span></td>
+  <td>1 month ago</td>
+</tr>
+<tr>
+  <td class="path">manifesto-web</td>
+  <td class="url"><a href="https://manifesto.darianhickman.com">https://manifesto.darianhickman.com</a><br><a href="https://manifesto-web.pages.dev">https://manifesto-web.pages.dev</a></td>
+  <td><span class="tag warn">No</span></td>
+  <td>6 months ago</td>
+</tr>
+<tr>
+  <td class="path">cube-mavgo-com</td>
+  <td class="url"><a href="https://cube-mavgo-com.pages.dev">https://cube-mavgo-com.pages.dev</a></td>
+  <td><span class="tag warn">No</span></td>
+  <td>6 months ago</td>
+</tr>
+<tr>
+  <td class="path">mksqlite-web</td>
+  <td class="url"><a href="https://mksqlite-web.pages.dev">https://mksqlite-web.pages.dev</a></td>
+  <td><span class="tag warn">No</span></td>
+  <td>6 months ago</td>
+</tr>
+<tr>
+  <td class="path">mavgo-planes</td>
+  <td class="url"><a href="https://mavgo-planes.pages.dev">https://mavgo-planes.pages.dev</a></td>
+  <td><span class="tag warn">No</span></td>
+  <td>6 months ago</td>
+</tr>
+</tbody></table></div>
+
+<h2>Cloudflare D1</h2>
+<p>Databases on the same account. These are data hosts. The app that uses each one is a separate row.</p>
+<div class="scroll"><table>
+<thead><tr><th>Database</th><th>Created</th><th>File size</th></tr></thead>
+<tbody>
+<tr><td class="path">mavgo-meta</td><td>2026-08-30</td><td>90 KB</td></tr>
+<tr><td class="path">cloudflare-labels</td><td>2026-07-11</td><td>115 MB</td></tr>
+<tr><td class="path">recruitment_db</td><td>2026-03-17</td><td>20 KB</td></tr>
+<tr><td class="path">zip-migrate-db</td><td>2025-12-11</td><td>86 KB</td></tr>
+<tr><td class="path">prod-d1-tutorial</td><td>2025-12-09</td><td>16 KB</td></tr>
+</tbody></table></div>
+
+<h2>Cloudflare Workers</h2>
+<p>The Schwab callback worker is the one this workspace already names. Wrangler reports the latest production deployment as an upload, with no git SHA.</p>
+<div class="scroll"><table>
+<thead><tr><th>Script</th><th>URL</th><th>Deployed</th><th>Source</th></tr></thead>
+<tbody>
+<tr>
+  <td class="path">mavgo-schwab-callback-forward</td>
+  <td class="url"><a href="https://mavgo.com/schwabcallback">https://mavgo.com/schwabcallback</a></td>
+  <td>2026-09-19 17:16:32 UTC</td>
+  <td>Upload. Forwards to <a href="https://trade-orchestrator-508722.uc.r.appspot.com/auth/schwab/callback">the App Engine callback</a>, keeping <code>code</code> and <code>state</code>.</td>
+</tr>
+</tbody></table></div>
+
+<h2>Not signed in on this laptop</h2>
+<p>Netlify, Turso, Replit, Bolt.new, and AWS have no CLI and no saved login here. Until that login exists, a refresh cannot see them.</p>
+<div class="scroll"><table>
+<thead><tr><th>Host</th><th>What one login would list</th><th>What stays unrecorded</th></tr></thead>
+<tbody>
+<tr>
+  <td class="path">Netlify</td>
+  <td>Site name, URL, linked repo, last publish.</td>
+  <td>Which editor produced the site.</td>
+</tr>
+<tr>
+  <td class="path">Turso</td>
+  <td>Database name and <code>libsql</code> hostname.</td>
+  <td>Which app uses the database.</td>
+</tr>
+<tr>
+  <td class="path">AWS</td>
+  <td>Lambda, Amplify, App Runner, CloudFront, and Elastic Beanstalk, once those APIs are enabled on the account.</td>
+  <td>Any account this machine has never signed into.</td>
+</tr>
+<tr>
+  <td class="path">Replit</td>
+  <td>Repls and their <code>*.replit.app</code> URLs, with an API token.</td>
+  <td>A commit, unless the repl is also on GitHub.</td>
+</tr>
+<tr>
+  <td class="path">Bolt.new</td>
+  <td>Nothing account-wide.</td>
+  <td>The URL, unless it was written down at publish time or Bolt published the site to Netlify.</td>
+</tr>
+</tbody></table></div>
+
+<footer>
+Checked 2026-09-30 with <code>gcloud app versions list --filter='traffic_split&gt;0'</code>, <code>wrangler pages project list</code>, <code>wrangler d1 list</code>, and <code>wrangler deployments list --name mavgo-schwab-callback-forward</code>. <code>gcloud</code>, <code>wrangler</code>, and <code>gh</code> were installed. <code>netlify</code>, <code>turso</code>, <code>aws</code>, and <code>replit</code> were not. This file is static.
+</footer>
+</div>
+</body>
+</html>

@@ -6,10 +6,10 @@
 //	ibkr accounts             linked accounts, cash, value
 //	ibkr account_state        live positions + orders into ibkr.db (account_state_* tables)
 //	ibkr quote SYMBOL
-//	ibkr buy|sell SYMBOL QTY [PRICE]   [-account A] [-live] [-dry-run] [-y]
-//	ibkr bracket SYMBOL QTY ENTRY [-profit P] [-stop S] [-live] ...
+//	ibkr buy|sell SYMBOL QTY [PRICE]   [-account A] [-dry-run] [-y]
+//	ibkr bracket SYMBOL QTY ENTRY [-profit P] [-stop S] [-dry-run] ...
 //	ibkr orders [-status WORKING]      ibkr cancel ORDER_ID
-//	ibkr killswitch [-live] [-y] [-account A] [TICKER...]
+//	ibkr killswitch [-dry-run] [-y] [-account A] [TICKER...]
 //	ibkr reconcile            resolve pending order intents against the broker
 //
 // Commands that talk to IBKR in gateway mode first make sure the gateway is running and
@@ -110,7 +110,7 @@ func main() {
 		check(quote.Run(ctx, out, tc, args[0]))
 	case "buy", "sell":
 		fs := flag.NewFlagSet(cmd, flag.ExitOnError)
-		acct, live, dry, yes := fs.String("account", "", "account id"), fs.Bool("live", false, "send the order for real"), fs.Bool("dry-run", false, "preview only (wins over -live)"), fs.Bool("y", false, "skip the confirmation")
+		acct, live, dry, yes := fs.String("account", "", "account id"), fs.Bool("live", true, "send the order for real (the default; -dry-run or -live=false previews)"), fs.Bool("dry-run", false, "preview only (wins over -live)"), fs.Bool("y", false, "skip the confirmation")
 		pos := parseFlags(fs, args)
 		need(pos, 2, "ibkr "+cmd+" SYMBOL QTY [LIMIT_PRICE] [flags]")
 		instr := trader.InstructionBuy
@@ -121,7 +121,7 @@ func main() {
 			Account: *acct, Live: *live, DryRun: *dry, Yes: *yes}))
 	case "bracket":
 		fs := flag.NewFlagSet(cmd, flag.ExitOnError)
-		acct, live, dry, yes := fs.String("account", "", "account id"), fs.Bool("live", false, ""), fs.Bool("dry-run", false, ""), fs.Bool("y", false, "")
+		acct, live, dry, yes := fs.String("account", "", "account id"), fs.Bool("live", true, ""), fs.Bool("dry-run", false, ""), fs.Bool("y", false, "")
 		profit, stop := fs.Float64("profit", 0, "take-profit price (default entry +10%)"), fs.Float64("stop", 0, "stop price (default entry -5%)")
 		pos := parseFlags(fs, args)
 		need(pos, 3, "ibkr bracket SYMBOL QTY ENTRY [-profit P] [-stop S] [flags]")
@@ -140,7 +140,7 @@ func main() {
 		check(orders.Cancel(ctx, out, tc, *acct, pos[0]))
 	case "killswitch":
 		fs := flag.NewFlagSet(cmd, flag.ExitOnError)
-		acct, live, dry, yes := fs.String("account", "", "account id"), fs.Bool("live", false, ""), fs.Bool("dry-run", false, ""), fs.Bool("y", false, "")
+		acct, live, dry, yes := fs.String("account", "", "account id"), fs.Bool("live", true, ""), fs.Bool("dry-run", false, ""), fs.Bool("y", false, "")
 		pos := parseFlags(fs, args)
 		check(killswitch.Run(ctx, out, in, tc, killswitch.Options{Account: *acct, Live: *live, DryRun: *dry, Yes: *yes, Tickers: pos}))
 	case "reconcile":
@@ -160,7 +160,7 @@ const usage = `ibkr: Interactive Brokers CLI (same shape as schwaber)
   auth | accounts | account_state | quote SYMBOL
   buy|sell SYMBOL QTY [PRICE]   bracket SYMBOL QTY ENTRY [-profit P] [-stop S]
   orders [-status S] | cancel ORDER_ID | killswitch [TICKER...] | reconcile
-Orders preview unless -live (and are confirmed unless -y). -no-gateway skips the gateway check.
+Orders are LIVE by default (-dry-run previews) and are confirmed unless -y. -no-gateway skips the gateway check.
 `
 
 func isGatewayMode(cfg *config.Config) bool {

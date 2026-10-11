@@ -1,0 +1,85 @@
+<title>MakeMoneyNextDevCycle</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#1b2430; --muted:#5d6b7c; --line:#dde2e9; --code-bg:#eef1f5;
+  --accent:#1f5f8b; --danger:#a3242b; --danger-bg:#fbe5e6; --warn:#a35a00; --warn-bg:#fdf0dc; --ok:#0f7a5c; --ok-bg:#e2f3ed;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#12171e; --panel:#1a212b; --ink:#e4e9f0; --muted:#98a5b6; --line:#2b3542; --code-bg:#222b37;
+    --accent:#6fb1dd; --danger:#ff8b92; --danger-bg:#3f1a1d; --warn:#f0b866; --warn-bg:#3a2b12; --ok:#62d0ac; --ok-bg:#14342b;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#12171e; --panel:#1a212b; --ink:#e4e9f0; --muted:#98a5b6; --line:#2b3542; --code-bg:#222b37;
+  --accent:#6fb1dd; --danger:#ff8b92; --danger-bg:#3f1a1d; --warn:#f0b866; --warn-bg:#3a2b12; --ok:#62d0ac; --ok-bg:#14342b;
+}
+body{background:var(--bg);color:var(--ink);font:14px/1.55 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;padding-inline:16px;padding-block:28px 56px}
+.wrap{max-width:980px;margin:0 auto}
+h1{font:600 28px/1.15 "IBM Plex Sans",system-ui,sans-serif;margin:0 0 6px}
+h2{font:600 18px/1.3 "IBM Plex Sans",system-ui,sans-serif;margin:34px 0 6px;text-wrap:balance}
+p{margin:0 0 10px;max-width:74ch}
+.lede{color:var(--muted)}
+code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:var(--code-bg);padding:1px 5px;border-radius:3px;word-break:break-word}
+.callout{border:1px solid var(--line);border-left:3px solid var(--danger);background:var(--panel);padding:12px 16px;border-radius:4px;margin:18px 0}
+.tag{display:inline-block;font:600 10.5px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius:3px;margin-right:6px;vertical-align:1px;white-space:nowrap}
+.tag.danger{background:var(--danger-bg);color:var(--danger)} .tag.warn{background:var(--warn-bg);color:var(--warn)} .tag.ok{background:var(--ok-bg);color:var(--ok)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th{text-align:left;font:600 11px/1.2 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line)}
+td{vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+td.k{width:26%;font-weight:600}
+ol{padding-left:22px;max-width:74ch} li{margin:5px 0}
+footer{margin-top:34px;color:var(--muted);font-size:13px}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+
+<div class="wrap">
+<h1>MakeMoneyNextDevCycle</h1>
+<p class="lede">What is left before the backtested strategies can be trusted with real money. Written 2026-09-23 from <code>docs/Review.md</code> (2026-09-21) plus the work done since. Nothing here promises profit.</p>
+
+<div class="callout">
+<p><span class="tag danger">Reality check</span><strong>No engineering list gets you to steady daily profit.</strong> The biggest gap is whether the strategies make money live at all. Backtested edge on leveraged ETFs shrinks in live trading more often than not, and even a real edge comes with deep drawdowns.</p>
+</div>
+
+<h2>1. Whether the strategies make money</h2>
+<div class="scroll"><table>
+<thead><tr><th>Gap</th><th>Why it matters</th></tr></thead>
+<tbody>
+<tr><td class="k">Zero slippage and commission</td><td><code>gld-decline</code>, <code>sig-voo-buy-tecl</code> and <code>sig-voo-buy-spxu</code> were backtested with no costs. TECL, SPXU, TQQQ and SQQQ have real spreads and gap moves, so live results will come in below backtests.</td></tr>
+<tr><td class="k">Overfitting</td><td>Many variants are built and the winners kept. A single 12-month in-sample/out-of-sample split does not protect against picking winners by luck.</td></tr>
+<tr><td class="k">Survivorship bias</td><td>ETF discovery only includes tickers active today, so leveraged ETFs that blew up never appear in the backtests.</td></tr>
+<tr><td class="k">No live-vs-backtest check</td><td>Nothing compares what a strategy did live to what the simulator says it should have done. That report is the only thing that shows whether the edge is real.</td></tr>
+<tr><td class="k">Very new code</td><td>The strategies, simulator and gating are about two weeks old. Weeks of live results are worth more than another backtest.</td></tr>
+</tbody></table></div>
+
+<h2>2. Guardrails before real size</h2>
+<div class="scroll"><table>
+<thead><tr><th>Item</th><th>State</th></tr></thead>
+<tbody>
+<tr><td class="k">Deploy the fixes</td><td><span class="tag warn">Open</span>The <code>X-Cron-Auth</code> bypass is removed in code but still live on the appspot URL until you deploy. <code>/account_state</code> also needs that deploy.</td></tr>
+<tr><td class="k">Allowlist gating</td><td><span class="tag warn">Open</span>Nothing stops a weak strategy from entering <code>STRATEGY_ALLOWLIST</code>. strateval's tiers are advisory only.</td></tr>
+<tr><td class="k">Risk limits</td><td><span class="tag warn">Open</span>No max-positions limit, no daily-loss circuit breaker, no automatic kill switch. Only the manual <code>schwaber killswitch</code>.</td></tr>
+<tr><td class="k">Failure alerts</td><td><span class="tag warn">Check</span>The review said only <code>account_state</code> emails on failure in the deployed cron path. <code>scan_market</code>, <code>submit_orders</code> and <code>manage_exits</code> could fail silently. Not rechecked.</td></tr>
+<tr><td class="k">Data durability</td><td><span class="tag warn">Open</span>Litestream can silently fail to confirm a write to GCS, and the database is scaled to zero and restored on each cold start. No restore drill has been done.</td></tr>
+<tr><td class="k">Schwab client</td><td><span class="tag warn">Open</span>No retry or backoff on 429/5xx errors, and partial fills are not handled.</td></tr>
+<tr><td class="k">Token logging</td><td><span class="tag warn">Open</span>OAuth tokens are logged in plaintext to <code>schwab_api.log</code>.</td></tr>
+<tr><td class="k">Duplicate-order protection</td><td><span class="tag ok">Done</span>The order-intent store exists in schwaber.</td></tr>
+<tr><td class="k">Trading calendar</td><td><span class="tag ok">Done</span>Full NYSE holiday table in backtestgosqlite <code>pkg/calendar</code>, used for days-held.</td></tr>
+<tr><td class="k">Stale deploy files</td><td><span class="tag ok">Done</span>The schwaber systemd/droplet files are deleted.</td></tr>
+</tbody></table></div>
+
+<h2>What to do, in order</h2>
+<ol>
+<li>Deploy. Then keep everything in dry-run, or one share of a liquid ETF, for several weeks.</li>
+<li>Build the live-vs-backtest reconciliation report and read it weekly.</li>
+<li>Add the risk limits, alerts on all cron jobs, and the allowlist gate.</li>
+<li>Re-run the backtests with realistic costs and drop any strategy that fails.</li>
+<li>Scale up only what still works after that, using money you can afford to lose.</li>
+</ol>
+
+<footer>Not verified here: whether every P0 to P3 item in <code>docs/Review.md</code> is still open. Only the items marked Done were confirmed in code.</footer>
+</div>

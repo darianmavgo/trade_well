@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# git_sync.sh: git add -A, commit and push across the three trade_well repos.
+# git_sync.sh: git add -A, commit and push across every git repo under this directory.
 #
-# Repos are handled in dependency order (schwaber, backtestgosqlite, then
-# trade_orchestrator), each on its own current branch. A repo with no changes is
-# skipped. A failure in one repo is reported and the others still run.
+# Repos are discovered recursively (any directory containing .git, including this
+# directory itself and repos nested inside other repos). Nested/deeper repos are
+# handled first, then alphabetically, each on its own current branch. A repo with
+# no changes is skipped. A failure in one repo is reported and the others still run.
 #
 # Usage:
 #   ./git_sync.sh                          interactive: shows changes, asks before each commit
@@ -12,21 +13,30 @@
 #   ./git_sync.sh -y                       do not ask for confirmation
 #   ./git_sync.sh -t                       run go build, vet and test in each repo first; skip a repo that fails
 #   ./git_sync.sh -C                       commit only, do not push
-#   ./git_sync.sh schwaber trade_orchestrator    only the named repos
+#   ./git_sync.sh schwaber trade_orchestrator    only the named repos (paths relative to here; "." is this dir)
+#   ./git_sync.sh -l                       list discovered repos and exit
 #
 # Safety (never force-pushes, never rebases, never touches other branches):
 #   - refuses to commit a repo that has staged secrets or databases (.env, token
-#     files, *.db, keys) or any file over 5 MB, and unstages it instead
+#     files, *.db, keys) or any file over 50 MB, and unstages it instead
 #   - makes no network call unless there is something to push; a push that would
 #     overwrite the remote is refused by git and reported (never forced)
-#   - CLAUDE.md, *.html reports and this script live above the repos and are in
-#     no git repo, so they are not committed by this script
+#   - skips node_modules, vendor and .venv directories when searching
 
 set -u
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ALL_REPOS=(schwaber backtestgosqlite trade_orchestrator)
-MAX_BYTES=$((5 * 1024 * 1024))
+
+# discover_repos prints repo paths relative to ROOT ("." for ROOT itself), deepest first.
+discover_repos() {
+  find "$ROOT" \( -name node_modules -o -name vendor -o -name .venv \) -prune -o -name .git -print 2>/dev/null |
+    while IFS= read -r g; do
+      d="${g%/.git}"; rel="${d#"$ROOT"}"; rel="${rel#/}"; [ -z "$rel" ] && rel="."
+      depth=$(printf '%s' "$rel" | awk -F/ '{print ($0=="." ? 0 : NF)}')
+      printf '%s\t%s\n' "$depth" "$rel"
+    done | sort -t$'\t' -k1,1nr -k2,2 | cut -f2
+}
+MAX_BYTES=$((50 * 1024 * 1024))
 SECRET_RE='(^|/)(\.env(\.[^/]*)?|tokens?\.json|schwab_token\.json|credentials\.json|[^/]*\.token|[^/]*\.pem|[^/]*\.key|[^/]*\.db|[^/]*\.db-shm|[^/]*\.db-wal|[^/]*\.sqlite[^/]*)$'
 
 # Never hang on the network: no credential prompts, and SSH gives up fast instead
@@ -39,6 +49,7 @@ DRY=0
 YES=0
 CHECK=0
 NOPUSH=0
+LIST=0
 REPOS=()
 
 while [ $# -gt 0 ]; do
@@ -48,12 +59,17 @@ while [ $# -gt 0 ]; do
     -y) YES=1; shift ;;
     -t) CHECK=1; shift ;;
     -C) NOPUSH=1; shift ;;
-    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
+    -l) LIST=1; shift ;;
+    -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
     -*) echo "unknown option: $1" >&2; exit 2 ;;
     *) REPOS+=("$1"); shift ;;
   esac
 done
-[ ${#REPOS[@]} -eq 0 ] && REPOS=("${ALL_REPOS[@]}")
+if [ "$LIST" -eq 1 ]; then discover_repos; exit 0; fi
+if [ ${#REPOS[@]} -eq 0 ]; then
+  while IFS= read -r r; do REPOS+=("$r"); done < <(discover_repos)
+fi
+if [ ${#REPOS[@]} -eq 0 ]; then echo "no git repos found under $ROOT" >&2; exit 1; fi
 
 if [ -t 1 ]; then B=$'\033[1m'; R=$'\033[31m'; G=$'\033[32m'; Y=$'\033[33m'; X=$'\033[0m'; else B=""; R=""; G=""; Y=""; X=""; fi
 
@@ -100,7 +116,7 @@ sync_repo() {
   fi
 
   local msg="$MSG"
-  [ -z "$msg" ] && msg="Update $name ($(date '+%Y-%m-%d %H:%M'))"
+  [ -z "$msg" ] && msg="Update $([ "$name" = "." ] && basename "$ROOT" || echo "$name") ($(date '+%Y-%m-%d %H:%M'))"
 
   if [ "$YES" -eq 0 ]; then
     printf "commit and %s %s with message \"%s\"? [y/N] " "$([ "$NOPUSH" -eq 1 ] && echo "keep local" || echo push)" "$name" "$msg"
@@ -120,7 +136,7 @@ sync_repo() {
   if [ -n "$bad" ] || [ -n "$big" ]; then
     echo "${R}BLOCKED: refusing to commit $name${X}"
     [ -n "$bad" ] && { echo "secret/database-looking files staged:"; echo "$bad" | sed 's/^/  /'; }
-    [ -n "$big" ] && { echo "files over 5 MB staged:"; printf "%s" "$big" | sed 's/^/  /'; }
+    [ -n "$big" ] && { echo "files over 50 MB staged:"; printf "%s" "$big" | sed 's/^/  /'; }
     git -C "$dir" reset -q
     record "$name" "BLOCKED" "unsafe files staged (unstaged again)"; FAILED=1; return
   fi
@@ -177,9 +193,9 @@ for r in "${REPOS[@]}"; do sync_repo "$r"; done
 
 echo
 echo "${B}=== summary ===${X}"
-printf "%-20s %-10s %s\n" "repo" "result" "detail"
+printf "%-30s %-10s %s\n" "repo" "result" "detail"
 for line in "${RESULTS[@]}"; do
   IFS='|' read -r n s d <<<"$line"
-  printf "%-20s %-10s %s\n" "$n" "$s" "$d"
+  printf "%-30s %-10s %s\n" "$n" "$s" "$d"
 done
 exit "$FAILED"

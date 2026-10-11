@@ -65,7 +65,25 @@ A test that passes against a stand-in proves the stand-in works, not the code, a
 - If you find an existing mock/fake/fake server, do not extend it and do not copy its pattern. Tell the user, and remove it when asked.
 - Requests to "just add a quick mock" are refused; propose the real alternative instead.
 
-Known leftovers that predate this rule and are not yet removed: `fakeLister` (schwaber `pkg/orderintent/store_test.go`), `mockStrategy` (backtestgosqlite `pkg/simulator/shared_account_test.go`), `fakeValidator` (TO `pkg/appserve/cronauth_test.go`), `fakeGcloud` (TO `pkg/cronclient/cronclient_test.go`), and the `sendFailureEmail` variable in TO `pkg/appserve/cron.go`.
+Known leftovers that predate this rule and are not yet removed: `fakeLister` (schwaber `pkg/orderintent/store_test.go`), `fakeValidator` (TO `pkg/appserve/cronauth_test.go`), `fakeGcloud` (TO `pkg/cronclient/cronclient_test.go`), and the `sendFailureEmail` variable in TO `pkg/appserve/cron.go`.
+
+## Rule 5: pages for people are HTML, never raw JSON by default
+
+Any route a person can open in a browser (dashboard pages, `/status/...`, `/manage_exit`, `/check_health`, `/account_state`, reports) returns a styled HTML page by default: a title, readable tables, status tags (ok / warn / bad), links back to the dashboard, and the same look as the existing pages (`pkg/dashboard/page_style.go`). Never make raw JSON the default response of such a route, and never ship a new endpoint that only returns JSON.
+
+- JSON is opt-in: the same handler returns it when the request says `?format=json`. One handler, one data-building function, two renderings. Do not write a second handler for JSON.
+- Routes that machines call (`/cron/<job>`, OAuth callbacks, health pings) are not pages and may keep their own response format.
+- A new page ships with a test that checks the default response is `text/html` and that `?format=json` returns JSON.
+
+## Rule 6: commands are live by default; `--dry-run` previews
+
+Every CLI command that can place, cancel, sell, stage or write does it by default. Nothing needs `--live`. A preview is asked for with `--dry-run`, and only then does the command report without changing anything.
+
+- A new command ships live by default, with a `--dry-run` flag. Do not add a `--live` flag that has to be passed to act. Where one already exists, make it default to true and keep it accepted (`--live=false` previews) so existing scripts do not break; the commands still on the old default (`stage_orders`, `scan_market`, `submit_orders`, `manage_exits`, `exit_market` and others) are to be converted.
+- The exception is a command that only reads: it has no `--dry-run`.
+- Because a bare command acts, say plainly in the command's usage text and in the README what it will do and to which accounts (`--account` narrows it).
+- A dry run must be a real preview of the live path: same code, same inputs, the broker and the database untouched.
+- Agents (Claude, Grok, Antigravity) still do not run a live command on a real account unless the person asked for that run in the same turn. This rule sets the default of the command; it does not authorize an agent to run it.
 
 ## Before you finish, check
 
@@ -75,3 +93,5 @@ Known leftovers that predate this rule and are not yet removed: `fakeLister` (sc
 4. Do the CLI name, route, cron entry, package name and job name all match?
 5. Did I run `go mod vendor` in TO and the tests in every touched repo?
 6. Did I introduce any mock, fake, stub or fake server (Rule 4)? If yes, remove it.
+7. Does every new browser-facing route render HTML by default, with JSON only on `?format=json` (Rule 5)?
+8. Is every new command live by default with a `--dry-run` flag, and no `--live` flag needed to act (Rule 6)?

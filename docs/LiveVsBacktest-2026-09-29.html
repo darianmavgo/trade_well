@@ -1,0 +1,270 @@
+<title>Live vs backtest, 2026-09-29</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#1b2430; --muted:#5d6b7c; --line:#dde2e9; --code-bg:#eef1f5;
+  --accent:#1f5f8b; --danger:#a3242b; --danger-bg:#fbe5e6; --warn:#a35a00; --warn-bg:#fdf0dc; --ok:#0f7a5c; --ok-bg:#e2f3ed;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#12171e; --panel:#1a212b; --ink:#e4e9f0; --muted:#98a5b6; --line:#2b3542; --code-bg:#222b37;
+    --accent:#6fb1dd; --danger:#ff8b92; --danger-bg:#3f1a1d; --warn:#f0b866; --warn-bg:#3a2b12; --ok:#62d0ac; --ok-bg:#14342b;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#12171e; --panel:#1a212b; --ink:#e4e9f0; --muted:#98a5b6; --line:#2b3542; --code-bg:#222b37;
+  --accent:#6fb1dd; --danger:#ff8b92; --danger-bg:#3f1a1d; --warn:#f0b866; --warn-bg:#3a2b12; --ok:#62d0ac; --ok-bg:#14342b;
+}
+body{background:var(--bg);color:var(--ink);font:14px/1.55 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;padding-inline:16px;padding-block:28px 56px}
+.wrap{max-width:980px;margin:0 auto}
+h1{font:600 28px/1.15 "IBM Plex Sans",system-ui,sans-serif;margin:0 0 6px}
+h2{font:600 18px/1.3 "IBM Plex Sans",system-ui,sans-serif;margin:34px 0 6px;text-wrap:balance}
+h3{font:600 15px/1.3 "IBM Plex Sans",system-ui,sans-serif;margin:22px 0 6px}
+p{margin:0 0 10px;max-width:74ch}
+.lede{color:var(--muted)}
+code,pre{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
+code{font-size:12px;background:var(--code-bg);padding:1px 5px;border-radius:3px;word-break:break-word}
+pre{background:var(--code-bg);padding:14px 16px;border-radius:6px;overflow-x:auto;font-size:12px;line-height:1.5;margin:10px 0 16px}
+pre code{background:none;padding:0}
+.callout{border:1px solid var(--line);border-left:3px solid var(--accent);background:var(--panel);padding:12px 16px;border-radius:4px;margin:18px 0}
+.callout.warn{border-left-color:var(--warn)}
+.callout.danger{border-left-color:var(--danger)}
+.tag{display:inline-block;font:600 10.5px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius:3px;margin-right:6px;vertical-align:1px;white-space:nowrap}
+.tag.danger{background:var(--danger-bg);color:var(--danger)} .tag.warn{background:var(--warn-bg);color:var(--warn)} .tag.ok{background:var(--ok-bg);color:var(--ok)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--panel);margin:10px 0 16px}
+table{border-collapse:collapse;width:100%;min-width:640px}
+th{text-align:left;font:600 11px/1.2 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line)}
+td{vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+td.k{width:28%;font-weight:600}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.neg{color:var(--danger)} .pos{color:var(--ok)}
+ol{padding-left:22px;max-width:78ch} li{margin:6px 0}
+footer{margin-top:34px;color:var(--muted);font-size:13px}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+
+<div class="wrap">
+<h1>Live vs backtest</h1>
+<p class="lede">Greenlit strategies compared with a one-share backtest replay. As of the GCS replica at 8:02 PM ET on 2026-09-29 (snapshot <code>2026-09-30T00:02:50Z</code>, generation <code>5fdd06807ebdb650</code>). Both funded accounts were flat. Nothing here was written back to the live replica.</p>
+
+<div class="callout">
+<p><span class="tag warn">Data</span><strong>The inputs were already in GCS. The report tables were not.</strong> Today's scheduled jobs had already synced Schwab, scanned, and staged. No Schwab call and no live cron trigger were required. <code>reconcile_trade</code> and <code>audit_slippage</code> did not exist until the commands below created them on a local copy. A few facts the ledger expects (signal dates, stage rows, market-sell fills, the September 21 round trips) were only inside order JSON, so the dollar totals below come from those executions, not from the ledger's stored return.</p>
+</div>
+
+<h2>Result</h2>
+<p>Greenlit strategies are down about <strong>$702</strong> across the two funded accounts since September 21. The September 24 MARA trade is almost the entire loss. The one TSLL share matched its backtest. <code>sig-voo-buy-tecl</code> made money on a same-morning round trip that the backtest would have held for up to eight days.</p>
+
+<div class="scroll"><table>
+<thead><tr><th>Strategy</th><th>Live, from Schwab fills</th><th>One-share replay</th></tr></thead>
+<tbody>
+<tr>
+<td class="k"><code>mara_tree</code><br>Sep 24 – Sep 25</td>
+<td>Time exit the next morning. Bought 13.06, sold 12.62. <span class="neg">−3.4%, −$656</span>. Entry was 49 bps worse than the model and 217 bps better than the 13.35 limit.</td>
+<td>The ledger dates this on the fill day, and the signal generator does not fire MARA that day. Replaying the order anyway stops out on Sep 28 at <span class="neg">−5.5%</span> (model 12.9965 → 12.2759). Live lost less, and the exit reason differs: live <code>TIME_UP</code>, model <code>STOP_LOSS</code>.</td>
+</tr>
+<tr>
+<td class="k"><code>pdd_tree</code><br>Sep 24 – Sep 29</td>
+<td>Time exit this morning at 9:35 ET. Bought 78.72 / 78.73, sold 77.53 / 77.56. <span class="neg">−1.5%, −$158</span>. Entry was 62 bps worse than the model and about 2 bps better than the 78.74 limit.</td>
+<td>Same dating. The 3-day replay is still <strong>open</strong>, so it has no model exit. Live sold on the time rule.</td>
+</tr>
+<tr>
+<td class="k"><code>tsll-daily-one-share</code><br>the share that filled</td>
+<td>Limit sell at 10.69 filled Sep 25 at 9:30 AM ET. Bought 10.186. <span class="pos">+4.9%, +$1.00</span>. Entry was 24 bps better than the model. Exit was 9 bps worse (10.69 vs model 10.6995).</td>
+<td>Profit target the next session, <span class="pos">+4.8%</span> (10.2104 → 10.6995). Economically the same trade. <code>manage_exit</code> still says <code>OPEN</code>, so the command prints outcome match 0.</td>
+</tr>
+<tr>
+<td class="k"><code>sig-voo-buy-tecl</code><br>Sep 21</td>
+<td>Bought TECL at the open (217.87 / 218.01) and market-sold it at 10:07 AM ET (220.67 / 220.82). <span class="pos">+1.3%, +$249</span>.</td>
+<td>No ledger row. The backtest holds up to 8 days for a 5% target and no stop. This live trade was a same-morning sale.</td>
+</tr>
+<tr>
+<td class="k"><code>mara_tree</code><br>Sep 21</td>
+<td>Same morning flatten. Bought 13.65 / 13.66, sold 13.45. <span class="neg">−1.4%, −$138</span>.</td>
+<td>No ledger row. The backtest hold is 1 day.</td>
+</tr>
+</tbody></table></div>
+
+<div class="scroll"><table>
+<thead><tr><th>Booked result</th><th class="num">25474194</th><th class="num">74234603</th><th class="num">Both</th></tr></thead>
+<tbody>
+<tr><td><code>sig-voo-buy-tecl</code> Sep 21</td><td class="num pos">+$232.01</td><td class="num pos">+$16.77</td><td class="num pos">+$248.78</td></tr>
+<tr><td><code>mara_tree</code> Sep 21</td><td class="num neg">−$134.34</td><td class="num neg">−$3.40</td><td class="num neg">−$137.74</td></tr>
+<tr><td><code>mara_tree</code> Sep 24–25</td><td class="num neg">−$606.17</td><td class="num neg">−$49.39</td><td class="num neg">−$655.56</td></tr>
+<tr><td><code>pdd_tree</code> Sep 24–29</td><td class="num neg">−$146.32</td><td class="num neg">−$11.82</td><td class="num neg">−$158.14</td></tr>
+<tr><td><code>tsll-daily-one-share</code></td><td class="num pos">+$0.50</td><td class="num pos">+$0.50</td><td class="num pos">+$1.00</td></tr>
+<tr><td class="k">Greenlit total</td><td class="num neg">−$654.32</td><td class="num neg">−$47.34</td><td class="num neg">−$701.66</td></tr>
+</tbody></table></div>
+<p>Fees are included (the largest is $0.63 on the September 25 MARA sale). Cash account 75124906 is empty and has no trades. Allowlist: <code>sig-voo-buy-tecl+mara_tree+pdd_tree,tsll-daily-one-share</code>.</p>
+<p>After the 4:15 PM ET account sync, 25474194 showed $27,431.92 cash and 74234603 showed $2,272.89 cash. Long market value on both was zero. The order mirror has no open child sells.</p>
+
+<h2>Slippage the audit printed</h2>
+<p><code>audit_slippage</code> averages the ledger. Entry bps are positive when the live fill paid more than the model. Exit bps are positive when the live fill sold higher. MARA and PDD have no exit bps: those sells are separate market orders, and the backfill only reads a sell nested under the entry order. TSLL's 10.69 sale was nested, so its exit bps are real.</p>
+<div class="scroll"><table>
+<thead><tr><th>Strategy</th><th class="num">Fills</th><th class="num">Avg entry bps</th><th class="num">Avg exit bps</th><th class="num">Worst entry</th><th class="num">Vs limit</th><th class="num">Fees in ledger</th></tr></thead>
+<tbody>
+<tr><td><code>mara_tree</code></td><td class="num">2</td><td class="num">+48.9</td><td class="num">—</td><td class="num">+48.9</td><td class="num">−217.2</td><td class="num">0.00</td></tr>
+<tr><td><code>pdd_tree</code></td><td class="num">2</td><td class="num">+62.3</td><td class="num">—</td><td class="num">+63.1</td><td class="num">−1.7</td><td class="num">0.00</td></tr>
+<tr><td><code>tsll-daily-one-share</code></td><td class="num">2</td><td class="num">−23.6</td><td class="num">−8.8</td><td class="num">−23.5</td><td class="num">−3.6</td><td class="num">0.00</td></tr>
+</tbody></table></div>
+<p>The ledger's own live return for MARA is −5.43% / −5.56% and for PDD −1.50% / −1.53%. Those are <code>manage_exit.pnl_pct</code>, the limit against the quote saved at exit time. The Schwab prices above are the executions. Use those for the money result.</p>
+
+<h2>Signals the tracker blocked</h2>
+<p>TSLL is still <code>OPEN</code> in <code>manage_exit</code> (exit date 2026-09-25, held counter 0) after the broker sold it on September 25. Later scans were dismissed as already holding, and tonight's <code>stage_orders</code> dismissed the only new signal for the same reason. The stack produced no new order.</p>
+<div class="scroll"><table>
+<thead><tr><th>Signal date</th><th>Live</th><th>Replay of that skipped signal</th></tr></thead>
+<tbody>
+<tr><td class="k">2026-09-24</td><td>Dismissed. Limit 10.25. The share already on the books was a different, earlier order at 10.19.</td><td>Closed on time Sep 25. Model 10.2705 → 9.9201. <span class="neg">−3.4%</span></td></tr>
+<tr><td class="k">2026-09-25</td><td>Dismissed. Limit 9.94.</td><td>Closed on time Sep 28. Model 9.9599 → 9.1317. <span class="neg">−8.3%</span></td></tr>
+<tr><td class="k">2026-09-28</td><td>Dismissed. Limit 9.15.</td><td>Closed on time Sep 29. Model 9.1683 → 8.9022. <span class="neg">−2.9%</span></td></tr>
+<tr><td class="k">2026-09-29</td><td>Dismissed at 6:15 PM ET. Limit 8.92, next session Sep 30.</td><td>Replay is still open (model entry 8.9378). No result yet.</td></tr>
+</tbody></table></div>
+<p>Blocking those three closed signals avoided the backtest's losses for the week. The tracker is still wrong about the position, so the next TSLL signal will be dismissed the same way until <code>manage_exit</code> is closed.</p>
+
+<h2>What already existed</h2>
+<div class="scroll"><table>
+<thead><tr><th>Input</th><th>Where it was</th></tr></thead>
+<tbody>
+<tr><td class="k"><span class="tag ok">Present</span> Orchestrator database</td><td>GCS <code>litestream/orchestrator.db</code>, restored locally to 712 KB. Includes <code>job_run</code>, six <code>manage_exit</code> rows, four <code>scan_market_buy_signal</code> rows, 42 orders, 81 transactions, and the three account balances fetched at 4:15 PM ET.</td></tr>
+<tr><td class="k"><span class="tag ok">Present</span> Market bars the live scan uses</td><td>GCS <code>litestream/market_history.db</code>, 440 KB, table <code>backtest_start</code>. Daily bars for MARA, PDD, TECL, VOO from 2024-09-23 and TSLL from 2024-09-24, through 2026-09-29 (505 bars each). This is the file <code>reconcile_trades</code> should read. The 492 MB research database under <code>backtestgosqlite/data/</code> stops on 2026-09-23 and was not used.</td></tr>
+<tr><td class="k"><span class="tag ok">Present</span> Allowlist and job history</td><td><code>STRATEGY_ALLOWLIST</code> in <code>gs://trade-orchestrator-data-trade-orchestrator-508722/config/env</code>. <code>job_run</code> shows today's <code>account_state</code>, <code>manage_exits</code>, <code>scan_market</code> (1 buy signal), and <code>stage_orders</code> (dismissed).</td></tr>
+<tr><td class="k"><span class="tag ok">Present</span> Execution prices</td><td>Inside <code>account_state_order.raw_json</code> (<code>orderActivityCollection</code> and, for TSLL, <code>childOrderStrategies</code>) and <code>account_state_transaction</code> trade rows. This is enough to compute the dollar table without calling Schwab.</td></tr>
+<tr><td class="k"><span class="tag warn">Missing</span> Reconciliation tables</td><td><code>reconcile_trade</code> and <code>audit_slippage</code> are created by the commands. They were not on the replica.</td></tr>
+<tr><td class="k"><span class="tag warn">Missing</span> Decision keys on the filled trades</td><td><code>stage_order</code> is empty. Buy signals exist only for the four dismissed TSLL scans. MARA, PDD, and the September 21 TECL trade have no stored signal date, so the replay dates MARA and PDD on the fill day. <code>manage_exit</code> on the replica also lacked <code>strategy_id</code>, <code>as_of_date</code>, <code>entry_fill_price</code>, and <code>exit_fill_price</code> until the local command added those columns to the copy.</td></tr>
+<tr><td class="k"><span class="tag warn">Missing</span> September 21 rows in the ledger</td><td>TECL and MARA round trips from September 21 are in the order mirror. They are not in <code>manage_exit</code>, so <code>reconcile_trades</code> wrote no row for them. Brackets were canceled around 10:05 AM ET and the shares were market-sold at 10:07 AM ET.</td></tr>
+<tr><td class="k"><span class="tag warn">Missing</span> Exit fill on MARA and PDD</td><td>Those sells are their own orders. The backfill copies a sell only when it is nested under the entry. The ledger left <code>exit_fill_price</code> at 0 and fell back to <code>pnl_pct</code>.</td></tr>
+</tbody></table></div>
+<p>The App Engine health URL returned <code>ok</code>. That check was not an input to the numbers. Litestream was not installed on this machine; the binary was downloaded only to restore the replica. There was no database in <code>/tmp/trade_orchestrator</code>.</p>
+
+<h2>Commands</h2>
+<p>Run these from a machine with <code>gcloud auth application-default login</code> already done. They restore into <code>/tmp/reconcile-20260929</code> and leave the live replica alone. <code>LITESTREAM_ENABLED=0</code> is set before the orchestrator starts so a variable already in the environment wins over the config object, and nothing is replicated back to GCS.</p>
+
+<h3>1. Allowlist, without printing the rest of the config</h3>
+<pre><code>export PATH="$HOME/google-cloud-sdk/bin:$PATH"
+BUCKET=trade-orchestrator-data-trade-orchestrator-508722
+gcloud storage cat "gs://$BUCKET/config/env" --project=trade-orchestrator-508722 \
+  | awk -F= '$1=="STRATEGY_ALLOWLIST" {print}'</code></pre>
+
+<h3>2. Restore the live databases</h3>
+<pre><code>export PATH="$HOME/google-cloud-sdk/bin:$PATH"
+BUCKET=trade-orchestrator-data-trade-orchestrator-508722
+DEST=/tmp/litestream-bin
+mkdir -p "$DEST"
+curl -fL -o /tmp/litestream.zip \
+  https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-darwin-arm64.zip
+unzip -o -j /tmp/litestream.zip litestream -d "$DEST"
+chmod +x "$DEST/litestream"
+
+OUT=/tmp/reconcile-20260929
+mkdir -p "$OUT"
+"$DEST/litestream" restore -if-replica-exists -o "$OUT/orchestrator.db" \
+  "gcs://${BUCKET}/litestream/orchestrator.db"
+"$DEST/litestream" restore -if-replica-exists -o "$OUT/market_history.db" \
+  "gcs://${BUCKET}/litestream/market_history.db"</code></pre>
+<p>On Linux use the <code>litestream-v0.3.13-linux-arm64.tar.gz</code> or <code>linux-amd64</code> asset instead of the Darwin zip. The orchestrator downloads this same v0.3.13 itself when Litestream is enabled.</p>
+
+<h3>3. Confirm the replica is the one you think it is</h3>
+<pre><code>DB=/tmp/reconcile-20260929/orchestrator.db
+M=/tmp/reconcile-20260929/market_history.db
+sqlite3 -header -column "$M" \
+  "SELECT symbol, COUNT(*) n, MIN(date) min_d, MAX(date) max_d FROM backtest_start GROUP BY symbol;"
+sqlite3 -header -column "$DB" \
+  "SELECT job, status, substr(started_at,1,19) started, substr(summary,1,100) summary
+   FROM job_run ORDER BY id DESC LIMIT 15;"</code></pre>
+<p>Stop here if <code>backtest_start</code> does not reach the last session, or if the newest <code>account_state</code> is older than the close you care about. Refreshing that mirror means <code>orchestrator cron account_state</code> on the deployed service (the single writer), then restoring again. Do not run <code>submit_orders</code>, <code>manage_exits</code>, or <code>stage_orders</code> for a report.</p>
+
+<h3>4. Rebuild the ledger and the slippage summary</h3>
+<pre><code>cd /Users/darianhickman/Documents/trade_well/trade_orchestrator
+export GOFLAGS=-mod=vendor
+export LITESTREAM_ENABLED=0
+export DBSYNC_REPLICATE=0
+export APP_FOLDER=/tmp/reconcile-20260929
+export ORCHESTRATOR_DB=/tmp/reconcile-20260929/orchestrator.db
+export MARKET_DB=/tmp/reconcile-20260929/market_history.db
+export PATH="$HOME/google-cloud-sdk/bin:$PATH"
+
+go build -o /tmp/orchestrator-reconcile ./cmd/orchestrator
+/tmp/orchestrator-reconcile reconcile_trades --market-db "$MARKET_DB" --table backtest_start
+/tmp/orchestrator-reconcile audit_slippage
+
+sqlite3 -header -column "$ORCHESTRATOR_DB" "
+SELECT account_number, strategy_id, symbol, as_of_date, live_outcome, model_outcome,
+       printf('%.4f', entry_fill_price), printf('%.4f', exit_fill_price),
+       printf('%.4f', model_entry_price), printf('%.4f', model_exit_price),
+       printf('%+.2f%%', live_return_pct*100), printf('%+.2f%%', model_return_pct*100),
+       printf('%+.1f', entry_slippage_bps), printf('%+.1f', exit_slippage_bps),
+       signal_match, outcome_match, live_exit_reason, model_exit_reason, model_exit_date
+FROM reconcile_trade
+ORDER BY strategy_id, as_of_date, account_number;"</code></pre>
+<p><code>reconcile_trades</code> writes one row per account, strategy, symbol, and signal date. Returns in that table are fractions. Entry bps positive means the live fill paid more than the model. Exit bps positive means the live fill sold higher. <code>audit_slippage</code> reads that table and refuses to run when it is empty.</p>
+
+<h3>5. Dollar P&amp;L from the executions</h3>
+<p>Run this against the restored database. It walks each filled order, including sells nested under a bracket, and sums trade-transaction net amounts. The strategy total in the table above is this output, restricted to MARA, PDD, TECL, and TSLL.</p>
+<pre><code>python3 - &lt;&lt;'PY'
+import json, sqlite3
+db = sqlite3.connect("/tmp/reconcile-20260929/orchestrator.db")
+
+def legs(order):
+    out = []
+    for leg in order.get("orderLegCollection") or []:
+        inst = (leg.get("instrument") or {}).get("symbol")
+        out.append((leg.get("instruction"), inst))
+    return out
+
+def execution(order):
+    notional = qty = 0.0
+    for act in order.get("orderActivityCollection") or []:
+        if act.get("activityType") not in (None, "", "EXECUTION"):
+            continue
+        for leg in act.get("executionLegs") or []:
+            px, q = leg.get("price") or 0, leg.get("quantity") or 0
+            if px > 0 and q > 0:
+                notional += px * q
+                qty += q
+    return (notional / qty, qty) if qty else (None, 0)
+
+def walk(order, acct, depth=0):
+    side = sym = ""
+    found = legs(order)
+    if found:
+        side, sym = found[0]
+    px, qty = execution(order)
+    if sym in ("TSLL", "MARA", "PDD", "TECL", "VOO"):
+        print(f"{'  '*depth}{acct} {(order.get('closeTime') or '')[:19]} "
+              f"{order.get('status')} {side or '':4} {sym:6} exec={px} qty={qty} "
+              f"oid={order.get('orderId')}")
+    for child in order.get("childOrderStrategies") or []:
+        walk(child, acct, depth + 1)
+
+print("== fills ==")
+for acct, raw in db.execute("SELECT account_number, raw_json FROM account_state_order"):
+    walk(json.loads(raw), acct)
+
+print("\n== trades ==")
+for acct, td, net, raw in db.execute(
+        "SELECT account_number, trade_date, net_amount, raw_json "
+        "FROM account_state_transaction WHERE transaction_type='TRADE' ORDER BY trade_date"):
+    j = json.loads(raw)
+    sym = ""
+    fees = 0.0
+    for item in j.get("transferItems") or []:
+        if item.get("feeType"):
+            fees += abs(item.get("amount") or 0)
+        inst = item.get("instrument") or {}
+        if inst.get("symbol"):
+            sym = inst["symbol"]
+    if sym in ("TSLL", "MARA", "PDD", "TECL", "VOO"):
+        print(f"{td[:19]} {acct} {sym:6} net={net} fees={fees:.2f} oid={j.get('orderId')}")
+PY</code></pre>
+
+<h2>How a row was read</h2>
+<ul>
+<li>Returns from the commands are fractions. <code>0.05</code> is five percent. The percentages in this write-up are already multiplied by 100.</li>
+<li><code>signal_match</code> / <code>outcome_match</code> in the command output is whether <code>GenerateSignals</code> fired that symbol on that date, then whether the live outcome and exit reason agree with the replay. MARA and PDD are 0/0. The filled TSLL rows are 1/0 because the tracker status is still <code>OPEN</code> while the replay is <code>CLOSED</code> on a profit target.</li>
+<li><code>mara_tree</code>, <code>pdd_tree</code>, and <code>sig-voo-buy-tecl</code> enter on the next session's limit in the simulator. <code>tsll-daily-one-share</code> is replayed on the signal bar, at the close plus 0.20% slippage. With no stored signal date, MARA and PDD were replayed as if the fill day were the signal day, which shifts a next-day strategy by one session.</li>
+<li><code>walk_forward</code> and <code>check_overfit</code> compare in-sample and out-of-sample backtests. They do not read live fills, so they were not run for this report.</li>
+</ul>
+
+<footer>Written 2026-09-29 from a restore of the live GCS replica. Commands in <code>trade_orchestrator</code>: <code>reconcile_trades</code>, <code>audit_slippage</code>. The copy is <code>/tmp/reconcile-20260929</code>.</footer>
+</div>

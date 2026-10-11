@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CommandConsistency</title>
+<style>
+  :root { --bg:#fff; --fg:#1c1f24; --muted:#5b6470; --line:#dde1e6; --ok:#1a7f37; --warn:#9a6700; --bad:#c62828; --card:#f6f8fa; --code:#eef1f4; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1216; --fg:#e6e9ed; --muted:#98a2b0; --line:#2a313a; --ok:#4cc26b; --warn:#e0b040; --bad:#ef6b6b; --card:#171b21; --code:#1f252d; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:1100px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:26px; margin:0 0 4px; }
+  h2 { font-size:19px; margin:32px 0 10px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  p.sub { color:var(--muted); margin:0 0 16px; }
+  code { background:var(--code); padding:1px 5px; border-radius:4px; font-size:13px; }
+  table { width:100%; border-collapse:collapse; margin:8px 0 4px; font-size:14px; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  td.pkg { font-size:15px; white-space:nowrap; }
+  td.pkg code { font-weight:700; font-size:14px; }
+  .tag { display:inline-block; font-size:12px; font-weight:600; padding:1px 8px; border-radius:10px; border:1px solid currentColor; white-space:nowrap; }
+  .ok { color:var(--ok); } .warn { color:var(--warn); } .bad { color:var(--bad); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 16px; margin:12px 0; }
+  .muted { color:var(--muted); }
+  ul { padding-left:20px; margin:6px 0; }
+  li { margin:3px 0; }
+  .table-wrap { overflow-x:auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Command consistency</h1>
+  <p class="sub">Which <code>pkg/</code> each cron job uses, and which <code>orchestrator</code> subcommand corresponds to it. <code>trade_orchestrator</code>, 2026-09-24. Read from <code>deploy_gae/cron.yaml</code>, <code>pkg/appserve/cron.go</code> (<code>cronJobs</code> and the <code>handleCron*</code> handlers) and the subcommand dispatch in <code>cmd/orchestrator/main.go</code>; what each entry point calls was traced in the code, not inferred from names. Nothing was run.</p>
+
+  <div class="card">
+    <strong>Result:</strong> 5 of the 6 scheduled jobs reach the same <code>pkg/</code> function from cron and from the CLI. <strong><code>scan_market</code> does not:</strong> the cron route runs <code>scan_market.RunSignalScan</code>, but the CLI subcommand of the same name runs <code>stage_orders.RunScanAndStage</code>, a different function in a different package that also stages orders.
+  </div>
+
+  <h2>Scheduled jobs</h2>
+  <div class="table-wrap">
+  <table>
+    <tr><th>pkg</th><th>Cron job (route, schedule ET)</th><th>CLI subcommand</th><th>What each side calls</th><th>Same code path?</th></tr>
+    <tr>
+      <td class="pkg"><code>account_state</code></td>
+      <td><code>/cron/account_state</code><br><span class="muted">Mon-Fri 09:15, 16:15</span></td>
+      <td><code>orchestrator account_state</code></td>
+      <td>cron: <code>account_state.Sync</code><br>CLI: <code>account_state.RunCommand</code> &rarr; <code>Sync</code></td>
+      <td><span class="tag ok">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="pkg"><code>scan_market</code></td>
+      <td><code>/cron/scan_market</code><br><span class="muted">Sun-Thu 18:00</span></td>
+      <td><code>orchestrator scan_market</code></td>
+      <td>cron: <code>scan_market.RunSignalScan</code> (scan only)<br>CLI: <code>stage_orders.RunScanAndStage</code> &rarr; <code>scan_market.Run</code> (scan and stage)</td>
+      <td><span class="tag bad">No</span></td>
+    </tr>
+    <tr>
+      <td class="pkg"><code>stage_orders</code></td>
+      <td><code>/cron/stage_orders</code><br><span class="muted">Sun-Thu 18:15</span></td>
+      <td><code>orchestrator stage_orders</code></td>
+      <td>cron: <code>stage_orders.RunJob</code><br>CLI: <code>stage_orders.RunCommand</code> &rarr; <code>RunJob</code></td>
+      <td><span class="tag ok">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="pkg"><code>submit_orders</code></td>
+      <td><code>/cron/submit_orders</code><br><span class="muted">Mon-Fri 09:28, 09:45, 16:20</span></td>
+      <td><code>orchestrator submit_orders</code></td>
+      <td>cron: <code>submit_orders.RunJob</code><br>CLI: <code>submit_orders.RunCommand</code> &rarr; <code>RunJob</code></td>
+      <td><span class="tag ok">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="pkg"><code>manage_exits</code></td>
+      <td><code>/cron/manage_exits</code><br><span class="muted">Mon-Fri 09:35, 15:50</span></td>
+      <td><code>orchestrator manage_exits</code></td>
+      <td>cron: <code>manage_exits.Run</code> per account<br>CLI: <code>manage_exits.RunCommand</code> &rarr; <code>Run</code> per account</td>
+      <td><span class="tag ok">Yes</span></td>
+    </tr>
+    <tr>
+      <td class="pkg"><code>check_health</code></td>
+      <td><code>/cron/check_health</code><br><span class="muted">Mon-Fri 10:00</span></td>
+      <td><code>orchestrator check_health</code></td>
+      <td>cron: <code>check_health.Run</code><br>CLI: <code>check_health.RunCommand</code> &rarr; <code>Run</code></td>
+      <td><span class="tag ok">Yes</span></td>
+    </tr>
+  </table>
+  </div>
+  <p class="muted">"Same code path" means both sides reach the same core function. For <code>stage_orders</code>, <code>manage_exits</code>, <code>check_health</code> and <code>scan_market</code> the cron handler in <code>appserve/cron.go</code> and the CLI <code>RunCommand</code> each build their own report email, so the email logic is written twice. <code>submit_orders</code> no longer does: <code>RunJob</code> sends it for both.</p>
+
+  <h2>Subcommands with no cron job</h2>
+  <div class="table-wrap">
+  <table>
+    <tr><th>pkg</th><th>Cron job</th><th>CLI subcommand</th><th>What it calls</th><th>Note</th></tr>
+    <tr>
+      <td class="pkg"><code>run_all_jobs</code></td>
+      <td class="muted">none</td>
+      <td><code>orchestrator run-all-jobs</code></td>
+      <td><code>run_all_jobs.Run</code> &rarr; <code>check_health.RunCommand</code>, <code>manage_exits.RunCommand</code>, <code>stage_orders.RunScanAndStage</code>, <code>submit_orders.RunCommand</code></td>
+      <td><span class="tag warn">Hyphenated name</span> Uses the CLI's scan path, not the cron one.</td>
+    </tr>
+    <tr>
+      <td class="pkg"><code>check_health</code></td>
+      <td class="muted">none</td>
+      <td><code>orchestrator health-checks</code></td>
+      <td><code>check_health.RunChecksCommand</code></td>
+      <td><span class="tag warn">Hyphenated name</span> A second entry point, separate from <code>Run</code>.</td>
+    </tr>
+    <tr>
+      <td class="pkg"><code>manage_exits</code></td>
+      <td class="muted">none</td>
+      <td><code>orchestrator active-trades</code></td>
+      <td><code>manage_exits.ListActive</code></td>
+      <td><span class="tag warn">Hyphenated name</span> Read-only listing.</td>
+    </tr>
+    <tr>
+      <td class="pkg"><code>stage_orders</code></td>
+      <td class="muted">none</td>
+      <td><code>orchestrator staged-orders</code></td>
+      <td><code>stage_orders.ListStaged</code></td>
+      <td><span class="tag warn">Hyphenated name</span> Read-only listing.</td>
+    </tr>
+    <tr>
+      <td class="pkg"><code>strategies</code></td>
+      <td class="muted">none</td>
+      <td><code>orchestrator strategies</code></td>
+      <td><code>strategies.PrintRegistered</code></td>
+      <td><span class="tag ok">Matches</span></td>
+    </tr>
+    <tr>
+      <td class="pkg"><code>cronclient</code></td>
+      <td class="muted">none (triggers any <code>/cron/&lt;job&gt;</code>)</td>
+      <td><code>orchestrator cron &lt;job&gt;</code></td>
+      <td><code>cronclient.RunCommand</code>; job names from <code>appserve.CronJobNames</code></td>
+      <td><span class="tag ok">Matches</span> Same six names as the routes.</td>
+    </tr>
+    <tr>
+      <td class="pkg"><code>dashboard</code></td>
+      <td class="muted">none</td>
+      <td><code>orchestrator dashboard</code></td>
+      <td><code>dashboard.NewServer</code></td>
+      <td><span class="tag ok">Matches</span></td>
+    </tr>
+  </table>
+  </div>
+  <p class="muted">Also dispatched in <code>main.go</code> but not mapped to a job pkg here: <code>auth</code>, <code>token</code>, <code>runtime</code>, <code>serve</code>.</p>
+
+  <h2>What is inconsistent</h2>
+  <ul>
+    <li><strong><code>scan_market</code>.</strong> The route, the <code>pkg/</code> directory and the subcommand share a name, but the subcommand does not run that package's cron function. Running <code>orchestrator scan_market --live</code> stages orders as well; the cron route only writes signals and leaves staging to <code>/cron/stage_orders</code> at 18:15. So a manual scan does not predict what the 18:00 cron does. <code>run-all-jobs</code> inherits the CLI behaviour.</li>
+    <li><strong>Four hyphenated subcommands</strong> (<code>health-checks</code>, <code>run-all-jobs</code>, <code>active-trades</code>, <code>staged-orders</code>) still break the <code>snake_case</code> naming rule, with no documented aliases.</li>
+    <li><strong>Email built twice</strong> for four of the six jobs (see note under the first table).</li>
+  </ul>
+</main>
+</body>
+</html>

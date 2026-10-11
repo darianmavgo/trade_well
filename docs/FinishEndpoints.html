@@ -1,0 +1,111 @@
+<title>FinishEndpoints</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#1b2430; --muted:#5d6b7c; --line:#dde2e9; --code-bg:#eef1f5;
+  --ok:#0f7a5c; --ok-bg:#e2f3ed; --warn:#a35a00; --warn-bg:#fdf0dc; --danger:#a3242b; --danger-bg:#fbe5e6; --lib:#4a5a6e; --lib-bg:#e8edf3;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#12171e; --panel:#1a212b; --ink:#e4e9f0; --muted:#98a5b6; --line:#2b3542; --code-bg:#222b37;
+    --ok:#62d0ac; --ok-bg:#14342b; --warn:#f0b866; --warn-bg:#3a2b12; --danger:#ff8b92; --danger-bg:#3f1a1d; --lib:#a9b7c9; --lib-bg:#242e3b;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#12171e; --panel:#1a212b; --ink:#e4e9f0; --muted:#98a5b6; --line:#2b3542; --code-bg:#222b37;
+  --ok:#62d0ac; --ok-bg:#14342b; --warn:#f0b866; --warn-bg:#3a2b12; --danger:#ff8b92; --danger-bg:#3f1a1d; --lib:#a9b7c9; --lib-bg:#242e3b;
+}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;padding-inline:16px;padding-block:28px 56px}
+.wrap{max-width:1320px;margin:0 auto}
+h1{font:600 28px/1.15 "IBM Plex Sans",system-ui,sans-serif;margin:0 0 6px}
+h2{font:600 18px/1.3 "IBM Plex Sans",system-ui,sans-serif;margin:34px 0 6px;text-wrap:balance}
+p{margin:0 0 10px;max-width:78ch}
+.lede{color:var(--muted)}
+code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:var(--code-bg);padding:1px 5px;border-radius:3px;word-break:break-word}
+.tag{display:inline-block;font:600 10.5px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius:3px;margin-right:6px;vertical-align:1px;white-space:nowrap}
+.tag.ok{background:var(--ok-bg);color:var(--ok)} .tag.warn{background:var(--warn-bg);color:var(--warn)} .tag.danger{background:var(--danger-bg);color:var(--danger)} .tag.lib{background:var(--lib-bg);color:var(--lib)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:1100px}
+th{text-align:left;font:600 11px/1.2 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+td.p{font-weight:600;white-space:nowrap}
+td ul{margin:0;padding-left:16px} td li{margin:2px 0}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--muted);font-size:13px;margin:10px 0 0}
+.callout{border:1px solid var(--line);border-left:3px solid var(--ok);background:var(--panel);padding:12px 16px;border-radius:4px;margin:18px 0;max-width:100ch}
+ol,ul.plain{padding-left:22px;max-width:80ch} li{margin:5px 0}
+footer{margin-top:34px;color:var(--muted);font-size:13px}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+
+<div class="wrap">
+<h1>FinishEndpoints</h1>
+<p class="lede">State of every package in <code>trade_orchestrator/pkg</code>: its HTTP endpoint, its tables, its CLI subcommand, and what is left. Snapshot from 2026-09-23 after adding <code>stage_orders</code>. The naming rule (<code>CLAUDE.md</code>): one job, one name, used for the package, CLI subcommand, <code>/cron/</code> route and job record.</p>
+<div class="legend">
+  <span><span class="tag ok">Done</span>package, route and CLI all exist and share one code path</span>
+  <span><span class="tag warn">Partial</span>works, with a gap listed</span>
+  <span><span class="tag danger">Gap</span>rule broken or risk</span>
+  <span><span class="tag lib">Library</span>not a job; no route or CLI expected</span>
+</div>
+
+<div class="callout">
+<p><strong>New this pass: <code>stage_orders</code>.</strong> <code>stage_orders.RunJob</code> takes the latest scan's <code>NEW</code> rows in <code>scan_market_buy_signal</code>, sizes them against each account's live cash and equity, writes <code>stage_order</code> rows, and marks each signal <code>STAGED</code> or <code>DISMISSED</code> so a rerun never stages it twice. It is called by <code>orchestrator stage_orders [--dry-run|--live]</code> and by <code>GET /cron/stage_orders[?dry_run=1]</code>. <code>cron.yaml</code> now runs it at 18:15 ET Sun to Thu, after the 18:00 scan and before the 09:28 submit. Signals whose next session has passed are dismissed as expired. Four new tests cover staging once, dry run, expiry and no accounts. Builds and all tests pass. Not deployed.</p>
+</div>
+
+<h2>The job pipeline</h2>
+<div class="scroll"><table style="min-width:900px">
+<thead><tr><th>Order</th><th>Package</th><th>HTTP route (GAE cron)</th><th>CLI subcommand</th><th>Schedule (ET)</th><th>Reads</th><th>Writes</th><th>State</th></tr></thead>
+<tbody>
+<tr><td>1</td><td class="p">account_state</td><td><code>GET /cron/account_state</code></td><td><code>account_state</code></td><td>09:15 and 16:15 Mon to Fri</td><td>Schwab API</td><td><code>account_state_*</code></td><td><span class="tag ok">Done</span></td></tr>
+<tr><td>2</td><td class="p">scan_market</td><td><code>GET /cron/scan_market</code></td><td><code>scan_market</code></td><td>18:00 Sun to Thu</td><td>market DB</td><td><code>scan_market_buy_signal</code></td><td><span class="tag danger">Gap</span></td></tr>
+<tr><td>3</td><td class="p">stage_orders</td><td><code>GET /cron/stage_orders[?dry_run=1]</code></td><td><code>stage_orders</code></td><td>18:15 Sun to Thu</td><td><code>scan_market_buy_signal</code>, live account</td><td><code>stage_order</code></td><td><span class="tag ok">Done</span></td></tr>
+<tr><td>4</td><td class="p">submit_orders</td><td><code>GET /cron/submit_orders</code></td><td><code>submit_orders</code></td><td>09:28 Mon to Fri</td><td><code>stage_order</code></td><td><code>submit_order</code>, <code>manage_exit</code></td><td><span class="tag warn">Partial</span></td></tr>
+<tr><td>5</td><td class="p">manage_exits</td><td><code>GET /cron/manage_exits</code></td><td><code>manage_exits</code></td><td>09:35 and 15:50 Mon to Fri</td><td><code>manage_exit</code>, live orders</td><td><code>manage_exit</code></td><td><span class="tag warn">Partial</span></td></tr>
+<tr><td>6</td><td class="p">check_health</td><td><code>GET /cron/check_health</code></td><td><code>check_health</code></td><td>10:00 Mon to Fri</td><td>all of the above</td><td><code>check_health_audit</code>, <code>check_health_finding</code></td><td><span class="tag warn">Partial</span></td></tr>
+</tbody></table></div>
+
+<h2>Every package</h2>
+<div class="scroll"><table>
+<thead><tr><th>Package</th><th>Role</th><th>HTTP endpoint</th><th>Tables</th><th>CLI subcommand</th><th>State</th><th>What is left</th></tr></thead>
+<tbody>
+<tr><td class="p">account_allowlist</td><td>Parses <code>SCHWAB_ACCOUNT_NUMBERS</code>, max 5; loads an account from the local mirror</td><td>none</td><td><code>account_allowlist</code> (audit log)</td><td>none</td><td><span class="tag lib">Library</span></td><td>Nothing. The DB-row to <code>ResolvedAccount</code> mapper is intentionally here.</td></tr>
+<tr><td class="p">account_state</td><td>Mirrors Schwab accounts, positions, orders and transactions into SQLite (shared code in schwaber <code>accountstore</code>)</td><td><code>GET /cron/account_state</code> (retries, failure email)<br><code>GET /account_state</code> (dashboard, streamed HTML, Basic Auth)</td><td><code>account_state_raw_response</code>, <code>_account</code>, <code>_position</code>, <code>_order</code>, <code>_order_leg</code>, <code>_transaction</code>, <code>_preference</code></td><td><code>account_state</code></td><td><span class="tag ok">Done</span></td><td>Only this job retries three times and emails on failure; the others do not (see cross-cutting gaps).</td></tr>
+<tr><td class="p">appconfig</td><td>Resolves env into one <code>Config</code>; opens the DB</td><td>none</td><td><code>appconfig</code> (config used per run; keeps two dead NOT NULL columns)</td><td>none</td><td><span class="tag lib">Library</span></td><td>Drop the dead <code>backtest_root</code> and <code>livescan_bin</code> columns with a migration on the deployed DB.</td></tr>
+<tr><td class="p">appserve</td><td>The HTTP server: cron routes, health, secrets load</td><td><code>/cron/*</code> (App Engine cron header only)<br><code>/_ah/warmup</code>, <code>/_ah/health</code><br><code>/runtime</code>, <code>/dbsync</code></td><td><code>appserve</code> (startup log)</td><td><code>serve</code></td><td><span class="tag danger">Gap</span></td><td><code>/runtime</code> and <code>/dbsync</code> are on the root mux with <strong>no auth</strong>. They reveal the project, service, GCS bucket and DB path to anyone. Put them behind the dashboard Basic Auth or remove them.</td></tr>
+<tr><td class="p">auth</td><td>Audit log of auth events; GCS token sync</td><td><code>GET /auth/schwab</code>, <code>/auth/schwab/callback</code> (from schwaber <code>oauthhttp</code>; the start route needs Basic Auth)</td><td><code>auth</code></td><td><code>auth</code> (interactive OAuth), <code>token pull|push</code></td><td><span class="tag ok">Done</span></td><td>No tests in this package.</td></tr>
+<tr><td class="p">check_health</td><td>Live-data checks, strategy-contract audit, and DB-defined checks</td><td><code>GET /cron/check_health</code></td><td><code>check_health</code>, <code>check_health_audit</code>, <code>check_health_finding</code></td><td><code>check_health</code>, <code>health-checks</code> (list/enable/disable)</td><td><span class="tag warn">Partial</span></td><td>A CRITICAL finding is recorded and emailed but triggers no automatic action (no kill switch). <code>health-checks</code> has no route and a hyphenated name.</td></tr>
+<tr><td class="p">dashboard</td><td>Read-only job-state web UI plus the live sync page</td><td><code>GET /</code> (single-page UI)<br><code>GET /api/tables</code> (JSON dump of job tables)<br><code>GET /account_state</code></td><td><code>dashboard</code> (server-start log). Reads the job tables.</td><td><code>dashboard</code></td><td><span class="tag warn">Partial</span></td><td><code>/api/tables</code> lists only some tables: it omits <code>submit_order</code> and the <code>account_state_*</code> mirror tables. No page shows the <code>strategies</code> log table.</td></tr>
+<tr><td class="p">dbsync</td><td>Litestream restore and replicate to GCS; freshness metadata</td><td><code>GET /dbsync</code> (JSON, see appserve gap)</td><td><code>dbsync</code> (per-job freshness)</td><td>none (wraps every job via <code>withDBSync</code>)</td><td><span class="tag warn">Partial</span></td><td>The only external binary left (Litestream). A write that fails to confirm in GCS is only logged. No restore drill has been run.</td></tr>
+<tr><td class="p">job_runs</td><td>Records that a job ran, and whether it produced rows</td><td>none</td><td><code>job_run</code></td><td>none</td><td><span class="tag lib">Library</span></td><td>Only <code>scan_market</code> and <code>stage_orders</code> write a run record. The other jobs do not, so the dashboard cannot tell "never ran" from "ran, empty" for them. No tests.</td></tr>
+<tr><td class="p">manage_exits</td><td>Time and target exits for open trades; tracks days held</td><td><code>GET /cron/manage_exits</code></td><td><code>manage_exit</code></td><td><code>manage_exits</code>, <code>active-trades</code> (display)</td><td><span class="tag warn">Partial</span></td><td>Cron always runs live (<code>dryRun=false</code>), with no <code>?dry_run=1</code>. Runs only at 09:35 and 15:50, so 1-day and 3-day time exits act at most twice a day. <code>active-trades</code> is hyphenated and has no route.</td></tr>
+<tr><td class="p">runtimeenv</td><td>Detects local, GAE or other; the cron header check</td><td><code>GET /runtime</code> (see appserve gap)</td><td><code>runtimeenv</code></td><td><code>runtime</code></td><td><span class="tag warn">Partial</span></td><td>The route needs auth.</td></tr>
+<tr><td class="p">scan_market</td><td>Runs the strategies over the market DB and records buy signals</td><td><code>GET /cron/scan_market</code></td><td><code>scan_market_buy_signal</code> (used by stage_orders), <code>scan_market_signal</code> (day rollup, still used by stage_orders and submit_orders)</td><td><code>scan_market</code></td><td><span class="tag danger">Gap</span></td><td><strong>The CLI and the cron route are two different implementations.</strong> The route calls <code>RunSignalScan</code> and writes <code>scan_market_buy_signal</code>. The CLI calls the older <code>scan_market.Run</code>, stages orders inline via <code>stage_orders.Run</code>, and writes <code>scan_market_signal</code>. Make the CLI a thin wrapper over <code>RunSignalScan</code>, drop its inline staging (that is now <code>stage_orders</code>), and drop its <code>--symbols</code> flag.</td></tr>
+<tr><td class="p">send_email</td><td>SMTP sender and the one report renderer for every job</td><td>none</td><td><code>send_email</code> (send log)</td><td>none</td><td><span class="tag lib">Library</span></td><td>Nothing.</td></tr>
+<tr><td class="p">stage_orders</td><td>Sizes buy signals against live cash into <code>stage_order</code> rows</td><td><code>GET /cron/stage_orders[?dry_run=1]</code></td><td><code>stage_order</code>; reads <code>scan_market_buy_signal</code>; updates its status</td><td><code>stage_orders</code> (<code>--dry-run</code>, <code>--live</code>), <code>staged-orders</code> (display)</td><td><span class="tag ok">Done</span></td><td>Cash is not reduced between different stacks staged in one run (only one stack is configured today). Hold-days override from the signal is not carried through. <code>staged-orders</code> is hyphenated and has no route.</td></tr>
+<tr><td class="p">strategies</td><td>Allowlist parsing; resolves allowlisted IDs to backtestgosqlite strategies</td><td>none</td><td><code>strategies</code> (resolve log)</td><td><code>strategies</code></td><td><span class="tag lib">Library</span></td><td>Nothing gates <code>STRATEGY_ALLOWLIST</code> against strateval tiers.</td></tr>
+<tr><td class="p">submit_orders</td><td>Re-validates staged orders, places brackets, confirms fills</td><td><code>GET /cron/submit_orders</code></td><td><code>submit_order</code> (attempt log); updates <code>stage_order</code>; writes <code>manage_exit</code></td><td><code>submit_orders</code></td><td><span class="tag warn">Partial</span></td><td>Cron always runs live, with no <code>?dry_run=1</code>. Entry is a limit at the signal price placed next morning; the backtest fills at the signal-day close.</td></tr>
+</tbody></table></div>
+
+<h2>Cross-cutting gaps to finish</h2>
+<ol>
+<li><strong>Two <code>scan_market</code> implementations (above).</strong> This is the largest break of the "one package, three contexts" rule left. <code>run-all-jobs</code> also runs the old CLI path and never calls <code>stage_orders</code>.</li>
+<li><strong>Unauthenticated <code>/runtime</code> and <code>/dbsync</code></strong> on the public URL.</li>
+<li><strong>Dry run only exists on <code>/cron/stage_orders</code>.</strong> Add <code>?dry_run=1</code> to <code>submit_orders</code> and <code>manage_exits</code> too, so every job can be previewed from GAE.</li>
+<li><strong>Only <code>account_state</code> retries and emails on failure.</strong> The other cron handlers email a report on success, but a crash before that point is only logged.</li>
+<li><strong>Names.</strong> Packages are plural (<code>stage_orders</code>, <code>submit_orders</code>, <code>manage_exits</code>, <code>job_runs</code>) but their tables are singular (<code>stage_order</code>, <code>submit_order</code>, <code>manage_exit</code>, <code>job_run</code>). CLI display commands <code>health-checks</code>, <code>active-trades</code>, <code>staged-orders</code>, <code>run-all-jobs</code> are hyphenated, unlike every job name. Renaming tables needs a migration on the deployed, replicated DB, so pick one convention first.</li>
+<li><strong>No endpoints for the display commands.</strong> <code>active-trades</code>, <code>staged-orders</code> and <code>health-checks</code> exist only in the CLI; the dashboard's <code>/api/tables</code> shows part of the same data.</li>
+<li><strong>Untested:</strong> <code>auth</code> and <code>job_runs</code> have no tests, and <code>cmd/orchestrator</code> has none.</li>
+</ol>
+
+<h2>Suggested order</h2>
+<ol>
+<li>Deploy <code>stage_orders</code> and the cron fixes, then call <code>/cron/stage_orders?dry_run=1</code> against the real account and read the output before the first scheduled run.</li>
+<li>Collapse the two <code>scan_market</code> paths.</li>
+<li>Put <code>/runtime</code> and <code>/dbsync</code> behind auth.</li>
+<li>Add <code>?dry_run=1</code> and job-run records to the other jobs.</li>
+<li>Decide the table naming convention, then migrate.</li>
+</ol>
+
+<footer>Table lists come from each package's <code>CREATE TABLE</code> statements; routes from <code>appserve</code>, <code>dashboard</code> and schwaber's <code>oauthhttp</code>. Not run against the live service. Which routes are protected by Basic Auth was read from code, not tested.</footer>
+</div>

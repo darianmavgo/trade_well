@@ -22,10 +22,10 @@ Every command that talks to IBKR makes sure the gateway is running and logged in
 | `accounts` | `accounts` | accounts, cash, value, position count |
 | `account_state` (`listall`) | `listall` | positions and orders into `ibkr.db`; a working take-profit / stop become `profit_taker` / `stop_loss` |
 | `quote SYMBOL` | `quote` | last / bid / ask |
-| `buy` / `sell SYMBOL QTY [PRICE]` | `buy` / `sell` | market or limit; **preview (IBKR what-if) unless `-live`**, confirmed unless `-y` |
+| `buy` / `sell SYMBOL QTY [PRICE]` | `buy` / `sell` | market or limit; **live by default; `-dry-run` previews (IBKR what-if)**, confirmed unless `-y` |
 | `bracket SYMBOL QTY ENTRY [-profit -stop]` | `bracket` | entry + take-profit + stop as one IBKR bracket |
 | `orders [-status S]`, `cancel ID` | `orders`, `cancel` | this session's orders; cancel |
-| `killswitch [TICKER...]` | `killswitch` | cancel working orders and market-sell positions; preview unless `-live` |
+| `killswitch [TICKER...]` | `killswitch` | cancel working orders and market-sell positions; live by default; `-dry-run` previews |
 | `reconcile` | | resolve pending order intents against the broker |
 
 ## Same as schwaber, on purpose

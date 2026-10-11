@@ -72,7 +72,7 @@ func Run(ctx context.Context, out io.Writer, in io.Reader, tc *trader.TraderClie
 	}
 	fmt.Fprintf(out, "KILLSWITCH: %d order(s) to cancel, %d position(s) to market-sell", len(cancels), len(sells))
 	if !live {
-		fmt.Fprintln(out, "  [DRY RUN: nothing sent; pass -live to act]")
+		fmt.Fprintln(out, "  [DRY RUN: nothing sent]")
 		for _, s := range sells {
 			fmt.Fprintf(out, "  would SELL %.0f %s on %s at market\n", s.qty, s.sym, s.acc.AccountNumber)
 		}

@@ -15,3 +15,40 @@ DONE Confirm strategy known for each position. Take profit, stop loss, hold wind
 Completely delete secrets and just use gcs.  Keep it simple. .gitignore whatever controls it on dev.
 Clean up overlap between app.yaml and gcloud secrets.  Downsize gcloud secrets to password
 Deprecate gcloud secrets, deprecate app.yaml env, .env. Keep it in gcs only.
+
+
+Week of 2026-10-02 to 2026-10-09 (backfilled from commit history in the three repos)
+
+schwaber
+DONE Order trees: build Schwab order trees (order_tree.go) so entry plus exits go out as one order structure.
+DONE Quote detail: added quote detail to the Schwab client, with a test.
+DONE Order submission: pkg/trader/orders.go now uses the order tree and the quote detail, with tests.
+DONE Orders preview vs live: flags, README, killswitch and orders reworded to the new default.
+
+trade_orchestrator
+DONE Database-defined strategies: orchestrator runs off the strategies database; fixed the db sync issue; env handling (appserve/env.go) with tests.
+DONE Live local test for appserve; reconcile_trades and reconcile_report fixes for fill-date handling.
+DONE check_health: contract fixes and tests.
+DONE manage_exits: settle step (settle.go) records the actual exit fills; exit legs fixed; adopt and exit-date logic cleaned up; tests added.
+DONE account_state: pulls Accounts, then Positions, then Pending Orders; test for pending orders.
+DONE Strategy status pages: pkg/strategy_status (741 lines) plus dashboard status page; live status and its fixes.
+DONE stage_orders: sizing fix; watch.go; schema and store changes for the 2x leverage ETF strategy.
+DONE trigger_limits: new package (seat, probe, rank, tests) plus the command in cmd/orchestrator and cron wiring.
+DONE strategy_allowlist command, with tests.
+DONE Deploy prep for the 2x leverage ETF strategy: deploy_gae cron.yaml and config, export_strategies.sh, updated deploy strategies.db.
+DONE send_email report fix; README updates for the new commands.
+
+backtestgosqlite (the research that feeds the live strategies)
+DONE Trees: found they were never trained (generic coil bounce combo). Made `train` its own command, db file per family, scoreboard updated.
+DONE Pipeline command that runs every step of generating and evaluating a strategy.
+DONE Cleaned up command names; moved docs into docs/; fixed appenv ReportFile path.
+DONE Killed duplicate family hold_bail and more dupe code; flagged the remaining architecture violations.
+DONE Ran strategies across the GOOGL set.
+DONE Omnifunds work: new family to imitate it, ImitatingOmnifunds.md, results easier to review.
+DONE Idle days reported for any strategy.
+DONE Prune losers, clean the strategies db, hourly bars; pruning improved to stop backtesting strategies that go nowhere.
+DONE Found rotation-2x-sector-pairs-daily-limit95-tp3-sl5-hold2-pos20: 80% with drawdown under 10%.
+DONE Prepared that rotation strategy and the latest findings for deployment.
+
+trade_well (top level)
+DONE LearningLog.md compiled (2026-10-05); docs/ with StrategiesExplored.md and CLAUDE.md; moved gcloud logging scripts into scripts/.

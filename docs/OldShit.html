@@ -1,0 +1,270 @@
+<title>OldShit</title>
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#1b2430; --muted:#5d6b7c; --line:#dde2e9;
+  --accent:#1f5f8b; --code-bg:#eef1f5;
+  --safe:#0f7a5c; --safe-bg:#e2f3ed; --check:#a35a00; --check-bg:#fdf0dc; --danger:#a3242b; --danger-bg:#fbe5e6;
+  --sw:#7a4fb0; --sw-bg:#efe8f8; --bt:#0f7a5c; --bt-bg:#e2f3ed; --to:#1f5f8b; --to-bg:#e3eef7;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#12171e; --panel:#1a212b; --ink:#e4e9f0; --muted:#98a5b6; --line:#2b3542; --accent:#6fb1dd; --code-bg:#222b37;
+    --safe:#62d0ac; --safe-bg:#14342b; --check:#f0b866; --check-bg:#3a2b12; --danger:#ff8b92; --danger-bg:#3f1a1d;
+    --sw:#c3a3ec; --sw-bg:#2c2440; --bt:#62d0ac; --bt-bg:#14342b; --to:#6fb1dd; --to-bg:#172a3a;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#12171e; --panel:#1a212b; --ink:#e4e9f0; --muted:#98a5b6; --line:#2b3542; --accent:#6fb1dd; --code-bg:#222b37;
+  --safe:#62d0ac; --safe-bg:#14342b; --check:#f0b866; --check-bg:#3a2b12; --danger:#ff8b92; --danger-bg:#3f1a1d;
+  --sw:#c3a3ec; --sw-bg:#2c2440; --bt:#62d0ac; --bt-bg:#14342b; --to:#6fb1dd; --to-bg:#172a3a;
+}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;padding-inline:16px;padding-block:28px 56px}
+.wrap{max-width:1240px;margin:0 auto}
+h1{font:600 28px/1.15 "IBM Plex Sans",system-ui,sans-serif;margin:0 0 6px}
+h2{font:600 17px/1.3 "IBM Plex Sans",system-ui,sans-serif;margin:34px 0 4px;text-wrap:balance}
+p{margin:0 0 10px;max-width:72ch}
+.lede{color:var(--muted)}
+.sub{color:var(--muted);margin-bottom:12px}
+code{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:var(--code-bg);padding:1px 5px;border-radius:3px;word-break:break-word}
+.tag{display:inline-block;font:600 10.5px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius:3px;margin-right:6px;vertical-align:1px;white-space:nowrap}
+.tag.sw{background:var(--sw-bg);color:var(--sw)} .tag.bt{background:var(--bt-bg);color:var(--bt)} .tag.to{background:var(--to-bg);color:var(--to)}
+.tag.safe{background:var(--safe-bg);color:var(--safe)} .tag.check{background:var(--check-bg);color:var(--check)} .tag.danger{background:var(--danger-bg);color:var(--danger)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:900px}
+th{text-align:left;font:600 11px/1.2 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+td{vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+td.r{width:74px;white-space:nowrap} td.w{width:31%} td.e{width:40%} td.c{width:88px;white-space:nowrap}
+.callout{border:1px solid var(--line);border-left:3px solid var(--danger);background:var(--panel);padding:12px 16px;border-radius:4px;margin:18px 0;max-width:90ch}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin:14px 0 4px;color:var(--muted);font-size:13px}
+.stats{display:flex;flex-wrap:wrap;gap:8px 28px;margin:14px 0 0;font-size:13px;color:var(--muted)}
+.stats b{color:var(--ink);font-variant-numeric:tabular-nums}
+footer li{margin:3px 0}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+
+<div class="wrap">
+<h1>OldShit</h1>
+<div class="callout" style="border-left-color:var(--safe)"><p><span class="tag safe">Done 2026-09-23</span><strong>Cleanup applied.</strong> Every <span class="tag safe">Safe</span> row is deleted, plus these <span class="tag check">Check</span> rows: <code>open-db</code>, <code>BACKTEST_ROOT</code>, <code>SQLITE_FUSE_SAFE</code>, <code>-seed-db</code>, <code>gae_only.sh</code>, the strateval scripts, the redundant strategy aliases (29 of 32 in built code; each verified to still resolve to the same strategy), stale README/deploy docs. <strong>Left alone on purpose:</strong> the 3 real strategy renames (<code>buy-and-hold</code>, <code>mara_pdd_nvdl_combo</code>, <code>tsll-daily</code>), the <code>TargetPct</code> legacy field and <code>SHARED_ACCOUNT</code> fallback (need a migration), SW's nil-intent-store order path, saved Schwab docs, <code>examples/custom_csv_backtest</code>, <code>Why?.txt</code>, old <code>schwaber.db</code> files, <code>vendor/</code>, and <code>SETUP_GUIDE.md</code> (it is a valid Schwab setup guide, my guess was wrong). Build and tests pass in all three repos. Nothing committed.</p></div>
+<p class="lede">Aliases, dead deploy targets, one-off scripts, stale docs and committed junk across <code>trade_orchestrator</code>, <code>schwaber</code> and <code>backtestgosqlite</code>. Every row is a candidate to delete. Nothing has been deleted yet. Evidence is what I found by grep and <code>ls</code> on 2026-09-23.</p>
+<div class="legend">
+  <span><span class="tag to">TO</span>trade_orchestrator</span>
+  <span><span class="tag sw">SW</span>schwaber</span>
+  <span><span class="tag bt">BT</span>backtestgosqlite</span>
+  <span><span class="tag safe">Safe</span>no references found; delete and build</span>
+  <span><span class="tag check">Check</span>something references it; look first</span>
+  <span><span class="tag danger">Now</span>security or money risk; do this first</span>
+</div>
+
+<div class="callout">
+<p><span class="tag safe">Fixed</span><strong>Hardcoded cron bypass on a public trading URL (removed from the code; needs a deploy to take effect).</strong> <code>pkg/runtimeenv/runtimeenv.go:96</code> lets any request with the header <code>X-Cron-Auth: gae-cron</code> pass <code>cronOnly</code>. That guards <code>/cron/submit_orders</code>, <code>/cron/manage_exits</code> and the other cron routes. App Engine strips <code>X-Appengine-Cron</code> from outside requests, but nothing strips <code>X-Cron-Auth</code>, so anyone who knows the header can trigger live order submission on the appspot URL. The comment says it is a "local / test override used by deploy_gae docs", but the only users were the two <code>scripts/run_e2e_live*.sh</code> test scripts (I first missed them); they now send <code>X-Appengine-Cron: true</code>. <code>docs/Review.md</code> already flagged this. Delete the <code>X-Cron-Auth</code> branch (2 lines plus its comment).</p>
+</div>
+
+<div class="stats">
+<span><b>3</b> repos</span>
+<span><b>6</b> sections</span>
+<span><b>48</b> rows of aliases and leftovers</span>
+</div>
+
+<h2>1. Aliases</h2>
+<p class="sub">Every alias found in <code>cmd/</code>, <code>pkg/</code> and routes. Aliases keep old names alive forever; the rule in <code>CLAUDE.md</code> is one name per thing.</p>
+<div class="scroll"><table>
+<thead><tr><th>Repo</th><th>Where</th><th>What</th><th>Why it's old</th><th>Confidence</th></tr></thead>
+<tbody>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>pkg/dashboard/server.go:161-162</code></td>
+<td><code>/schwabstate</code> and <code>/listall</code> routes</td>
+<td class="e">Old names for <code>/account_state</code>. I kept them as "deprecated aliases" when I added <code>/account_state</code>; that was the wrong call. Only <code>README.md</code> and a test mention them. The <code>ui.html</code> has no button that links to them.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>cmd/orchestrator/main.go:75</code></td>
+<td><code>--auth</code>, <code>-auth</code> as subcommands</td>
+<td class="e">Flag-shaped spellings of the <code>auth</code> command. Nothing calls them.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>cmd/orchestrator/main.go:99</code></td>
+<td><code>list-strategies</code> (alias of <code>strategies</code>)</td>
+<td class="e">Second name for the same command; also listed twice in <code>commandNames</code>.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>cmd/orchestrator/main.go:105</code></td>
+<td><code>ui</code> (alias of <code>dashboard</code>)</td>
+<td class="e">Second name. The README also wrongly says <code>serve</code> is an alias of <code>dashboard</code>; it is a separate command.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>cmd/orchestrator/main.go:101, 1100-1106</code></td>
+<td><code>open-db</code> aliases <code>sqlswift</code>, <code>sqlite-reader</code>; reader names <code>sqlite-mavgo</code>, <code>mavgo</code>, <code>sqldoc</code>, <code>finder</code></td>
+<td class="e">Three names for one macOS "open this file" helper, with hard-coded <code>/Users/darianhickman/...</code> paths to <code>sqldoc.app</code>. It cannot run on GAE or any other machine, so it breaks the "CLI, local server and GAE" rule. Delete the whole <code>runOpenDB</code> command, or keep one reader.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>cmd/orchestrator/main.go:66, 127-170</code></td>
+<td><code>resolveCloseCommand</code>: fuzzy "closest match" for a mistyped subcommand</td>
+<td class="e">Silently runs a guessed command on a CLI that submits live orders. A typo should fail with usage, not guess. Delete the function and <code>commandNames</code>.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag sw">SW</span></td><td class="w"><code>cmd/schwaber/main.go:62, 66</code></td>
+<td><code>--auth</code>, <code>-auth</code>, <code>--listall</code>, <code>-listall</code></td>
+<td class="e">Flag-shaped duplicates of <code>auth</code> and <code>listall</code>.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag sw">SW</span></td><td class="w"><code>cmd/schwaber/main.go:~55</code></td>
+<td><code>-debug</code> and <code>-v</code> beside <code>--debug</code></td>
+<td class="e">Three spellings of one flag.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>pkg/strategy/*.go</code> (13 files, 40 <code>RegisterAlias</code> calls)</td>
+<td>Strategy aliases such as <code>SigVooBuyTecl</code>, <code>sigvoobuytecl</code>, <code>mara-tree</code>, <code>MARATree</code>, <code>maratree</code>, <code>GLDDecline</code>, <code>PDDTree</code>, <code>NVDLTree</code>, <code>tree-bounce-combo</code>, <code>TreeBounceCombo</code>, <code>voo-up3</code>…</td>
+<td class="e"><code>strategy.Get</code> already ignores case, dashes, underscores and spaces (<code>normalizeKey</code> in <code>registry.go</code>), so nearly all of these can never be needed. Delete every alias whose normalized form equals the ID's. Only aliases that are genuinely different names remain: <code>buy-and-hold</code> (old ID of <code>voo-buy-hold</code>), <code>mara_pdd_nvdl_combo</code> (old ID of <code>tree_bounce_combo</code>), <code>tsll-daily</code>. Check <code>STRATEGY_ALLOWLIST</code> and stored result DBs for those three before removing them.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>pkg/strategy/registry.go</code></td>
+<td><code>RegisterAlias</code> itself</td>
+<td class="e">Delete once the aliases above are gone. Also the normalized loop in <code>Get</code> is O(n) per lookup.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>pkg/study/gain_5pct_frequency.go:149</code></td>
+<td>second study <code>daily_gain_5pct_frequency</code> ("alias for convenience")</td>
+<td class="e">Registers a whole second study object as an alias.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>pkg/gridsearch/main.go:177-178, 229-245</code></td>
+<td>flags <code>-strat</code> and <code>-mode</code>, plus the <code>-mode</code> switch that maps <code>gld</code>, <code>bull</code>, <code>bear</code> to strategy IDs</td>
+<td class="e">Flag help says "Legacy compatibility alias for -strategy". <code>bull</code> and <code>bear</code> both map to the same strategy, so <code>bear</code> is meaningless. Also <code>Args[0]</code> positional fallback.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>pkg/backtest/main.go:151</code>, <code>pkg/strateval/cmd.go:113</code></td>
+<td>subcommand aliases <code>coveredcall</code>, <code>stackeval</code>, <code>browse</code> (= <code>status</code>)</td>
+<td class="e">Second spellings passed to <code>cliutils.PopSubcommand</code>. The alias map itself can become a plain list.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+</tbody></table></div>
+
+<h2>2. Legacy code paths and fields</h2>
+<div class="scroll"><table>
+<thead><tr><th>Repo</th><th>Where</th><th>What</th><th>Why it's old</th><th>Confidence</th></tr></thead>
+<tbody>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>pkg/download/main.go:116-146</code></td>
+<td><code>-seed-db</code> flag and <code>seedFromLegacy</code></td>
+<td class="e">Copies a "legacy <code>leveraged_backtest.db</code>" into place if the market DB is missing. That file predates <code>market_history.db</code>.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>strategy/strategy.go:107</code>, <code>gld_decline.go:91</code>, <code>sig_voo_buy_tecl.go:107</code>, <code>simulator/portfolio.go:230-250</code>, <code>runner/runner.go:146</code></td>
+<td>legacy <code>TargetPct</code> multiplier field, mirrored as <code>1.0 + takeProfitPct</code>, plus "legacy input tolerance" branches</td>
+<td class="e">Comments say <code>TakeProfitPct</code> is preferred and <code>TargetPct</code> is a mirror. TO's <code>check_health/contract.go</code> also carries a <code>TargetPct</code> branch. Migrate all strategies to <code>TakeProfitPct</code>, then delete the field and both branches.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>audit_shared/main.go:97</code>, <code>compare_annual_report/main.go:25</code></td>
+<td>fallback to the "legacy <code>SHARED_ACCOUNT</code> literal"</td>
+<td class="e"><code>SharedAccountID</code> now builds the real ID. Old result DBs are the only reason for the fallback.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag sw">SW</span></td><td class="w"><code>pkg/schwab/place_idempotent.go:51</code></td>
+<td>"Legacy path: no durable intents" (<code>intentStore == nil</code> places an order with no idempotency record)</td>
+<td class="e">Only tests and callers that skip the store use it. A live order with no intent record is exactly what the intent store exists to prevent. Make the store required.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag sw">SW</span> <span class="tag to">TO</span></td><td class="w"><code>schwaber/pkg/dbutil/dbutil.go</code> <code>SQLITE_FUSE_SAFE</code>; <code>schwaber/cmd</code> old <code>initDatabase</code> path</td>
+<td>the "legacy GCS FUSE" pragma set (<code>journal_mode=MEMORY</code>, <code>synchronous=OFF</code>)</td>
+<td class="e">Exists for the Cloud Run GCS-FUSE mount. <code>docs/Review.md</code> says Cloud Run is decommissioned; <code>app.yaml</code> runs GAE with Litestream on local <code>/tmp</code>.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>pkg/scan_market/scan.go</code> <code>resolveMarketDB</code>; <code>pkg/appconfig/appconfig.go:64-69</code></td>
+<td><code>BACKTEST_ROOT</code> and its default <code>/Users/darianhickman/Documents/backtestgosqlite</code></td>
+<td class="e">A hard-coded laptop path as a default. I kept this fallback in the last refactor; it should go. Set <code>MARKET_DB</code> or <code>APP_DATA</code> instead.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>pkg/appconfig/appconfig.go:20-27</code></td>
+<td>comments about the "legacy <code>APP_FOLDER</code>/<code>APP_DB</code>" and "legacy <code>schwaber.db</code> name"</td>
+<td class="e">Comments only. They describe a history, not behavior.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>pkg/dashboard/server.go:281</code></td>
+<td><code>scan_market_signal</code> labelled "legacy day rollup"</td>
+<td class="e">Still written by <code>stage_orders</code> and updated by <code>submit_orders</code>, so it is not dead. It's a candidate to fold into <code>scan_market_buy_signal</code> later. Not a delete today.</td><td class="c"><span class="tag check">Check</span></td></tr>
+</tbody></table></div>
+
+<h2>3. Dead deploy targets</h2>
+<p class="sub">You run on App Engine only (<code>docs/Review.md</code>: "now GAE-only, Cloud Run just decommissioned").</p>
+<div class="scroll"><table>
+<thead><tr><th>Repo</th><th>Where</th><th>What</th><th>Why it's old</th><th>Confidence</th></tr></thead>
+<tbody>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>ARCHIVE/deploy_cloudrun/</code> (19 files)</td>
+<td>Cloud Run Dockerfile, cloudbuild, service.yaml, scheduler and job setup scripts</td>
+<td class="e">Cloud Run decommissioned. The folder is in git history if you ever want it back.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>ARCHIVE/deploy_droplet/</code> (7 files)</td>
+<td>DigitalOcean droplet deploy, crontab, disk util</td>
+<td class="e">README calls it "older". Not used.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag sw">SW</span></td><td class="w"><code>deploy/</code> (<code>INSTALL.md</code>, <code>schwaber-jobs.service</code>, <code>.timer</code>)</td>
+<td>systemd timer setup for a DigitalOcean NYC droplet</td>
+<td class="e">Same droplet deploy, superseded by GAE.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag sw">SW</span></td><td class="w"><code>.github/workflows/deploy.yml</code></td>
+<td>"Deploy Schwaber to NYC Droplet" on every push to main; pins Go 1.22</td>
+<td class="e"><code>go.mod</code> requires Go 1.26, so the test step cannot build. Deploys to a droplet you no longer use.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>scripts/gae_only.sh</code></td>
+<td>one-time migration: delete Cloud Scheduler triggers, verify no Cloud Run, redeploy cron</td>
+<td class="e">A finished migration. Run once and remove.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>README.md</code> lines 65, 77, 232-233, 246-264; <code>deploy_gae/README.md</code> lines 5, 40, 82, 90, 106, 110; <code>docs/Purpose.md:18</code></td>
+<td>sections "Deploying to Cloud Run", <code>deploy_cloudrun/local-build.sh</code>, "non-GCP target: <code>deploy_droplet/</code>", Cloud Run Scheduler comparisons</td>
+<td class="e">Describe deploy paths that no longer exist. <code>README.md</code> links to <code>deploy_cloudrun/README.md</code>, which moved to <code>ARCHIVE/</code>.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+</tbody></table></div>
+
+<h2>4. Scripts and files that point at things that no longer exist</h2>
+<div class="scroll"><table>
+<thead><tr><th>Repo</th><th>Where</th><th>What</th><th>Why it's old</th><th>Confidence</th></tr></thead>
+<tbody>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>scripts/realmoney.sh</code></td>
+<td>runs auth, account_state, scan_market --live, submit_orders --live</td>
+<td class="e"><code>cd ~/Documents/trade_orchestrator</code> and <code>APP_DB=schwaber.db</code>: the project now lives under <code>trade_well/</code> and the DB is <code>orchestrator.db</code>. It would fail, and it is a live-money script with stale paths.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>scripts/kill-stuck.sh</code></td>
+<td><code>pkill -f claude</code> and disk analysis</td>
+<td class="e">A dev-machine helper for killing Claude processes. Not part of the trading stack.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>scripts/strateval_report.sh</code>, <code>scripts/strateval.cron.example</code></td>
+<td>wrappers that <code>cd</code> to <code>$HOME/Documents/backtestgosqlite</code> and <code>go run ./cmd/strateval</code></td>
+<td class="e">A shell shim around a BT command with a hard-coded path. Call the BT package directly.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>docs/DataNeeds.md:18</code>, <code>README.md:209, 217, 227</code></td>
+<td>references to <code>internal/jobs/job_schwabstate.go</code>, <code>jobs.InitTradeTables</code>, <code>internal/jobs/</code></td>
+<td class="e">There is no <code>internal/</code> directory. Code is in <code>pkg/</code> and each package owns its own <code>EnsureSchema</code>.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>Why?.txt</code></td>
+<td>your draft of the <code>CLAUDE.md</code> request</td>
+<td class="e">Now captured in <code>trade_well/CLAUDE.md</code>. Your file, so your call.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag sw">SW</span></td><td class="w"><code>paper_portfolio.json</code></td>
+<td>a virtual "PAPER-ROTH-IRA" account</td>
+<td class="e">No Go file in schwaber references <code>paper_portfolio</code> or a paper account.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag sw">SW</span></td><td class="w"><code>tests/</code>, <code>.pytest_cache/</code></td>
+<td>an empty directory and a pytest cache in a Go repo</td>
+<td class="e">Nothing in them.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag sw">SW</span></td><td class="w"><code>SchwabAPI.html</code>, <code>docs/Trader API - ….html</code> and its <code>_files/</code> folder</td>
+<td>saved copies of the Schwab developer portal page, with its JS bundles</td>
+<td class="e">Tracked in git, includes third-party scripts. Keep a link instead. Remove unless you read it offline.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag sw">SW</span></td><td class="w"><code>SETUP_GUIDE.md</code></td>
+<td>setup guide dated Sep 5</td>
+<td class="e">Not checked line by line. It predates the GAE, tokensync and GCS-token flow, so it likely describes the old droplet setup.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>ARCHITECTURE_PROPOSALS.md</code>, <code>Comparison.md</code></td>
+<td>Sep 7 "future architecture" and comparison notes</td>
+<td class="e">Proposals refer to <code>internal/analytics/html_report.go</code>, a path that does not exist. Not linked from README or Makefile.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>python/deap_optimizer.py</code>; <code>pkg/strategy/failed_training/genetic_momentum.go:93</code></td>
+<td>a Python genetic optimizer shelled out from Go</td>
+<td class="e">Its only caller is a <code>//go:build ignore</code> file in <code>failed_training</code>, so it never runs. Also breaks "Go controls execution, SQL calculates". The <code>python/.venv</code> next to it is large.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+</tbody></table></div>
+
+<h2>5. Archived and never-built code</h2>
+<div class="scroll"><table>
+<thead><tr><th>Repo</th><th>Where</th><th>What</th><th>Why it's old</th><th>Confidence</th></tr></thead>
+<tbody>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>_archive/</code> (Whitings Creek: 2 Go files, 14 SQL stages, docs)</td>
+<td>strategies archived 2026-09-14</td>
+<td class="e">Its README says it is excluded from the build and not runnable. In git history.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>pkg/strategy/failed_training/</code> (29 tracked files)</td>
+<td>strategies that "failed the backtest bar", all <code>//go:build ignore</code></td>
+<td class="e">Never compiled or registered. <code>registry_test.go</code> only asserts they are <em>not</em> registered; drop that list entry too.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>pkg/strategy/ARCHIVE/</code> (<code>voo_tecl_spxu_combo</code> + test)</td>
+<td>archived combo strategy</td>
+<td class="e">Tagged <code>//go:build ignore</code>, so it is never compiled. Also asserted-absent in <code>registry_test.go</code>.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>examples/custom_csv_backtest/</code></td>
+<td>CSV sandbox example, run by <code>make</code> target and README section</td>
+<td class="e">Still wired in Makefile and README, so a real decision: delete it together with the Makefile line and the README paragraph, or keep it as a test fixture.</td><td class="c"><span class="tag check">Check</span></td></tr>
+</tbody></table></div>
+
+<h2>6. Binaries, logs and databases lying around</h2>
+<p class="sub">Most are git-ignored, so they cost disk, not repo history. The one that is tracked is called out.</p>
+<div class="scroll"><table>
+<thead><tr><th>Repo</th><th>Where</th><th>What</th><th>Size / state</th><th>Confidence</th></tr></thead>
+<tbody>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>compare_annual_report</code> (repo root)</td>
+<td>compiled binary, <strong>tracked in git</strong></td>
+<td class="e">7.8 MB binary in the repo, and <code>bin/compare_annual_report</code> is the built copy. <code>git rm</code> it and ignore it.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>tmp/main</code>, <code>tmp/build-errors.log</code></td>
+<td>an <code>air</code> build output from Sep 16 and its error log</td>
+<td class="e">30 MB, ignored. <code>air</code> now writes to <code>bin/</code>.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>schwaber.db</code>, <code>schwaber.db-shm/-wal</code> (repo root); <code>schwab_api.log</code> (2 MB)</td>
+<td>the old DB name and a request log</td>
+<td class="e">The orchestrator DB is <code>orchestrator.db</code> now. Last write to <code>schwaber.db</code> was Sep 21. Ignored by git.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag sw">SW</span></td><td class="w"><code>schwaber</code> (29 MB binary at repo root), <code>bin/schwaber</code>, <code>schwab_api.log</code>, <code>schwaber.db</code>, empty <code>token.json.lock</code></td>
+<td>build output and runtime files</td>
+<td class="e">The Makefile builds to <code>bin/</code>; the root-level binary is a stray <code>go build</code>. Ignored by git.</td><td class="c"><span class="tag safe">Safe</span></td></tr>
+<tr><td class="r"><span class="tag bt">BT</span></td><td class="w"><code>bin/</code> (195 MB), <code>.venv/</code> (249 MB), <code>python/.venv</code>, <code>reports/</code> (1.2 GB)</td>
+<td>build output, a Python venv, generated HTML reports</td>
+<td class="e">All ignored. <code>reports/</code> is regenerated by commands; the venvs exist only for <code>python/deap_optimizer.py</code> above.</td><td class="c"><span class="tag check">Check</span></td></tr>
+<tr><td class="r"><span class="tag to">TO</span></td><td class="w"><code>vendor/</code> (150 MB), <code>.deploy_cache/</code></td>
+<td>vendored dependencies and deploy hashes</td>
+<td class="e"><code>vendor/</code> is git-ignored yet <code>app.yaml</code> builds with <code>-mod=vendor</code>, and each SW/BT change needs <code>go mod vendor</code>. Dropping vendoring for a <code>go.work</code> setup would remove this whole class of stale-copy bug. That is a design change, not a cleanup.</td><td class="c"><span class="tag check">Check</span></td></tr>
+</tbody></table></div>
+
+<h2>Where I'd start</h2>
+<ol>
+<li><strong>The <code>X-Cron-Auth</code> bypass.</strong> Two lines, and it is the only item here that is a live risk.</li>
+<li>All <span class="tag safe">Safe</span> rows in sections 1, 3 and 4: aliases, <code>ARCHIVE/</code>, droplet files, dead scripts. This is the bulk, and each is a single delete.</li>
+<li>BT strategy aliases: delete the ones <code>normalizeKey</code> already covers (about 30 of 40), keep the three real renames until you check <code>STRATEGY_ALLOWLIST</code> and old result DBs.</li>
+<li>Section 5 archives and the tracked <code>compare_annual_report</code> binary.</li>
+<li>The <span class="tag check">Check</span> rows one at a time.</li>
+</ol>
+<footer>
+<h2>Not checked</h2>
+<ul>
+<li>I did not open every script (<code>run_e2e_live*.sh</code>, <code>verify_dbsync.sh</code>, <code>cf_mavgo_callback.sh</code>) or every doc line for staleness, so they are not listed.</li>
+<li>"No references found" means no match in <code>.go</code>, <code>.md</code>, <code>.sh</code> and <code>.yaml</code> in the three repos. Anything outside them (cron jobs on your Mac, shell aliases, other projects) is invisible to me.</li>
+<li>The alias count for BT strategies is by <code>RegisterAlias</code> call; I did not verify each one individually against <code>normalizeKey</code>.</li>
+</ul>
+</footer>
+</div>
