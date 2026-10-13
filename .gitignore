@@ -1,7 +1,8 @@
 # already in git
 backtestgosqlite/
 backtestgoduckdb/
-1schwaber/
+backtestgo/
+schwaber/
 trade_orchestrator/
 
 # Binaries and compiled output
