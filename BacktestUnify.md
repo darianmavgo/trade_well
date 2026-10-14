@@ -1,3 +1,5 @@
+> **Superseded 2026-10-13** by `BacktestConsolidation.md`: `backtestgosqlite` is now the survivor and `backtestgo` is being retired.
+
 # Plan: Unify backtestgosqlite and backtestgoduckdb (rev 3, in progress)
 
 Goal state: `backtestgo` replaces both parent repos once it passes tests and succeeds in production.

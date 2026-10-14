@@ -1,3 +1,5 @@
+> **Updated 2026-10-13:** `backtestgo` is retired (`BacktestConsolidation.md`). Rows, models and market data now live in `backtestgosqlite/{refdata,data}`, and `scripts/export_strategies.sh` reads only `backtestgosqlite`. Read "backtestgo" below as `backtestgosqlite`; the three-piece split is now two pieces.
+
 # Mixed backtest usage: what deploys strategies today
 
 "Mixed" because deployment currently uses **three** backtest-side pieces at once, while [BacktestUnify.md](BacktestUnify.md) is still in progress:
