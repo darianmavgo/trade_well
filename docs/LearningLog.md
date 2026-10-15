@@ -139,7 +139,7 @@ Standing result as of 2026-10-02: no stack reached 79% CAGR with drawdown under 
 - `check_health` audits every position: tracked? strategy known? entry and fill recorded? exit date equals fill date plus hold? take-profit and stop at the broker match the strategy? Overall status rolls up to HEALTHY / WARNING / ACTION_REQUIRED.
 - **One-share ops strategy** (`tsll-daily-one-share`): a strategy that exists to exercise the pipeline daily, not to make money.
 
-**Security and risk gaps recorded 2026-09-21..23** (some fixed in code, not all verified deployed): a hardcoded `X-Cron-Auth` bypass on the public cron URL (removed in code); OAuth tokens logged in plaintext; no max-positions limit or daily-loss breaker; no retry/backoff on 429/5xx; partial fills unhandled; no Litestream restore drill; failure emails only on `account_state`.
+**Security and risk gaps recorded 2026-09-21..23** (some fixed in code, not all verified deployed): a hardcoded `X-Cron-Auth` bypass on the public cron URL (removed in code); OAuth tokens logged in plaintext; no max-positions limit (the daily-loss breaker, drawdown ladder and exposure cap now exist in `pkg/risk`; see `RiskControls.md`); no retry/backoff on 429/5xx; partial fills unhandled; no Litestream restore drill; failure emails only on `account_state`.
 
 ---
 
