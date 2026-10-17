@@ -25,6 +25,8 @@ Written 2026-10-15 from a read-only scan of `schwaber`, `trade_orchestrator`, `b
 | Hold window exits | `manage_exits` at 09:35 and 15:50 ET; exit date counted in NYSE trading days from the actual fill. | `trade_orchestrator/pkg/manage_exits` | yes |
 | `check_health` | Audits each position: tracked, strategy known, exit date, broker stop and take-profit match. Rolls up to HEALTHY / WARNING / ACTION_REQUIRED and is emailed. | `trade_orchestrator/pkg/check_health` | yes |
 | Live vs model | Slippage in basis points, weekly digest, strategy status. | `pkg/reconcile_trades`, `pkg/audit_slippage`, `pkg/strategy_status` | yes |
+| Order caps | One order up to 60% of equity, 40 entry orders a session, 60 open positions. Read from `risk_state`. | `trade_orchestrator/pkg/risk/orders.go`, `submit_orders.go` `riskGate` | yes |
+| Auto-killswitch | Engages the killswitch on a 35% drawdown or 6 failed runs in a row of `stage_orders` / `submit_orders`. | `trade_orchestrator/pkg/risk/autokill.go` | yes |
 | Cron auth | Google ID token with email in `CRON_ALLOWED_EMAILS`. | `trade_orchestrator/pkg/appserve/cronauth.go` | not checked |
 | Failure alerts | `job_runs` records failures; report emails from `scan_market`, `stage_orders`, `manage_exits`, `check_health`; `account_state` retried. | `pkg/appserve/cron.go` | partly |
 | Refresh token guard | Prevents re-arming a consumed Schwab refresh token. | `schwaber/pkg/tokensync/tokensync.go` | not checked |
@@ -32,37 +34,40 @@ Written 2026-10-15 from a read-only scan of `schwaber`, `trade_orchestrator`, `b
 
 ## 3. Fail-open behaviours
 
-These let an order through when a control cannot do its job.
+Updated 2026-10-15 after the first round of fixes.
 
-1. **Buying power of 0 or unreadable passes `ValidateOrder`.** The check is `requiredCash > availableCash && availableCash > 0` (`schwaber/pkg/trader/safety.go`). This is a bug.
-2. **Unreadable risk state does not block.** `submit_orders.go:350` logs "risk state unreadable, not blocking"; `stage_orders/run.go:100` behaves the same.
-3. **Unreadable killswitch config or database reads as OFF** (`trade_orchestrator/pkg/appserve/killswitch.go:21-40`). The code comment says this is deliberate, because the jobs need the same database.
-4. **Price collar is a warning only.** A limit more than 15% from market still goes out.
+| Behaviour | Status |
+|---|---|
+| Buying power of 0 or unreadable passed `ValidateOrder` | **Fixed**: a buy with no reported buying power is refused (`schwaber/pkg/trader/safety.go`, test added) |
+| Unreadable risk state did not block | **Fixed** for live runs: `stage_orders` stages nothing and `submit_orders` leaves the buy PENDING as `RISK_UNREADABLE`. Dry runs only warn. |
+| Unreadable killswitch config or database reads as OFF (`appserve/killswitch.go`) | **Left as is, on purpose**: every job needs the same database, so if it cannot be read the jobs fail on their own. |
+| Price collar was a 15% warning only | **Changed**: warns at 50% and refuses at 100% (`PRICE_COLLAR_WARN_PCT`, `PRICE_COLLAR_REJECT_PCT`). A price below the market is at most 100% away, so a too-low typo can only warn; the per-order cap in `pkg/risk` is what bounds it. |
+| A canceled or expired order that partly filled was reported as "never filled, no position opened" | **Fixed**: reported as `PARTIAL_FILL_ACTION_NEEDED` on every run, shares not hidden. The shares are not adopted automatically (see gaps). |
 
 ## 4. Gaps
 
-Ranked by risk reduction per effort; each names the owning layer.
-
-| # | Missing control | Owner |
+| # | Control | Status |
 |---|---|---|
-| 1 | Fix the buying-power bypass (reject on 0 or unreadable) | `schwaber/pkg/trader/safety.go` |
-| 2 | Fail closed on unreadable risk state and killswitch config for live submits; dry-run may continue | `submit_orders`, `stage_orders`, `appserve/killswitch.go` |
-| 3 | Make the 15% price collar a rejection (configurable) | `safety.go` |
-| 4 | Per-order dollar cap, per-account daily order count, max open positions (none exist; `safety.go` says so deliberately) | `pkg/risk`, `RISK_*` env |
-| 5 | Auto-killswitch on N consecutive job failures, a hard drawdown breach, or an order-count spike (killswitch is manual only) | `pkg/risk` calling `pkg/killswitch` |
-| 6 | Hard-drawdown flatten step (for example 30%) calling `exit_market`; off by default, needs a decision | `pkg/risk` |
-| 7 | Stale-data gate at submit: block when scan data or account equity is too old | `submit_orders`, `pkg/risk` |
-| 8 | Leverage-aware exposure: weight 2x/3x/inverse ETFs (TECL, TSLL, MULL) in gross exposure; per-symbol and per-sector caps. The 100% cap ignores leverage. | `pkg/risk` plus a leverage-factor table |
-| 9 | Cross-account aggregate exposure (risk state is per account) | `pkg/risk` |
-| 10 | Schwab refresh-token expiry alert (about 7 days) and a dead-man's switch for crons that did not run (email is sent by the job itself) | `check_health`, `tokensync` |
-| 11 | Liquidity cap at order time (share of ADV); only backtests check it | `stage_orders` sizing |
-| 12 | Retry/backoff on 429/5xx and partial-fill handling | `schwaber` client |
-| 13 | Failure emails for every job, not four | `appserve/cron.go` |
+| 1 | Buying-power bypass | Done |
+| 2 | Fail closed on unreadable risk state | Done (killswitch left open, see above) |
+| 3 | Price collar | Done, 50% warn / 100% reject |
+| 4 | Per-order, per-day and open-position caps | Done: `RISK_MAX_ORDER_PCT` 0.60, `RISK_MAX_ORDERS_PER_DAY` 40, `RISK_MAX_POSITIONS` 60 |
+| 5 | Auto-killswitch | Done: `RISK_AUTOKILL_DRAWDOWN` 0.35, `RISK_AUTOKILL_FAILURES` 6. Runs in the `risk` job (09:17 and 16:18 ET). It stops every cron job, exits included, and sells nothing. |
+| 6 | Hard-drawdown flatten | **Not built, undecided.** The auto-killswitch emails the `orchestrator exit_market` command at 35% instead of selling. |
+| 7 | Stale-data gate at submit | Detection exists (`check_health` `stale_account_snapshot` at 20h, the `risk` job skips a mirror older than 4 days, `scan_market` names a stale source). Nothing blocks `submit_orders` on stale data. `submit_orders` reads live balances from the broker, so equity is current at submit. A stale `risk_state` (the `risk` job stopped) is not blocked. |
+| 8, 9 | Leverage-aware exposure, cross-account exposure | Skipped by decision |
+| 10 | Token expiry warning, dead-man's switch | Already existed: `ready` warns under 48 hours of refresh-token life and `/cron/ready` emails when anything is not OK; `check_health` pipeline rows flag jobs that did not run. |
+| 11 | Liquidity cap | Not in live trading. The 5% of bar volume cap (`max_bar_volume_share` 0.05) was a setting in the retired `backtestgo`; `backtestgosqlite` has the field but it is **off by default** (`docs/BacktestGoSettings.md`). So backtests may not apply it either, depending on the strategy config. |
+| 12 | Retry/backoff on 429/5xx | Done for GET requests only: 3 retries at 0.5s, 1.5s, 4s, honouring `Retry-After` up to 10s (`schwaber/pkg/schwab/retry.go`). Order placement is never retried. The loop itself is untested (no fake servers); the decision functions are tested. |
+| 12b | Partial fills | Detected and flagged (above). **Open:** no automatic adoption of the filled shares into `manage_exits`, and it is not known whether Schwab activates the take-profit and stop legs of a bracket for a partly filled parent. |
+| 13 | Failure emails for every job | `writeJobErr` already emailed every cron failure. They are now HTML, built on the same report template as each job's own email. |
 
 ## 5. Untested paths
 
 - `schwaber/pkg/killswitch` and `ibkr_api/pkg/killswitch` have no test files. Under the no-mocks rule they can only be covered by dry-run on real data; until that exists they are untested.
 - Broker order paths are covered only by dry-run and preview, never by a live test.
+- The GET retry loop in `schwaber/pkg/schwab/retry.go` has no test of the loop itself (a test would need a fake server, which the project forbids). The partial-fill branch in `reconcilePendingFill` is tested only through its decision function `endedPartlyFilled`.
+- `trade_orchestrator/pkg/appserve/cron.go` has `var sendFailureEmail`, a swappable function used by `cron_test.go`. That is a fake under rule 4. It predates this work and was left in place; remove it only if you ask.
 - Plaintext OAuth token logging was recorded as a gap on 2026-09-23. `schwaber/pkg/schwab/client.go` appears to log only a pull message, but it was not audited in full.
 - The Litestream restore drill has never been recorded.
 
