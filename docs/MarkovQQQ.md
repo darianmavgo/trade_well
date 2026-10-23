@@ -7,20 +7,23 @@ How to train, test and run one hidden Markov model (HMM) on QQQ (the Nasdaq 100 
 
 This is not the `markov_*` strategy family described in `CorrectlyUsingMarkov.md`. That family has no hidden state: it buckets the 20-day return at ±5% and counts transitions between the buckets. Here the regime is never observed. It is inferred from returns and volatility.
 
-## Status: read this first
+## Status
 
-The steps below are marked by whether the code exists today. Commands marked **BUILT** were run while writing this doc. Commands marked **PLANNED** do not exist yet; their shape is the design in `~/.claude/plans/enchanted-singing-wren.md` and will change if the implementation does. Do not paste a PLANNED command expecting it to work.
+Everything in this document is built and tested as of 2026-10-23. Commands were run against the real QQQ history; the output shown in section 4 is from that run.
 
-| Step | What | Status |
+| Step | What | Where |
 |---|---|---|
-| 1 | Backfill QQQ daily bars (2010 onward) | **BUILT** `daily_bars` |
-| 2 | HMM math: fit, forward filter | **BUILT** `backtestgosqlite/pkg/hmm`, unit-tested on synthetic data |
-| 3 | SQL input stage (return, realized volatility) | PLANNED |
-| 4 | `train hmm` (fit with a cutoff, write model tables) | PLANNED |
-| 5 | Out-of-sample report | PLANNED |
-| 6 | `ExtendHMM` (daily update with frozen parameters) | PLANNED |
-| 7 | `regime_predict` daily job in `trade_orchestrator` | PLANNED |
-| 8 | Bundle export and `/ready` check | PLANNED |
+| 1 | Backfill QQQ daily bars (2010 onward) | `backtestgosqlite` `daily_bars` |
+| 2 | HMM math: fit, forward filter | `backtestgosqlite/pkg/hmm` |
+| 3 | SQL input stage (return, realized volatility) | `sql/stages/hmm_inputs` |
+| 4 | Train with a cutoff, write model tables | `train hmm` |
+| 5 | Compare state counts, out-of-sample report | `train hmm compare`, `train hmm report` |
+| 6 | Daily update with frozen parameters | `train hmm extend` (`ExtendHMM`) |
+| 7 | Daily job | `trade_orchestrator` `regime_predict` (CLI, `/cron/regime_predict`, 17:00 ET Mon-Fri) |
+| 8 | Bundle export and `/ready` check | `scripts/export_strategies.sh`, check `hmm_model` |
+| 9 | Strategy family `hmm` and two QQQ strategies | `backtestgosqlite/pkg/hmm_strategy`, `sql/strategies/hmm_strategy`, section 6 |
+
+Three things are not automated on purpose: **training** (a deliberate command, never part of the daily job or of `train all`), **deploying** the refreshed bundle (run `scripts/export_strategies.sh`, then `go mod vendor`, then deploy), and **trading** the regime (the two `hmm` strategies are not in `STRATEGY_ALLOWLIST`; section 6).
 
 ## 1. The data: QQQ daily bars  (BUILT)
 
@@ -98,7 +101,7 @@ Free parameters: `k = (N−1) + N(N−1) + N·D + N·D(D+1)/2 = 2 + 6 + 6 + 9 = 
 EM only finds a local maximum, so `Fit` runs a deterministic quantile start (states initialised from return terciles) plus 4 seeded random restarts and keeps the highest LL. The same data and seed always give the same model.
 
 Guards (the fit is refused, not silently weakened):
-- fewer than `10 × k` bars (230 for N = 3, D = 2);
+- fewer than `10 × k` bars (230 for N = 3, D = 2) in `pkg/hmm`, and fewer than `-min-bars` (default 1,000, about four years) in-sample sessions in `train hmm`;
 - any non-finite observation;
 - any state that owns under 2% of the bars (`ErrDegenerate`).
 
@@ -151,53 +154,205 @@ Parameters are frozen between retrains, so they age. Retrain on a schedule you c
 
 ## 3. Commands
 
-### 3.1 Build and unit-test the math  (BUILT)
+All paths below are relative to `/Users/darianhickman/Documents/trade_well`. Build once:
 
 ```bash
-cd /Users/darianhickman/Documents/trade_well/backtestgosqlite
-go build ./... && go vet ./pkg/hmm && go test ./pkg/hmm ./pkg/dailybars
+cd backtestgosqlite
+go build -o ./bin ./cmd/daily_bars ./cmd/train
 ```
 
-The `pkg/hmm` tests use seeded synthetic series with known regimes: they check sorted labels, recovered means, probabilities summing to 1, determinism for a seed, and the no-look-ahead property.
+Files: bars in `data/daily_bars.db`; model in `data/hmm_models.db` (override with `-bars-db` / `-model-db`; `APP_FOLDER` moves the whole `data/` folder). Both are git-ignored.
 
-### 3.2 Train  (PLANNED, not built)
-
-Design: a `train hmm` family beside `train markov`, reading `daily_bar` for QQQ, with `-through` defaulting to the newest bar minus 12 months. It would write `data/hmm_models.db` (`hmm_model_meta`, `hmm_params`, `hmm_transition`, `hmm_prediction`).
+### 3.1 Test the math  (read-only)
 
 ```bash
-# PLANNED: the flags are the design, not a working interface
-./bin/train hmm -symbols QQQ -states 3                      # live by default
-./bin/train hmm -symbols QQQ -states 3 -through 2025-10-22  # explicit cutoff
+cd backtestgosqlite
+go test ./pkg/hmm ./pkg/dailybars ./pkg/train
 ```
 
-### 3.3 Compare state counts  (PLANNED)
+The tests use seeded synthetic series with known regimes and a temp SQLite. They check: sorted labels; recovered means; probabilities summing to 1; no look-ahead; the SQL inputs against an independent Go calculation; that bars after `-through` never change the fit; and that **extending a model gives exactly the rows a full train with the same cutoff gives**.
 
-Fit N = 2, 3, 4 on the same in-sample bars and tabulate `LL`, `BIC` and each state's occupancy.
-
-### 3.4 Daily prediction  (PLANNED)
+### 3.2 Refresh the data
 
 ```bash
-# PLANNED in trade_orchestrator: pkg/regime_predict, same name as CLI, /cron/regime_predict and job_runs
-orchestrator regime_predict --dry-run     # previews, leaves the database untouched
-orchestrator regime_predict               # live by default
+./bin/daily_bars -dry-run     # download and report, write nothing
+./bin/daily_bars              # replace QQQ's history in data/daily_bars.db
 ```
+
+### 3.3 Compare state counts  (read-only)
+
+```bash
+./bin/train hmm compare                  # 2, 3 and 4 states on the same in-sample sessions
+./bin/train hmm compare -states 3,4,5,6
+```
+
+### 3.4 Train  (writes data/hmm_models.db)
+
+```bash
+./bin/train hmm -dry-run                 # fit and print, save nothing
+./bin/train hmm                          # QQQ, 3 states, newest bar minus 12 months as the cutoff
+./bin/train hmm -through 2025-10-22      # explicit cutoff (the in-sample end)
+./bin/train hmm -states 3 -seed 1        # same data and seed always give the same model
+```
+
+Flags: `-symbols` (default QQQ), `-states` (2 to 6), `-through`, `-from`, `-holdout-months` (12), `-min-bars` (1000), `-seed`, `-calc-dir` (keep the SQL slice tables of the build for inspection), `-dry-run`. Training **replaces** the symbol's saved model and all its predictions. Sessions after `-through` are filtered with the frozen parameters and flagged `in_sample = 0`.
+
+### 3.5 Out-of-sample report  (read-only)
+
+```bash
+./bin/train hmm report
+```
+
+### 3.6 Daily update  (writes data/hmm_models.db)
+
+```bash
+./bin/daily_bars                         # 1. refresh the bars
+./bin/train hmm extend -dry-run          # 2. preview: prints the regime and next-session odds
+./bin/train hmm extend                   # 3. append predictions for the new sessions (no refit)
+```
+
+`extend` refuses a symbol with no saved model, and refuses if the bars now start on a different date than the model was fit from (a sign the history changed: retrain).
+
+### 3.7 The deployed job  (trade_orchestrator)
+
+```bash
+cd trade_orchestrator
+go build -o ./bin ./cmd/orchestrator
+./bin/orchestrator regime_predict --dry-run   # downloads to a scratch folder; writes nothing
+./bin/orchestrator regime_predict             # live: extends the model, saves to regime_prediction
+```
+
+It is also `GET /cron/regime_predict[?dry_run=1]`, scheduled 17:00 ET Mon-Fri in `deploy_gae/cron.yaml` and in `job_runs.Schedule`. It refreshes QQQ's bars itself, so it needs no `daily_bars` step. It **fails** (and records nothing) if the newest QQQ bar is older than the last completed session, rather than report an old regime as current. The first output line is what `job_runs` keeps:
+
+```
+OK regime_predict symbol=QQQ as_of=2026-10-22 regime=2 (98%) next=2 (94%) new_sessions=1 trained_through=2025-10-22
+```
+
+The App Engine instance's model file is ephemeral (it restarts from the bundled copy), so the durable answer is the `regime_prediction` table in the orchestrator database: one row per `symbol, as_of_date` with `regime`, `regime_prob`, `probs`, `next_regime`, `next_regime_prob`, `next_probs` (JSON arrays by state).
+
+### 3.8 Retrain and redeploy
+
+```bash
+cd backtestgosqlite
+./bin/daily_bars && ./bin/train hmm compare && ./bin/train hmm && ./bin/train hmm report
+
+cd ../trade_orchestrator
+scripts/export_strategies.sh      # re-exports the bundle, including data/hmm_models.db -> pkg/strategies/deploy/hmm_models.db
+go mod vendor                     # then build, test and deploy as usual
+```
+
+`/ready` shows a `hmm_model` check: ok when the model is current; warn when it trails the last session (normal until 17:00 ET) or its parameters are over two years old; bad when the bundle has no QQQ model.
 
 ## 4. How to know it is working
 
-Run these on the held-out year, using only the frozen model. None of them prove the model will make money; they check that it is describing the data honestly.
+Run `train hmm report` and check these on the held-out year. None prove the model will make money; they check that it describes the data honestly.
 
-1. **Likelihood per bar.** OOS average log-likelihood per bar should be close to the in-sample value. A big drop means the regimes shifted or the fit overfit.
-2. **Regimes differ.** Per regime, OOS mean return and mean volatility should be ordered like the fitted `μ`. If the bear and bull states look the same OOS, the model has no signal.
-3. **Persistence.** Observed average run length per regime should be near `1 / (1 − A_ii)`. A regime that flips every day means the emissions overlap and the labels are noise.
-4. **Stability across refits.** Refit with `through` a few months earlier or later; the sorted `μ` and `A` should move only a little.
-5. **Compare against a trivial rule.** For any use as a filter or risk overlay, compare to something dumb (price above its 200-day average). If the HMM doesn't beat it OOS, it adds complexity for nothing.
+1. **Likelihood per bar.** OOS mean log-likelihood per bar should be close to in-sample. A big drop means the regimes shifted or the fit overfit.
+2. **Regimes differ.** Per regime, OOS mean return and volatility should be ordered like the fitted `μ`. If regimes look the same OOS, the model has no signal.
+3. **Persistence.** Observed average run length per regime should be near `1 / (1 − A_ii)`. A regime that flips daily means the emissions overlap and the labels are noise.
+4. **Stability across refits.** Refit with `-through` a few months earlier or later; sorted `μ` and `A` should move only a little.
+5. **Compare against a trivial rule** (price above its 200-day average) before using it for anything.
+
+### Actual results (2026-10-23, QQQ, 3 states, learned 2010-02-02 to 2025-10-22, 3,956 sessions)
+
+```
+state  mean ret  mean vol   P(stay)   expected
+0        -0.029%     1.990%    0.982    54.7d
+1        +0.102%     0.666%    0.972    35.8d
+2        +0.103%     1.090%    0.963    27.2d
+
+sample          state  days   mean ret   mean vol   avg run   LL/bar
+in-sample       0      985       +0.002%     1.980%     44.8d    5.928
+in-sample       1      1453      +0.074%     0.664%     26.9d    8.630
+in-sample       2      1518      +0.111%     1.084%     20.5d    8.095
+out-of-sample   0      70        +0.116%     1.639%     35.0d    6.397
+out-of-sample   1      34        -0.005%     0.827%     17.0d    8.171
+out-of-sample   2      147       +0.052%     1.101%     29.4d    8.139
+mean log-likelihood per bar, in-sample: 7.7518      out-of-sample: 7.6573
+```
+
+As of the close of 2026-10-22 the model says state 2 (98%), and 94% state 2 for the next session.
+
+What this says:
+- **Check 1 passes**: OOS log-likelihood per bar (7.66) is close to in-sample (7.75).
+- **The regimes are volatility regimes, not bull/bear.** State 0 is high volatility (about 2% a day) with roughly zero mean return, state 1 is calm (0.67%), state 2 is moderate (1.09%). States 1 and 2 have almost the same mean return (+0.102% and +0.103%). "State 0 = bear, 2 = bull" would be a misreading: read state 0 as "stressed", 1 as "calm", 2 as "normal".
+- **Because the two upper states barely differ in mean return, sorting by return does not order them stably.** A refit could swap states 1 and 2. Ordering by mean volatility instead would be stable here. This is a design choice for you to make; nothing downstream depends on it yet (see 5).
+- **Persistence (check 3)**: observed average runs (44.8, 26.9, 20.5 days in-sample) are shorter than the fitted expectations (54.7, 35.8, 27.2). Runs are broken by days where the filtered argmax briefly flips; reasonable, not alarming.
+- **OOS sample is thin**: only 34 days in state 1 out of sample.
+- **State count.** BIC improves at every step: 2 states −58,155; 3 −61,142; 4 −62,708; 5 −64,085; 6 −65,190. It never levels off. That is not evidence for more states: the overlapping volatility feature (section 5) inflates the likelihood, and a model that always prefers more states cannot choose one. N = 3 was chosen by the plan, not by BIC.
 
 ## 5. Known limitations and open items
 
 - **Overlapping volatility.** `v_t` is a 20-day window, so consecutive values share 19 returns and are strongly autocorrelated. The HMM assumes observations are independent given the state. This overstates confidence in a regime. The alternative is a model on returns alone, or on `ln v_t`; compare by BIC and OOS likelihood before trusting the probabilities as calibrated.
 - **Probabilities are model-based, not calibrated.** `p_t` is the model's belief under its own assumptions (Gaussian emissions, a fixed transition matrix). Fat tails (the 2020-03 crash, the 2025-04 drop) are not Gaussian.
 - **Regimes are not stationary.** A model trained to 2025-10 has never seen the future's regimes.
-- **Labels are return ranks.** See 2.2.
-- **Yahoo dependency.** The daily job needs a daily QQQ refresh. On App Engine the local `daily_bars.db` is not available, so the store (Turso or the instance) and refresh path for the deployed job are an open design item.
-- **Rule exception.** The EM fit is Go, not SQL slice tables, because Baum-Welch is iterative. The inputs (return, volatility) are planned as SQL stages, and results go to named tables.
-- **Not a trade signal by itself.** Nothing here places or sizes an order. Wiring a regime into a strategy is a separate, deliberate step with its own backtest.
+- **Labels are return ranks, and the data says that is a weak ordering.** See 2.2 and the results in section 4: the fitted regimes differ by volatility, and the two upper states have the same mean return. The `hmm` strategies avoid the problem by finding the stressed state by volatility, so a swap on refit does not change their signals (tested). Anything else that reads the state numbers is still exposed. Ordering the stored states by volatility is still an open choice.
+- **BIC does not pick a state count here.** See section 4.
+- **Yahoo dependency.** The daily job downloads QQQ's whole history from an unofficial endpoint each run. If it fails the job fails (it does not publish a stale regime), and `check_health` reports the missed run. The instance keeps `daily_bars.db` and the extended model in ephemeral storage; only the `regime_prediction` row is durable.
+- **Two strategies use the regime, and neither is live.** See section 6. They are not in `STRATEGY_ALLOWLIST`, and their backtests are a smoke test, not evidence of an edge.
+- **Rule exception.** The EM fit is Go, not SQL slice tables, because Baum-Welch is iterative. The inputs (return, volatility) and the out-of-sample report are SQL stages (`hmm_inputs`, `hmm_report`), and results go to named tables.
+- **Not a trade signal by itself.** `regime_predict` places and sizes nothing. Only an `hmm` strategy in the allowlist can trade the regime, and that is a deliberate live-trading change.
+
+## 6. Trading the regime: the `hmm` strategy family  (BUILT)
+
+A new row-backed strategy family, `hmm`, in `backtestgosqlite` (`pkg/hmm_strategy`, SQL in `sql/strategies/hmm_strategy`, table `hmm_strategy` in `refdata/strategies.db`). It only reads the model that `train hmm` saved; it never trains or refits.
+
+### 6.1 The rows
+
+`hmm_symbol` is a field of the row and defaults to `QQQ` (the one model that exists); `trade_symbol` defaults to the same. Other columns: `rule`, `stress_prob`, `hold_days`, `take_profit_pct`, `stop_loss_pct`, `allocation_pct`, `cash_yield`, `slippage_pct`.
+
+| id | rule | hold | stop | What it does |
+|---|---|---|---|---|
+| `hmm-calm-qqq` | `calm_filter` | 3 | 4% | Signal on every session whose filtered stressed-regime probability is under `stress_prob` (0.5). Position cap 1, so it re-checks every 3 sessions. |
+| `hmm-calmdown-qqq` | `calm_down` | 10 | 5% | Signal only on the session the stressed probability falls back under 0.5 after a session at or over it. |
+
+The exits are starting points, not tuned (gridsearch can vary hold, take-profit and stop from `strategy_family_param`).
+
+### 6.2 Rules that matter
+
+1. **The stressed regime is found by volatility, never by state number.** Stage `02_stress_state.sql` picks the state with the highest `mu_vol` in `hmm_params`. State numbers come from sorting by mean return, which is unstable between refits here. A test relabels the stored states and the signals do not change.
+2. **Causal only.** The probability is the forward-filtered one for the session's close (`hmm_state_prob`), never the smoothed or Viterbi path.
+3. **Entry is the next session's open** (`NextDayOpenEntry`), because the regime is known only at the signal session's close. Orders are market orders.
+4. **A backtest only reads the model.** With no model it returns no signals, says to run `train hmm`, and creates nothing. A test confirms the model file is byte-identical after a run.
+5. **Live scan.** `Prepare` downloads the symbol's daily bars and runs `ExtendHMM` with the parameters frozen at `trained_through` (the same way the out-of-sample backtest scores later sessions). Each instance does this itself, so the strategy does not depend on the instance's ephemeral model file or on the 17:00 `regime_predict` job.
+
+Pipeline stages (one per file, slice tables): `01_schema`, `02_stress_state`, `03_stress_prob`, `04_stress_lag`, `05_generate_trades`, `06_trace` (the `signal_trace` rows a live scan shows beside ENTER or NO_SIGNAL).
+
+### 6.3 Commands
+
+```bash
+cd backtestgosqlite
+sqlite3 refdata/strategies.db < sql/seed/hmm_strategy.sql      # creates the table if needed and adds the two rows (done 2026-10-23)
+
+# Backtest. -auto-download=false keeps it from downloading hourly bars into the market database.
+./bin/backtest -strategy hmm-calm-qqq,hmm-calmdown-qqq -auto-download=false -start 2024-10-09
+./bin/backtest -family hmm -auto-download=false -start 2024-10-09        # every hmm row
+
+# Bundle the rows (the table travels with the others; -alloc 0.20 matches the bundle default)
+cd ../trade_orchestrator && scripts/export_strategies.sh && go mod vendor
+```
+
+QQQ's hourly bars in the market database start 2024-10-09, so `-start` earlier than that adds nothing. The run does an in-sample pass (to the model's `trained_through`, 2025-10-22) and one held-out pass (2025-10-23 onward).
+
+### 6.4 Results (2026-10-23, QQQ, 20% of equity per position)
+
+| Strategy | In-sample return | Held-out return | Trades (in-sample / held-out) | Max drawdown (in / held-out) |
+|---|---|---|---|---|
+| `hmm-calm-qqq` | +5.20% (Sharpe 1.73) | +6.30% (Sharpe 2.18) | 55 / 44 | 2.34% / 1.79% |
+| `hmm-calmdown-qqq` | +4.89% (Sharpe 7.89) | +5.47% (Sharpe 5.91) | 1 / 2 | 0.26% / 0.32% |
+
+For scale, QQQ's own price rose about 22.8% over the in-sample window (493.17 to 605.38) and about 22.1% over the held-out one (610.60 to 745.55).
+
+### 6.5 Findings
+
+- **No evidence of an edge.** Returns include the 4.5% cash yield on the idle 80%, and no buy-and-hold QQQ row was run through the same simulator, so there is no like-for-like baseline. Do not read +5% against QQQ's +22%. A buy-and-hold row is the first thing to add.
+- **`hmm-calmdown-qqq` is not testable on this window.** It made 1 trade in-sample and 2 held-out, and the reliability check flagged `WARN OVERFIT`. Its Sharpe is a few trades, not a result.
+- **`hmm-calm-qqq` is mostly in the market** (103 idle days in-sample, 111 held-out of roughly 250 sessions), with small drawdowns. That is what a stressed-regime filter should do, but two years with few stress episodes cannot show whether it avoided any.
+- **Thin history is the limit.** About two years of hourly QQQ, and the held-out year has 34 days in the calm state. Backfilling decades of hourly QQQ was ruled out, so a longer test needs the daily-bar simulation question (how to avoid same-day fills without ten times the data) answered first.
+- **No regime exits live.** The backtest harness supports a signal that closes a position (`Entry` below zero), but `manage_exits` knows only take-profit, stop and hold days, and the live scan writes only LONG, BUY or ENTER signals. So a live position cannot be closed because the regime turned stressed. That is why `hmm-calm-qqq` uses a short hold and re-checks.
+
+### 6.6 What is and is not done
+
+- **Done and tested** (real SQLite, no mocks): signals equal an independent read of `hmm_state_prob` for both rules; `calm_down` fires only on crossings; state relabelling changes nothing; a missing model gives no signals and creates no file; the model is not modified; the row validator rejects bad symbols, rules, thresholds and sizes; `hmm_symbol` and `trade_symbol` default to QQQ; the family resolves a row by id; `signal_trace` agrees with the signals. Both repos pass `go build`, `go vet` and `go test`.
+- **Not run:** the live `Prepare` path (the Yahoo download inside a scan), the real `scripts/export_strategies.sh`, a deployed scan. A scratch `strategy export` of the two rows worked.
+- **Not done on purpose:** the strategies are not in `STRATEGY_ALLOWLIST`. To trade them, set it with `deploy_gae/config.sh set STRATEGY_ALLOWLIST=...` and deploy together, since one id that does not resolve stops every job.
