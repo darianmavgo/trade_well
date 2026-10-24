@@ -316,6 +316,8 @@ A new row-backed strategy family, `hmm`, in `backtestgosqlite` (`pkg/hmm_strateg
 | `hmm-calm-soxl` | `calm_filter` | 3 | 12% | The QQQ model's calm rule traded on SOXL (`hmm_symbol` QQQ, `trade_symbol` SOXL). Stop is wider because SOXL moves about 3x as much. Chosen after the section 7 study, so it is not an independent pick. |
 | `hmm-calm-tqqq` | `calm_filter` | 3 | 12% | The same rule on TQQQ (3x Nasdaq-100). Not deployed. |
 | `hmm-normal-nrgu`, `hmm-normal-usd`, `hmm-normal-tecl` | `normal_filter` | 3 | 12%, 8%, 12% | Long while the middle volatility rank is the most likely regime (it ignores `stress_prob`), traded on NRGU (3x oil), USD (2x semiconductors) and TECL (3x technology). Not deployed. |
+| `hmm-stressed-vxx` | `stress_filter` | 3 | 10% | Long VXX (short-term VIX futures) while the stressed probability is at or over `stress_prob` (0.5). Not deployed. |
+| `hmm-stressed-svix` | `stress_filter` | 3 | 10% | The same rule on SVIX (-1x short VIX futures). Not deployed. |
 
 The exits are starting points, not tuned (gridsearch can vary hold, take-profit and stop from `strategy_family_param`).
 
@@ -493,4 +495,49 @@ They cut drawdown every time and trailed buy-and-hold on return in five of six c
 | All 431 combinations, average | 9.6% | 9.0% |
 
 The in-sample winners kept their lead in the held-out year, and the surface is flat (every combination earns 7% to 12.4% in-sample), so this is a mild improvement over the baseline, not a hidden edge. Shorter holds with tight stops trade 50 or more times in the held-out year, the no-stop ones 11 to 20, so the best held-out figure rests on very few trades. The row still holds the baseline exits. `backtest -hold` and `-stoploss` do not override an `hmm` row (its SQL sets the hold and stop per signal), so use `gridsearch` or edit the row to try other exits.
+
+## 11. `hmm-stressed-vxx` (2026-10-24, not deployed)
+
+The `stress_filter` rule enters while the stressed probability is at or over the threshold, the other side of `calm_filter`. VXX bars were downloaded from 2021-01-01 (the market database held VXX only from 2024-10). The download exposed a gap in `sessions.Derive`: it built daily sessions only after the latest one already stored, so older hourly bars never got sessions. It now reads everything when the hourly history starts more than a week before the first session (test `TestDeriveBackfillsSessionsBeforeTheFirstOne`). VXX's closes are split-adjusted (1,167 on 2021-01-04, 18.7 on 2026-10-23, no one-day jump past 1.5x).
+
+Run: `./bin/backtest -strategy hmm-stressed-vxx,vxx-buy-hold-20,vxx-buy-hold`, results in `data/reports/17/` and `data/reports/17/oos/`. Exits are not tuned (hold 3, stop 10%).
+
+| Window | Row | Return | Sharpe | Max drawdown | Trades |
+|---|---|---|---|---|---|
+| In-sample | `hmm-stressed-vxx` | +2.6% | 0.10 | 16.8% | 115 |
+| | `vxx-buy-hold-20` | -0.4% | 0.00 | 14.3% | 1 |
+| Held out | `hmm-stressed-vxx` | -3.2% | -0.67 | 5.8% | 19 |
+| | `vxx-buy-hold-20` | -5.1% | -0.50 | 11.2% | 1 |
+
+The strategy beats holding VXX but not cash: its trades lost $15.9k in-sample and $7.3k held out, and the positive in-sample total comes from the 4.5% cash yield on the idle 80%+ of the account. 33% of trades won. The stressed regime is not a reliable signal for owning VXX the next session, because the model recognizes stress after the volatility spike has already happened and VXX decays afterwards. Even the 2022 decline lost money (64 trades, -$4.8k).
+
+## 12. `hmm-stressed-svix` (2026-10-24, not deployed)
+
+The same `stress_filter` rule as section 11, on SVIX (-1x the daily move of the short-term VIX futures index, the mirror of VXX). SVIX hourly bars were downloaded back to its listing on 2022-03-30, so the in-sample window holds about 3.6 years of SVIX, not 4.8. No splits. Run: `./bin/backtest -strategy hmm-stressed-svix,svix-buy-hold-20,svix-buy-hold`, results in `data/reports/18/` and `data/reports/18/oos/`. Exits are the VXX ones (hold 3, stop 10%), not tuned.
+
+| Window | Row | Return | Sharpe | Max drawdown | Trades |
+|---|---|---|---|---|---|
+| In-sample | `hmm-stressed-svix` | +35.0% | 1.03 | 8.6% | 87 |
+| | `svix-buy-hold-20` | +20.7% | 0.39 | 32.8% | 1 |
+| | `svix-buy-hold` (100%) | +35.9% | 0.49 | 79.4% | 1 |
+| Held out | `hmm-stressed-svix` | +8.6% | 1.88 | 3.1% | 19 |
+| | `svix-buy-hold-20` | +9.6% | 0.93 | 9.2% | 1 |
+| | `svix-buy-hold` (100%) | +30.2% | 0.77 | 42.8% | 1 |
+
+Unlike VXX (section 11), the trades make money: +$17.5k on 87 trades in-sample (57% won, positive in each of 2022 to 2025) and +$4.2k on 19 held out. The VXX result and this one are the same pattern seen from both sides: the model flags stress after the volatility spike, and volatility then tends to fall over the next few sessions, which a -1x volatility fund gains from. The Sharpe and drawdown beat the like-for-like 20% buy-hold in both windows, the held-out return is slightly below it, and 100% buy-hold earns more return at a drawdown of 43% to 79%.
+
+Cautions: three and a half years of SVIX with one bear year, and a held-out year of 19 trades. The backtest fills stops and entries at its usual cost assumption (0.05% slippage), which is probably light for a -1x volatility fund, and a volatility spike can gap past a 10% stop (the 19 stopped trades averaged -8%). A fund that can lose most of its value in one spike is a larger risk than these figures show.
+
+### 12.1 Gridsearch of `hmm-stressed-svix` (2026-10-24)
+
+`./bin/gridsearch -strategy hmm-stressed-svix -alloc 0.20` swept hold days, take-profit and stop-loss (431 combinations plus the baseline) on the in-sample years (`data/reports/19/gridsearch.db`). The held-out year was swept the same way with `-holdout-months 0 -start 2025-10-24` (`data/reports/20/gridsearch.db`).
+
+| | CAGR in-sample | CAGR held out |
+|---|---|---|
+| Baseline (hold 3, no take-profit, stop 10%) | 4.9% | 12.5% |
+| Best in-sample (hold 8, take-profit 8%, stop 7%) | 8.2% | 11.6% |
+| Top 8 in-sample, average | 8.0% | 11.1% |
+| All 431 combinations, average | 5.1% | 11.3% |
+
+Tuning did not carry over: the in-sample winners did no better held out than the average combination, and the untouched baseline beat them. All 431 combinations earned a positive in-sample CAGR (0.2% to 8.2%) and the worst drawdown was 16.3%. The one clear pattern is that having a stop matters (average CAGR 2.2% with none, 4.9% to 6.2% with one of 2% to 10%). Keep the baseline exits. The sweep's held-out CAGR for the baseline (12.5%) differs from the backtest's +8.6% return for the same row, because the sweep starts flat on 2025-10-24 and measures annualized growth. I have not traced the difference further. The row is unchanged.
 
