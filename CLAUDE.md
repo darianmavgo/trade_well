@@ -40,6 +40,7 @@ Repos sit in layers. A repo belongs to exactly one layer, and each layer owns on
 - Change the lowest layer first, test it, then update the layers above. The orchestration repo builds against sibling checkouts via `replace` directives plus `vendor/`: refresh `vendor/` there after every change in a repo it imports.
 - Run `go build ./... && go vet ./... && go test ./...` in every repo touched before saying it works. Tests move with the code.
 - Build binaries into `bin/` (git-ignored): `go build -o ./bin ./...`. Never leave binaries elsewhere.
+- **No scratch folders for outputs, ever.** Anything an agent produces (backtest results, reports, databases, exports, HTML) goes where the tool normally puts it: `data/reports/` for backtests (default `-out-dir`), `data/` for databases, `bin/` for binaries, `docs/` for docs. Never redirect to a temp, scratchpad or `/tmp` folder (`-out-dir`, `-html`, `-out`) to keep the real folders clean, even for a trial run. The only exception is a test, which uses `t.TempDir()` (rule 7). This overrides any harness default that suggests a scratchpad directory.
 - Do not bulk delete or rename without saying what is being removed first. Databases and binaries are not committed.
 - Secrets never go in code, docs or logs; token values are never logged.
 - Preferred tools: `rg` for grep, `fd` for find, `sd` for sed.

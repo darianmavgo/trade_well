@@ -273,6 +273,14 @@ mean log-likelihood per bar, in-sample: 7.7518      out-of-sample: 7.6573
 
 As of the close of 2026-10-22 the model says state 2 (98%), and 94% state 2 for the next session.
 
+### Chart: QQQ colored by regime
+
+![QQQ adjusted close on a log scale, colored by hidden Markov regime: calm in blue, normal in green, stressed in orange](img/qqq_hmm_regimes.svg)
+
+Each stretch of the line takes the color of the regime the model judged QQQ to be in at that session's close (the forward-filtered call, using only data up to that day). Regimes are ranked by fitted volatility (calm 0.67%, normal 1.09%, stressed 1.99% a day), not by state number, so the colors stay put if the model is refit. The dashed line is where the model stopped learning (2025-10-22); later sessions were scored with frozen parameters. The stressed stretches line up with 2018 Q4, early 2020, 2022 and 2025.
+
+An interactive version (hover for price, date and regime; All, 10Y, 5Y and 1Y ranges; table view; dark mode) is at [`backtestgosqlite/data/reports/qqq_hmm_regimes.html`](../backtestgosqlite/data/reports/qqq_hmm_regimes.html). Both charts were built once from `data/hmm_models.db` and `data/daily_bars.db` (read-only) with the data baked in, so they do not update themselves. After a retrain or a daily extend, rebuild them; there is no command for that yet.
+
 What this says:
 - **Check 1 passes**: OOS log-likelihood per bar (7.66) is close to in-sample (7.75).
 - **The regimes are volatility regimes, not bull/bear.** State 0 is high volatility (about 2% a day) with roughly zero mean return, state 1 is calm (0.67%), state 2 is moderate (1.09%). States 1 and 2 have almost the same mean return (+0.102% and +0.103%). "State 0 = bear, 2 = bull" would be a misreading: read state 0 as "stressed", 1 as "calm", 2 as "normal".
@@ -305,6 +313,9 @@ A new row-backed strategy family, `hmm`, in `backtestgosqlite` (`pkg/hmm_strateg
 |---|---|---|---|---|
 | `hmm-calm-qqq` | `calm_filter` | 3 | 4% | Signal on every session whose filtered stressed-regime probability is under `stress_prob` (0.5). Position cap 1, so it re-checks every 3 sessions. |
 | `hmm-calmdown-qqq` | `calm_down` | 10 | 5% | Signal only on the session the stressed probability falls back under 0.5 after a session at or over it. |
+| `hmm-calm-soxl` | `calm_filter` | 3 | 12% | The QQQ model's calm rule traded on SOXL (`hmm_symbol` QQQ, `trade_symbol` SOXL). Stop is wider because SOXL moves about 3x as much. Chosen after the section 7 study, so it is not an independent pick. |
+| `hmm-calm-tqqq` | `calm_filter` | 3 | 12% | The same rule on TQQQ (3x Nasdaq-100). Not deployed. |
+| `hmm-normal-nrgu`, `hmm-normal-usd`, `hmm-normal-tecl` | `normal_filter` | 3 | 12%, 8%, 12% | Long while the middle volatility rank is the most likely regime (it ignores `stress_prob`), traded on NRGU (3x oil), USD (2x semiconductors) and TECL (3x technology). Not deployed. |
 
 The exits are starting points, not tuned (gridsearch can vary hold, take-profit and stop from `strategy_family_param`).
 
@@ -356,3 +367,130 @@ For scale, QQQ's own price rose about 22.8% over the in-sample window (493.17 to
 - **Done and tested** (real SQLite, no mocks): signals equal an independent read of `hmm_state_prob` for both rules; `calm_down` fires only on crossings; state relabelling changes nothing; a missing model gives no signals and creates no file; the model is not modified; the row validator rejects bad symbols, rules, thresholds and sizes; `hmm_symbol` and `trade_symbol` default to QQQ; the family resolves a row by id; `signal_trace` agrees with the signals. Both repos pass `go build`, `go vet` and `go test`.
 - **Not run:** the live `Prepare` path (the Yahoo download inside a scan), the real `scripts/export_strategies.sh`, a deployed scan. A scratch `strategy export` of the two rows worked.
 - **Not done on purpose:** the strategies are not in `STRATEGY_ALLOWLIST`. To trade them, set it with `deploy_gae/config.sh set STRATEGY_ALLOWLIST=...` and deploy together, since one id that does not resolve stops every job.
+
+## 7. Does the QQQ regime move other ETFs? (`study hmm_regime_etf`, 2026-10-23)
+
+```bash
+cd backtestgosqlite
+./bin/study -study hmm_regime_etf          # about 2 minutes, writes data/reports/hmm_regime_etf.db
+```
+
+For every active ETF in the market database, the study splits the next session's return by the regime the QQQ model had at the previous close (the only regime a trader holds when the next session opens), with regimes ranked by volatility. Window: 2021-01-04 to 2026-10-09 for the leveraged and inverse ETFs and SPY, 2024-10 onward for most others. The SQL is `sql/stages/hmm_regime_etf`. A test checks it against an independent Go calculation on a model trained into temp files.
+
+### 7.1 Result: the regime moves risk, not average return
+
+| Across 1,747 ETFs with 1,000+ sessions | |
+|---|---|
+| ETFs with a significant mean-return difference, not stressed vs stressed (\|t\| > 2) | 3 (by chance alone, about 87) |
+| ETFs with a significant log-return difference (\|t\| > 2) | 3 |
+| Average ratio of volatility after a stressed close to after a calm close | 1.58 |
+| Average share of next-session return variance the regime explains | 0.055% |
+
+No ETF shows a reliable return effect. Fewer clear the threshold than chance would produce, and the three that do (FMHI, MSMR, MINO) are all in the `other_etf` category, not index or leveraged funds. The effect that is real is volatility: QQQ-linked ETFs are about twice as volatile after a stressed close.
+
+### 7.2 Index-tracking and leveraged ETFs (all sessions, 2021 onward)
+
+Mean log return per session, in basis points (log return is what compounds), by prior-close regime:
+
+| ETF | Calm | Normal | Stressed | Vol ratio | t (log) | Growth of 1: all days | Only after not-stressed closes |
+|---|---|---|---|---|---|---|---|
+| SPY | 5.7 | 7.1 | 2.2 | 1.98 | 0.66 | +111% | +89% |
+| SSO (2x S&P) | 10.2 | 12.0 | 1.7 | 2.00 | 0.72 | +225% | +198% |
+| SPXL (3x S&P) | 14.1 | 16.2 | -0.7 | 2.00 | 0.80 | +330% | +345% |
+| QLD (2x Nasdaq) | 15.1 | 15.1 | -3.7 | 2.01 | 1.02 | +252% | +323% |
+| TQQQ (3x Nasdaq) | 20.6 | 19.5 | -11.6 | 2.01 | 1.14 | +274% | +563% |
+| TECL (3x tech) | 18.8 | 22.1 | -3.7 | 1.80 | 0.83 | +528% | +655% |
+| SOXL (3x semis) | 48.7 | 21.3 | -25.4 | 1.66 | 1.22 | +356% | +1498% |
+| SQQQ (3x inverse Nasdaq) | -30.0 | -32.1 | -22.1 | 2.02 | -0.34 | -98% | -95% |
+
+- **The nearest thing to an effect is volatility drag on leveraged long funds.** TQQQ's mean return stays positive after a stressed close, but its volatility doubles, and a daily-rebalanced 3x fund loses about half its variance per session. So its compounding growth flips from +20.6 bp a session after a calm close to -11.6 after a stressed one. Holding TQQQ only after not-stressed closes would have turned +274% into +563% over the window.
+- **It does not hold out of sample.** On the sessions after the model's cutoff (2025-10-23 on, about 242 sessions) the filter lowered growth for every long ETF checked (SQQQ, an inverse fund, lost less): TQQQ +56% all days against +19% filtered, QLD +42% against +16%, SPXL +41% against +8%, SPY +17% against +5%. The likely reason is that the in-sample gain comes from the 2022 decline, where stressed closes kept falling, while the held-out year had stressed closes followed by recoveries. I did not test that explanation.
+- **None of it is statistically significant per ETF.** The log-return t statistics are 0.3 to 1.2, and the ETFs above all track the same underlying index, so they are one piece of evidence, not eight.
+- **Inverse ETFs lose in every regime.** SQQQ, SPXU, TECS and SOXS decay to nearly zero whichever regime they are bought in, so the regime never rescues them.
+
+### 7.3 Limits of this test
+
+- **Window.** Most of the 2021 to 2026 window is one stress episode (2022) and a few short ones. QQQ itself has only about two years of daily bars in the market database, so its own row is thin (502 sessions).
+- **Splits.** The market database holds unadjusted splits. The study drops any one-session close ratio past 1.8x (140 sessions across all ETFs, listed in `etf_dropped`). A real 3x move of that size would be dropped too.
+- **Multiple tests.** With over 1,700 ETFs, a few extreme t statistics are expected by chance. Do not read a single leader as an edge.
+- **The filter result has no costs.** It ignores slippage, taxes and the cash return on the sessions spent out of the fund.
+- **Same-day regime is deliberately not used.** The regime of the same session is estimated from that session's own return, so it would look predictive and be circular.
+
+### 7.4 What it means for the `hmm` strategies
+
+The most that the evidence supports is risk control: use the stressed regime to size or skip a **leveraged long** Nasdaq fund (TQQQ, QLD, TECL, SOXL), where it halves the compounding drag. It does not support using the regime to pick direction, and the filter's out-of-sample result was negative. A test worth running before trading it is the same filter on daily bars back to 2010 (TQQQ and QLD exist from 2010 and 2006), which would add the 2011, 2015-16 and 2018 stress episodes. That needs those symbols' daily bars downloaded into `daily_bars.db`, which has not been done.
+
+## 8. `hmm-calm-soxl` against buy-and-hold SOXL (2026-10-23)
+
+Run: `./bin/backtest -strategy hmm-calm-soxl,soxl-buy-hold,soxl-buy-hold-20`, results in `data/reports/8/` (in-sample, `hmm.db` and `hold.db`) and `data/reports/8/oos/` (held out, after 2025-10-22). `soxl-buy-hold` is 100% of equity; `soxl-buy-hold-20` is the same at the strategy's 20% sizing, which is the like-for-like row. Buy-hold rows were added to `hold_strategy` in `refdata/strategies.db`.
+
+| Window | Row | Return | Sharpe | Max drawdown | Trades |
+|---|---|---|---|---|---|
+| 2021-01-04 to 2025-10-22 | `hmm-calm-soxl` | +43.9% | 0.63 | 17.1% | 217 |
+| | `soxl-buy-hold-20` | +23.8% | 0.33 | 30.5% | 1 |
+| | `soxl-buy-hold` (100%) | +25.1% | 0.58 | 90.5% | 1 |
+| 2025-10-23 to latest (held out) | `hmm-calm-soxl` | +46.7% | 2.06 | 8.8% | 54 |
+| | `soxl-buy-hold-20` | +51.3% | 1.02 | 44.2% | 1 |
+| | `soxl-buy-hold` (100%) | +239.3% | 1.63 | 69.4% | 1 |
+
+Read it this way:
+- **Risk.** Drawdown is far smaller in both windows (17% against 31% in-sample, 9% against 44% held out, at the same sizing), and Sharpe is higher in both.
+- **Return.** It beat the 20% buy-hold in-sample and trailed it held out (+46.7% against +51.3%). It cannot match 100% buy-hold in a year SOXL rose 239%; it was invested only part of the time (116 idle sessions held out). Returns include 4.5% cash yield on idle cash.
+- **Caution.** The in-sample model parameters were fitted on the same bars, the rule was picked after the section 7 study had shown SOXL liked the filter in-sample, and the held-out window is one bull year with a single stress episode. Section 7 found the same filter lagged all-days SOXL out of sample. Treat this as a risk-reduction result, not proof of an edge. Deployed live on 2026-10-23 (bundle exported, added to `STRATEGY_ALLOWLIST` as its own entry at 20% sizing, App Engine redeployed). Its first live scan has not run yet, so the live download, model update and order path are untested.
+
+### 8.1 `hmm-calm-tqqq` (2026-10-24, not deployed)
+
+Run: `./bin/backtest -strategy hmm-calm-tqqq,tqqq-buy-hold,tqqq-buy-hold-20`, results in `data/reports/10/` (in-sample) and `data/reports/10/oos/` (held out).
+
+| Window | Row | Return | Sharpe | Max drawdown | Trades |
+|---|---|---|---|---|---|
+| 2021-01 to 2025-10-22 | `hmm-calm-tqqq` | +38.9% | 0.90 | 10.6% | 203 |
+| | `tqqq-buy-hold-20` | +46.8% | 0.66 | 23.6% | 1 |
+| | `tqqq-buy-hold` (100%) | +140.4% | 0.61 | 81.8% | 1 |
+| Held out | `hmm-calm-tqqq` | +12.6% | 1.41 | 6.4% | 44 |
+| | `tqqq-buy-hold-20` | +13.7% | 1.08 | 9.1% | 1 |
+| | `tqqq-buy-hold` (100%) | +51.6% | 1.03 | 37.2% | 1 |
+
+Same shape as SOXL, weaker: a lower drawdown and a better Sharpe than the like-for-like 20% buy-hold, but a lower return in both windows.
+
+## 9. The best ETF in each regime (`study hmm_regime_etf`, tables `hmm_regime_top` and `hmm_regime_pick`, 2026-10-24)
+
+The study now also ranks every active ETF by its mean log return the session after a QQQ close in each regime (0 calm, 1 normal, 2 stressed), on the whole period, with at least 100 sessions in that regime. `hmm_regime_top` keeps the top 10 per regime beside the same ETF's in-sample and held-out figures. `hmm_regime_pick` picks the top 10 on the in-sample years only and reads their held-out year.
+
+- **Calm:** the top ETFs are 2x single-stock funds (RGTU, RGTX, INTW, RIOX, OKLL), t about 1 to 1.8. **SOXL is not the overall leader: it ranks 26th of 3,342.** It is the leader among ETFs with 1,000+ sessions (48.7 bp a day, t 1.45).
+- **Normal:** OKTG, NETG, MVLL, MUU, MULL (2x single-stock funds, t 1.1 to 1.4). Among long-lived ETFs: NRGU, BULZ, USD, TECL, then SOXL.
+- **Stressed:** HIMZ, ROBN, PTIR, PYPG, SOLT (2x single-stock funds). PYPG's t of 2.55 is the only one over 2.
+- **Do the leaders repeat?** Picked on the in-sample years, the calm top 10 averaged a held-out rank in the bottom quarter (78.6th percentile) and lost money (-80 bp a day). The normal-regime picks landed at chance (39.6). The stressed picks did better than chance (23.9th percentile, +52 bp a day) but ten funds and one year are not a test.
+- **Read this as selection noise.** With 3,000 to 4,000 ETFs ranked, the best of them has a t near 2 by chance alone. These are mostly recent, short-lived leveraged single-stock funds that mostly track their own stock, not the QQQ regime, so a "best ETF in the stressed regime" says what that stock did on those days. No ETF here is a tested regime trade.
+
+## 10. Normal-regime strategies and the stressed-regime question (2026-10-24, not deployed)
+
+`hmm-normal-nrgu`, `hmm-normal-usd` and `hmm-normal-tecl` use a new rule, `normal_filter`: enter while the middle volatility rank has the highest filtered probability of the three regimes. Their ETFs were picked from the section 9 normal-regime list, which is a selection from the same history, so the in-sample window flatters them. Run: `./bin/backtest -strategy hmm-normal-nrgu,hmm-normal-usd,hmm-normal-tecl,<id>-buy-hold-20,...`, results in `data/reports/11/` and `data/reports/11/oos/`.
+
+| ETF | Window | Strategy return / drawdown | Buy-hold at 20% sizing |
+|---|---|---|---|
+| NRGU | in-sample | +15.1% / 26.5% | +3.7% / 70.9% |
+| | held out | +10.1% / 9.1% | +48.6% / 16.6% |
+| USD | in-sample | +36.4% / 9.3% | +154.7% / 35.9% |
+| | held out | +8.0% / 7.7% | +20.4% / 13.3% |
+| TECL | in-sample | +30.6% / 8.7% | +64.6% / 25.7% |
+| | held out | +16.6% / 6.1% | +20.1% / 14.6% |
+
+They cut drawdown every time and trailed buy-and-hold on return in five of six comparisons (the exception is NRGU in-sample, where buy-and-hold at 20% earned +3.7%). They were invested in about 40% of sessions.
+
+**Long-lived diversified ETFs in the stressed regime** (1,000+ sessions, long funds, `hmm_regime_etf`): none is statistically significant (t 0.6 to 1.5, with about 460 to 490 stressed sessions each). The ones positive in both the in-sample and held-out windows are energy and commodity funds (NRGU, ERX, DIG, PXE, PXJ, IEO, UGA), country funds (GREK, ARGT) and PFIX (an interest-rate hedge). MSFU and MEXX top the raw list but one is a single stock and the other a single country.
+
+### 10.1 Gridsearch of `hmm-normal-tecl` (2026-10-24)
+
+`./bin/gridsearch -strategy hmm-normal-tecl -alloc 0.20` swept hold days, take-profit and stop-loss (431 combinations plus the baseline) on the in-sample years only (`data/reports/12/gridsearch.db`). The held-out year was swept the same way with `-holdout-months 0 -start 2025-10-23` (`data/reports/15/gridsearch.db`), to read the in-sample winners out of sample without touching the row.
+
+| | CAGR in-sample | CAGR held out |
+|---|---|---|
+| Baseline (hold 3, no take-profit, stop 12%) | 8.2% | 9.7% |
+| Best in-sample (hold 8, stop 2%) | 12.4% | 15.1% |
+| Second (hold 12, no stop) | 12.2% | 18.2% |
+| Top 8 in-sample, average | 12.1% | 13.3% |
+| All 431 combinations, average | 9.6% | 9.0% |
+
+The in-sample winners kept their lead in the held-out year, and the surface is flat (every combination earns 7% to 12.4% in-sample), so this is a mild improvement over the baseline, not a hidden edge. Shorter holds with tight stops trade 50 or more times in the held-out year, the no-stop ones 11 to 20, so the best held-out figure rests on very few trades. The row still holds the baseline exits. `backtest -hold` and `-stoploss` do not override an `hmm` row (its SQL sets the hold and stop per signal), so use `gridsearch` or edit the row to try other exits.
+
