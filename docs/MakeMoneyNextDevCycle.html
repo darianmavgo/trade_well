@@ -64,7 +64,7 @@ footer{margin-top:34px;color:var(--muted);font-size:13px}
 <tr><td class="k">Allowlist gating</td><td><span class="tag warn">Open</span>Nothing stops a weak strategy from entering <code>STRATEGY_ALLOWLIST</code>. strateval's tiers are advisory only.</td></tr>
 <tr><td class="k">Risk limits</td><td><span class="tag warn">Open</span>No max-positions limit, no daily-loss circuit breaker, no automatic kill switch. Only the manual <code>schwaber killswitch</code>.</td></tr>
 <tr><td class="k">Failure alerts</td><td><span class="tag warn">Check</span>The review said only <code>account_state</code> emails on failure in the deployed cron path. <code>scan_market</code>, <code>submit_orders</code> and <code>manage_exits</code> could fail silently. Not rechecked.</td></tr>
-<tr><td class="k">Data durability</td><td><span class="tag warn">Open</span>Litestream can silently fail to confirm a write to GCS, and the database is scaled to zero and restored on each cold start. No restore drill has been done.</td></tr>
+<tr><td class="k">Data durability</td><td><span class="tag warn">Open</span>The database is Turso (no replica to restore). No restore drill from a Turso backup has been done.</td></tr>
 <tr><td class="k">Schwab client</td><td><span class="tag warn">Open</span>No retry or backoff on 429/5xx errors, and partial fills are not handled.</td></tr>
 <tr><td class="k">Token logging</td><td><span class="tag warn">Open</span>OAuth tokens are logged in plaintext to <code>schwab_api.log</code>.</td></tr>
 <tr><td class="k">Duplicate-order protection</td><td><span class="tag ok">Done</span>The order-intent store exists in schwaber.</td></tr>

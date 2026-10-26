@@ -69,7 +69,7 @@ Updated 2026-10-15 after the first round of fixes.
 - The GET retry loop in `schwaber/pkg/schwab/retry.go` has no test of the loop itself (a test would need a fake server, which the project forbids). The partial-fill branch in `reconcilePendingFill` is tested only through its decision function `endedPartlyFilled`.
 - `trade_orchestrator/pkg/appserve/cron.go` has `var sendFailureEmail`, a swappable function used by `cron_test.go`. That is a fake under rule 4. It predates this work and was left in place; remove it only if you ask.
 - Plaintext OAuth token logging was recorded as a gap on 2026-09-23. `schwaber/pkg/schwab/client.go` appears to log only a pull message, but it was not audited in full.
-- The Litestream restore drill has never been recorded.
+- No restore from a Turso backup has been recorded.
 
 ## 6. Related
 

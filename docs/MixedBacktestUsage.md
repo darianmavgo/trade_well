@@ -53,7 +53,7 @@ Notes:
 - `strategy export` **replaces** `strategies.db` (it removes the destination first), so the list must contain every row you still trade, not only the new one.
 - It also rewrites `markov_models.db` and `tree_models.db`. A streak row needs no model, so SHPU adds nothing there.
 - After a deploy, check with `orchestrator strategies` (greenlit marks) and `orchestrator strategy_allowlist show`. `strategy_allowlist set/add` itself runs `ResolveGreenlit` first (`pkg/strategy_allowlist/command.go:127`) and refuses an entry that does not resolve. A locally run command with the full `refdata/strategies.db` present can pass while App Engine fails, because `placeBundled` skips the write when a file exists locally. Test the bundle itself, not the dev machine's copy.
-- SHPU also needs hourly bars in the market DB the scan reads (`MARKET_DB`, restored by litestream). `pkg/scan_market` has the details; I did not verify that SHPU bars are in the replicated DB.
+- SHPU also needs hourly bars in the market DB the scan reads (`MARKET_DB`, rebuilt from Turso `market_bars` by the scan). `pkg/scan_market` has the details; I did not verify that SHPU bars are in Turso `market_bars`.
 
 ## 2. How a strategy gets from research to a live order
 
@@ -98,7 +98,7 @@ backtest / gridsearch / train           (code only)                      STRATEG
 
 **Orchestrator tables**: `strategies` (resolve log: `strategy_id`, `config_json`, `resolved_at`), `scan_market_signal`, `scan_market_buy_signal` (per-signal `stack_id`, `strategy_id`, `buy_limit`, `take_profit`, `stop_loss`, `allocation_pct`, `hold_days`, `status`), plus staged-orders and job-run tables (`pkg/schemas`, `pkg/job_runs`).
 
-**Market data**: `market_history.db` (`MARKET_DB`; locally `backtestgo/data/market_history_hourly.db`, table `backtest_start`, key `(symbol, Date)`), restored and replicated by litestream on App Engine.
+**Market data**: `market_history.db` (`MARKET_DB`; locally `backtestgo/data/market_history_hourly.db`, table `backtest_start`, key `(symbol, Date)`), rebuilt from Turso `market_bars` on App Engine.
 
 ## 5. Code, by file
 

@@ -92,7 +92,7 @@ Every number below is copied from a doc, a commit message, or a result DB in tho
 - **09-19** Started on App Engine ("schwab completely sucks now").
 - **09-20** `strateval` in-sample/out-of-sample ledger with tiers A–D.
 - **09-21** Order-intent idempotency (`client_order_id`); Schwab token sync via Secret Manager; fully moved to GAE with Litestream; cloud run deprecated. First real round trips (TECL, MARA).
-- **09-22/23** *"Massive refactor"*; killed aliases twice *"cuz Claude needs hand holding."* Real order-submission fixes. Docs per package. `OldShit.html` cleanup of 48 rows.
+- **09-22/23** *"Massive refactor"*; killed aliases twice *"cuz Claude needs hand holding."* Real order-submission fixes. Docs per package. Cleanup of 48 rows (OldShit.html, since deleted).
 - **09-24** `killswitch`, `exit_market`, `manage_exits`; strategy allowlist; deploy local-live.
 - **09-25** Test specifically for buy-side slippage.
 - **09-27/28** Research plan of 11 ideas; HMM regime study (QQQ); BiggestWinner; Jules-authored PRs merged (`--theirs` merges, then a script to find unmerged branches).
@@ -163,7 +163,7 @@ Dependency direction is one way: `trade_orchestrator` imports `schwaber` and `ba
 
 **Data and ops**
 - Market bars in one SQLite table (`backtest_start`), daily and minute together; strategy definitions as rows in `refdata/strategies.db` (≈65,600 across `streak`, `hold`, `tree`, `markov`); results one DB per family per numbered run folder.
-- `modernc.org/sqlite` (pure Go, no CGO). Yahoo with Stooq fallback; Polygon for universe, minute bars, options.
+- `modernc.org/sqlite` (pure Go, no CGO). Yahoo (later replaced by Alpaca); Polygon for universe, minute bars, options.
 - Deploy: DO droplet → Cloud Run → **App Engine** with **Litestream** replicating the DB to GCS (FUSE mount was dropped). Secret Manager for config; token in its own GCS object. Cloudflare Worker forwards the Schwab OAuth callback.
 - Tooling lessons: AI tools re-add aliases and copy functions, so the rules above are enforced by review; `antigravity` once edited every file during a rename; keep exactly one git repo (nested repos broke in 2025); LFS for big DBs; cap grid sizes.
 
