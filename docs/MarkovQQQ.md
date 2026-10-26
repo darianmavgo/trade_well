@@ -315,7 +315,7 @@ A new row-backed strategy family, `hmm`, in `backtestgosqlite` (`pkg/hmm_strateg
 | `hmm-calmdown-qqq` | `calm_down` | 10 | 5% | Signal only on the session the stressed probability falls back under 0.5 after a session at or over it. |
 | `hmm-calm-soxl` | `calm_filter` | 3 | 12% | The QQQ model's calm rule traded on SOXL (`hmm_symbol` QQQ, `trade_symbol` SOXL). Stop is wider because SOXL moves about 3x as much. Chosen after the section 7 study, so it is not an independent pick. |
 | `hmm-calm-tqqq` | `calm_filter` | 3 | 12% | The same rule on TQQQ (3x Nasdaq-100). Not deployed. |
-| `hmm-normal-nrgu`, `hmm-normal-usd`, `hmm-normal-tecl` | `normal_filter` | 3 | 12%, 8%, 12% | Long while the middle volatility rank is the most likely regime (it ignores `stress_prob`), traded on NRGU (3x oil), USD (2x semiconductors) and TECL (3x technology). Not deployed. |
+| `hmm-normal-nrgu`, `hmm-normal-usd`, `hmm-normal-tecl` | `normal_filter` | 3, 3, 8 | 12%, 8%, 2% | Long while the middle volatility rank is the most likely regime (it ignores `stress_prob`), traded on NRGU (3x oil), USD (2x semiconductors) and TECL (3x technology). TECL uses the gridsearched exits of section 10.1 and is deployed; NRGU and USD are not. |
 | `hmm-stressed-vxx` | `stress_filter` | 3 | 10% | Long VXX (short-term VIX futures) while the stressed probability is at or over `stress_prob` (0.5). Not deployed. |
 | `hmm-stressed-svix` | `stress_filter` | 3 | 10% | The same rule on SVIX (-1x short VIX futures). Not deployed. |
 
@@ -494,7 +494,7 @@ They cut drawdown every time and trailed buy-and-hold on return in five of six c
 | Top 8 in-sample, average | 12.1% | 13.3% |
 | All 431 combinations, average | 9.6% | 9.0% |
 
-The in-sample winners kept their lead in the held-out year, and the surface is flat (every combination earns 7% to 12.4% in-sample), so this is a mild improvement over the baseline, not a hidden edge. Shorter holds with tight stops trade 50 or more times in the held-out year, the no-stop ones 11 to 20, so the best held-out figure rests on very few trades. The row still holds the baseline exits. `backtest -hold` and `-stoploss` do not override an `hmm` row (its SQL sets the hold and stop per signal), so use `gridsearch` or edit the row to try other exits.
+The in-sample winners kept their lead in the held-out year, and the surface is flat (every combination earns 7% to 12.4% in-sample), so this is a mild improvement over the baseline, not a hidden edge. Shorter holds with tight stops trade 50 or more times in the held-out year, the no-stop ones 11 to 20, so the best held-out figure rests on very few trades. **Decision (2026-10-26):** the `hmm-normal-tecl` row was changed to the best in-sample exits from this gridsearch, hold 8 days, no take-profit, 2% stop, and it is the deployed row (the live scan staged it with a $182.92 stop on a $186.65 entry). The 2% stop is deliberate, not a typo for 12%. It sits inside normal daily moves of a 3x fund, so expect it to be hit often and judge it on the gridsearch's trade counts, not on any one stop-out. `backtest -hold` and `-stoploss` do not override an `hmm` row (its SQL sets the hold and stop per signal), so use `gridsearch` or edit the row to try other exits.
 
 ## 11. `hmm-stressed-vxx` (2026-10-24, not deployed)
 
