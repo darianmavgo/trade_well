@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/runtables"
 	_ "modernc.org/sqlite"
 )
@@ -52,10 +54,10 @@ func scanBacktestResultAssetPerformanceSummary(ctx context.Context, calc *runtab
 	}
 	defer src.Close()
 	var has int
-	if err := src.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE name = 'performance_summary'`).Scan(&has); err != nil || has == 0 {
+	if err := src.QueryRowContext(ctx, orchestratorsql.Q("live_vs_backtest_sync/scan_backtest_result_asset_performance_summary")).Scan(&has); err != nil || has == 0 {
 		return nil // not a backtest result file
 	}
-	rows, err := src.QueryContext(ctx, `SELECT strategy_id, COALESCE(total_trades, 0), win_rate, start_date, end_date FROM performance_summary`)
+	rows, err := src.QueryContext(ctx, orchestratorsql.Q("live_vs_backtest_sync/scan_backtest_result_asset_performance_summary_2"))
 	if err != nil {
 		return nil
 	}
@@ -81,8 +83,7 @@ func scanBacktestResultAssetPerformanceSummary(ctx context.Context, calc *runtab
 		return err
 	}
 	// The trades of the run the summary describes.
-	tr, err := src.QueryContext(ctx, `SELECT t.strategy_id, COALESCE(t.symbol, ''), COALESCE(t.exit_date, ''), CASE WHEN t.net_pnl > 0 THEN 1 ELSE 0 END, t.return_pct
-		FROM trades t JOIN performance_summary p ON p.run_id = t.run_id AND p.strategy_id = t.strategy_id`)
+	tr, err := src.QueryContext(ctx, orchestratorsql.Q("live_vs_backtest_sync/scan_backtest_result_asset_performance_summary_3"))
 	if err != nil {
 		return nil // a result file with no trades table has no curve to draw
 	}

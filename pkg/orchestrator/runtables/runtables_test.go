@@ -118,32 +118,67 @@ func TestInsertRowsBatchesUnderTheValueLimit(t *testing.T) {
 	}
 }
 
-func TestFindRecentReturnsOnlyAFinishedRunOfTheSameKeyWithinMaxAge(t *testing.T) {
+func countLike(t *testing.T, db *sql.DB, like string) int {
+	t.Helper()
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name LIKE ? ESCAPE '\'`, like).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// Drop removes exactly this run's tables, tolerates one never created, and leaves other runs alone.
+func TestDropRemovesOnlyThisRunsTables(t *testing.T) {
 	ctx := context.Background()
 	db := memory(t)
-	tables := []string{"slice_a", "slice_done"}
-	a := BeginKeyed(db, tables, "aaa")
-	if err := a.Exec(ctx, `CREATE TABLE slice_a (v INTEGER)`); err != nil {
+	tables := []string{"slice_a", "slice_b"}
+	one, two := Begin(db, tables), Begin(db, tables)
+	for _, r := range []*Run{one, two} {
+		if err := r.Exec(ctx, `CREATE TABLE slice_a (v INTEGER)`); err != nil { // slice_b is never created
+			t.Fatal(err)
+		}
+	}
+	if err := one.Drop(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok, err := FindRecent(ctx, db, tables, "slice_done", "aaa", time.Minute); err != nil || ok {
-		t.Fatalf("an unfinished run (no marker) was returned: %v %v", ok, err)
+	if n := countLike(t, db, `slice\_a\_\_r%`); n != 1 {
+		t.Fatalf("slice_a tables after dropping one run = %d, want 1", n)
 	}
-	if err := a.Exec(ctx, `CREATE TABLE slice_done (v INTEGER)`); err != nil {
+	if err := one.Drop(ctx); err != nil {
+		t.Fatalf("dropping twice failed: %v", err)
+	}
+}
+
+// PruneBefore drops runs that began before the cutoff, whatever their id suffix, and keeps newer
+// runs, runs of other names, and tables that only look similar.
+func TestPruneBeforeDropsOldRunsOnly(t *testing.T) {
+	ctx := context.Background()
+	db := memory(t)
+	tables := []string{"slice_a"}
+	for _, name := range []string{
+		"slice_a__r20200101t000000001",             // old
+		"slice_a__r20200101t000000002_kdf2d8bfc53", // old, with the suffix older runs carried
+		"other__r20200101t000000001",               // old, but not one of the named tables
+		"slice_a__rnotatime",                       // not a run id
+	} {
+		if _, err := db.Exec(`CREATE TABLE "` + name + `" (v INTEGER)`); err != nil {
+			t.Fatal(err)
+		}
+	}
+	live := Begin(db, tables) // began now: must survive
+	if err := live.Exec(ctx, `CREATE TABLE slice_a (v INTEGER)`); err != nil {
 		t.Fatal(err)
 	}
-	got, ok, err := FindRecent(ctx, db, tables, "slice_done", "aaa", time.Minute)
-	if err != nil || !ok || got.ID != a.ID {
-		t.Fatalf("finished run not found: %v %v %v", got, ok, err)
+	if err := PruneBefore(ctx, db, tables, time.Now().Add(-time.Hour)); err != nil {
+		t.Fatal(err)
 	}
-	if _, ok, _ := FindRecent(ctx, db, tables, "slice_done", "bbb", time.Minute); ok {
-		t.Fatal("a run of another key was returned")
+	if n := countLike(t, db, `slice\_a\_\_r2020%`); n != 0 {
+		t.Fatalf("%d old slice_a tables survived", n)
 	}
-	if _, ok, _ := FindRecent(ctx, db, tables, "slice_done", "aaa", 0); ok {
-		t.Fatal("a zero MaxAge must never reuse")
-	}
-	var v int
-	if err := got.QueryRow(ctx, `SELECT COUNT(*) FROM slice_a`).Scan(&v); err != nil {
-		t.Fatalf("the reused run does not read its own tables: %v", err)
+	for _, keep := range []string{"other__r20200101t000000001", "slice_a__rnotatime", live.Table("slice_a")} {
+		var n int
+		if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE name = ?`, keep).Scan(&n); err != nil || n != 1 {
+			t.Fatalf("%s was dropped (it is not an old run of a named table)", keep)
+		}
 	}
 }

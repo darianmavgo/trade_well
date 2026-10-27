@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/appconfig"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/bootstrap"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/dashboard"
@@ -138,14 +140,7 @@ func openAndEnsureSchemas(dbPath string) (*sql.DB, error) {
 	return bootstrap.OpenDB(dbPath)
 }
 
-const appserveSchemaDDL = `
-CREATE TABLE IF NOT EXISTS appserve (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  event TEXT,
-  detail TEXT,
-  occurred_at TIMESTAMP
-);
-`
+var appserveSchemaDDL = orchestratorsql.Q("appserve/appserve_schema_ddl")
 
 func logStartup(dbPath, event, detail string) error {
 	db, err := appconfig.OpenDB(dbPath)
@@ -156,7 +151,7 @@ func logStartup(dbPath, event, detail string) error {
 	if _, err := db.Exec(appserveSchemaDDL); err != nil {
 		return err
 	}
-	_, err = db.Exec(`INSERT INTO appserve (event, detail, occurred_at) VALUES (?, ?, ?)`, event, detail, time.Now().UTC())
+	_, err = db.Exec(orchestratorsql.Q("appserve/log_startup"), event, detail, time.Now().UTC())
 	return err
 }
 

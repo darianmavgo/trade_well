@@ -3,15 +3,11 @@ package dashboard
 import (
 	"database/sql"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
-const schemaDDL = `
-CREATE TABLE IF NOT EXISTS dashboard (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  port TEXT,
-  started_at TIMESTAMP
-);
-`
+var schemaDDL = orchestratorsql.Q("dashboard/schema_ddl")
 
 // EnsureSchema creates the dashboard audit table if it doesn't exist.
 func EnsureSchema(db *sql.DB) error {
@@ -26,6 +22,6 @@ func logServerStart(db *sql.DB, port int) error {
 	if err := EnsureSchema(db); err != nil {
 		return err
 	}
-	_, err := db.Exec(`INSERT INTO dashboard (port, started_at) VALUES (?, ?)`, port, time.Now().UTC())
+	_, err := db.Exec(orchestratorsql.Q("dashboard/log_server_start"), port, time.Now().UTC())
 	return err
 }

@@ -117,7 +117,7 @@ Optional interfaces, checked by the runner:
 
 There is one strategy type. Its config is built in Go (`pkg/backtest/strategy`) and its signals are calculated by the SQL in `sql/strategies/<id>/`. `AutoRegisterSQLStrategies(root, marketDB)` still inserts a `<dir>-sql` registry entry for a pipeline directory that already has an owner. That entry is the same pipeline, used to resolve the directory, not a second strategy. `failed_training/` has no matching registered strategy, so it stays unregistered. That SQL is archived; the Go package is behind `//go:build ignore` plus a `doc.go` stub. Registration is once per `(root, db)` for the process.
 
-A pipeline is a directory of `.sql` files run in name order by `SQLPipelineStrategy`. `pipelinefs.go` reads the directory on disk when it exists and otherwise the embedded FS in `sql/embed.go`, keyed by the directory's base name. Placeholders substituted from `StrategyConfig` before execution:
+A pipeline is a directory of `.sql` files run in name order by `SQLPipelineStrategy`. `pipelinefs.go` reads the directory from disk: a path such as `sql/strategies/<id>` is relative to the folder that holds the sql folder (found by `sql/sqlfiles.go` from the working directory), an absolute path is used as given. There is no embedded copy and no fallback; a directory that is not there is an error naming the path. Placeholders substituted from `StrategyConfig` before execution:
 
 | Token | Source |
 |---|---|

@@ -3,17 +3,13 @@ package stage_orders
 import (
 	"database/sql"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // InsertStagedOrder queues a bracket order for pkg/submit_orders.
 func InsertStagedOrder(db *sql.DB, o *StagedOrder) (int64, error) {
-	query := `
-	INSERT INTO stage_order (
-		signal_id, account_number, strategy_name, symbol, instruction,
-		quantity, entry_price, take_profit_price, stop_loss_price,
-		max_trading_days, status, staged_at, entry_duration, session_date, alloc_pct
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
+	query := orchestratorsql.Q("stage_orders/insert_staged_order")
 	res, err := db.Exec(query,
 		o.SignalID, o.AccountNumber, o.StrategyName, o.Symbol, o.Instruction,
 		o.Quantity, o.EntryPrice, o.TakeProfitPrice, o.StopLossPrice,
@@ -120,7 +116,7 @@ func GetOrdersAwaitingFillConfirmation(db *sql.DB, accountNumber string) ([]Stag
 // -- the caller has already verified this with the broker, not merely that
 // PlaceOrder returned without error.
 func MarkStagedOrderSubmitted(db *sql.DB, id int64, orderID string, submittedAt time.Time) error {
-	_, err := db.Exec(`UPDATE stage_order SET status = ?, order_id = ?, submitted_at = ? WHERE id = ?`,
+	_, err := db.Exec(orchestratorsql.Q("stage_orders/mark_staged_order_submitted"),
 		StagedOrderSubmitted, orderID, submittedAt, id)
 	return err
 }
@@ -129,14 +125,14 @@ func MarkStagedOrderSubmitted(db *sql.DB, id int64, orderID string, submittedAt 
 // order ID exists) but its fill has not yet been confirmed. See
 // StagedOrderPendingFill.
 func MarkStagedOrderPendingFill(db *sql.DB, id int64, orderID string, submittedAt time.Time) error {
-	_, err := db.Exec(`UPDATE stage_order SET status = ?, order_id = ?, submitted_at = ? WHERE id = ?`,
+	_, err := db.Exec(orchestratorsql.Q("stage_orders/mark_staged_order_submitted"),
 		StagedOrderPendingFill, orderID, submittedAt, id)
 	return err
 }
 
 // MarkStagedOrderRejected records why a staged order was not submitted.
 func MarkStagedOrderRejected(db *sql.DB, id int64, reason string) error {
-	_, err := db.Exec(`UPDATE stage_order SET status = ?, reject_reason = ? WHERE id = ?`,
+	_, err := db.Exec(orchestratorsql.Q("stage_orders/mark_staged_order_rejected"),
 		StagedOrderRejected, reason, id)
 	return err
 }
@@ -144,10 +140,7 @@ func MarkStagedOrderRejected(db *sql.DB, id int64, reason string) error {
 // ClaimStagedOrderForSubmit atomically moves PENDING -> SUBMITTING and sets
 // client_order_id. Only one winner succeeds (rowsAffected == 1).
 func ClaimStagedOrderForSubmit(db *sql.DB, id int64, clientOrderID string) (bool, error) {
-	res, err := db.Exec(`
-UPDATE stage_order
-SET status = ?, client_order_id = ?
-WHERE id = ? AND status = ?`,
+	res, err := db.Exec(orchestratorsql.Q("stage_orders/claim_staged_order_for_submit"),
 		StagedOrderSubmitting, clientOrderID, id, StagedOrderPending)
 	if err != nil {
 		return false, err
@@ -160,7 +153,7 @@ WHERE id = ? AND status = ?`,
 // to have reached the broker (its credentials were refused before any order was sent). The
 // client_order_id stays, so the retry is the same intent.
 func ReleaseStagedOrderClaim(db *sql.DB, id int64) error {
-	_, err := db.Exec(`UPDATE stage_order SET status = ? WHERE id = ? AND status = ?`,
+	_, err := db.Exec(orchestratorsql.Q("stage_orders/release_staged_order_claim"),
 		StagedOrderPending, id, StagedOrderSubmitting)
 	return err
 }
@@ -199,7 +192,7 @@ func GetWatchingStagedOrders(db *sql.DB, accountNumber string) ([]StagedOrder, e
 // PromoteWatchingOrder turns a WATCHING row into a PENDING one at quantity qty, so
 // pkg/submit_orders places it. It reports whether the row was still WATCHING.
 func PromoteWatchingOrder(db *sql.DB, id int64, qty float64) (bool, error) {
-	res, err := db.Exec(`UPDATE stage_order SET status = ?, quantity = ? WHERE id = ? AND status = ?`,
+	res, err := db.Exec(orchestratorsql.Q("stage_orders/promote_watching_order"),
 		StagedOrderPending, qty, id, StagedOrderWatching)
 	if err != nil {
 		return false, err
@@ -211,7 +204,7 @@ func PromoteWatchingOrder(db *sql.DB, id int64, qty float64) (bool, error) {
 // CancelWatchingOrder closes a WATCHING row that will not be placed (its limit was
 // never reached by the close, or there was no cash for it when it triggered).
 func CancelWatchingOrder(db *sql.DB, id int64, reason string) error {
-	_, err := db.Exec(`UPDATE stage_order SET status = ?, reject_reason = ? WHERE id = ? AND status = ?`,
+	_, err := db.Exec(orchestratorsql.Q("stage_orders/cancel_watching_order"),
 		StagedOrderCancelled, reason, id, StagedOrderWatching)
 	return err
 }
@@ -249,8 +242,7 @@ func GetRestingDayEntries(db *sql.DB, accountNumber, sessionDate string) ([]Stag
 // WATCHING, so a later pass can try it again when buying power frees up. It reports
 // whether the row was still REJECTED.
 func ReopenRejectedWatch(db *sql.DB, id int64) (bool, error) {
-	res, err := db.Exec(`UPDATE stage_order SET status = ?, reject_reason = NULL, client_order_id = NULL
-		WHERE id = ? AND status = ?`, StagedOrderWatching, id, StagedOrderRejected)
+	res, err := db.Exec(orchestratorsql.Q("stage_orders/reopen_rejected_watch"), StagedOrderWatching, id, StagedOrderRejected)
 	if err != nil {
 		return false, err
 	}
@@ -262,8 +254,7 @@ func ReopenRejectedWatch(db *sql.DB, id int64) (bool, error) {
 // id) back to PENDING with a fresh client_order_id, for submit_orders to try again. It reports
 // whether the row qualified: a row that is not REJECTED, or that has an order id, is left alone.
 func ReopenRejectedOrder(db *sql.DB, id int64) (bool, error) {
-	res, err := db.Exec(`UPDATE stage_order SET status = ?, reject_reason = NULL, client_order_id = NULL
-		WHERE id = ? AND status = ? AND COALESCE(order_id, '') = ''`, StagedOrderPending, id, StagedOrderRejected)
+	res, err := db.Exec(orchestratorsql.Q("stage_orders/reopen_rejected_order"), StagedOrderPending, id, StagedOrderRejected)
 	if err != nil {
 		return false, err
 	}
@@ -274,7 +265,7 @@ func ReopenRejectedOrder(db *sql.DB, id int64) (bool, error) {
 // CancelRestingOrder closes a resting entry the caller has cancelled at the broker and
 // confirmed CANCELED. It reports whether the row was still waiting on a fill.
 func CancelRestingOrder(db *sql.DB, id int64, reason string) (bool, error) {
-	res, err := db.Exec(`UPDATE stage_order SET status = ?, reject_reason = ? WHERE id = ? AND status = ?`,
+	res, err := db.Exec(orchestratorsql.Q("stage_orders/cancel_watching_order"),
 		StagedOrderCancelled, reason, id, StagedOrderPendingFill)
 	if err != nil {
 		return false, err

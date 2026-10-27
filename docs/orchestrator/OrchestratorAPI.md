@@ -31,6 +31,7 @@ Derived on 2026-10-26 from `cmd/orchestrator/main.go` (subcommands), `pkg/orches
 | Backtest in-sample, out-of-sample and live win rate side by side | `live_vs_backtest_winrate` | `GET /live_vs_backtest_winrate` | - |
 | Copy the newest in-sample and held-out backtest of each greenlit strategy into the archive | `live_vs_backtest_sync` | - | - |
 | Give closed trades the broker's real fill prices and re-measure P&L (places nothing) | `backfill_fills` | - | - |
+| Capture the trades that actually happened into `trade_history` and print the ongoing live win rate against the backtest | `trade_history` | - | - (also runs at the end of every `manage_exits` run) |
 | Compare each live decision with a one-share backtest replay | `live_vs_backtest_trades` | - | - |
 | Entry and exit slippage and fill delay from `live_vs_backtest_trade` | `live_vs_backtest_slippage` | - | - |
 | Run both reconciliations, write `live_vs_backtest_report.db` and an HTML page | `live_vs_backtest_report` | `GET /` on the separate `live-vs-backtest-report` service (`deploy_gae/live_vs_backtest_report.yaml`), not on the trading service | - |

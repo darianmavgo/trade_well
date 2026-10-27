@@ -10,9 +10,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/darianmavgo/trade_well/pkg/orchestrator/job_runs"
 	"strings"
 	"time"
+
+	"github.com/darianmavgo/trade_well/pkg/orchestrator/job_runs"
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/manage_exits"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/risk"
@@ -306,7 +308,7 @@ func Run(
 				"[%s] Rounded prices to cents: entry $%.2f TP $%.2f SL $%.2f (Schwab 2-decimal rule)",
 				so.Symbol, entry, tp, stop))
 			if !dryRun {
-				_, _ = db.Exec(`UPDATE stage_order SET entry_price = ?, take_profit_price = ?, stop_loss_price = ? WHERE id = ?`,
+				_, _ = db.Exec(orchestratorsql.Q("submit_orders/run"),
 					entry, tp, stop, so.ID)
 				so.EntryPrice, so.TakeProfitPrice, so.StopLossPrice = entry, tp, stop
 			}
@@ -316,7 +318,7 @@ func Run(
 			stop = trader.RoundPrice(entry * trader.CrisisStopFraction) // -20% crisis guard; strategy SL 0 = no strategy stop
 			res.Details = append(res.Details, fmt.Sprintf("[%s] Strategy SL is 0 — applying crisis guard stop $%.2f (-20%%)", so.Symbol, stop))
 			if !dryRun {
-				_, _ = db.Exec(`UPDATE stage_order SET stop_loss_price = ? WHERE id = ?`, stop, so.ID)
+				_, _ = db.Exec(orchestratorsql.Q("submit_orders/run_2"), stop, so.ID)
 				so.StopLossPrice = stop
 			}
 		}

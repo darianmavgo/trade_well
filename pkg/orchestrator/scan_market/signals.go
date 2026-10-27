@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // UpsertSignalDay writes exactly one row per (strategy, trading day) to
@@ -16,22 +18,13 @@ func UpsertSignalDay(db *sql.DB, strategyName, signalDate, symbol, signalType st
 	if signalDate == "" {
 		signalDate = generatedAt.UTC().Format("2006-01-02")
 	}
-	_, err := db.Exec(`
-		INSERT INTO scan_market_signal (symbol, strategy_name, signal_type, price, indicator_data, generated_at, status, signal_date)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(strategy_name, signal_date) DO UPDATE SET
-			symbol=excluded.symbol,
-			signal_type=excluded.signal_type,
-			price=excluded.price,
-			indicator_data=excluded.indicator_data,
-			generated_at=excluded.generated_at,
-			status=excluded.status`,
+	_, err := db.Exec(orchestratorsql.Q("scan_market/upsert_signal_day"),
 		symbol, strategyName, signalType, price, detail, generatedAt, status, signalDate)
 	if err != nil {
 		return 0, err
 	}
 	var id int64
-	err = db.QueryRow(`SELECT id FROM scan_market_signal WHERE strategy_name = ? AND signal_date = ?`,
+	err = db.QueryRow(orchestratorsql.Q("scan_market/upsert_signal_day_2"),
 		strategyName, signalDate).Scan(&id)
 	return id, err
 }
@@ -47,6 +40,6 @@ func UpdateSignalStatus(db *sql.DB, id int64, status string) error {
 	if id <= 0 {
 		return nil
 	}
-	_, err := db.Exec(`UPDATE scan_market_signal SET status = ? WHERE id = ?`, status, id)
+	_, err := db.Exec(orchestratorsql.Q("scan_market/update_signal_status"), status, id)
 	return err
 }

@@ -217,7 +217,7 @@ Hourly and minute bars go to `data/market_history_hourly.db` / `data/market_hist
 
 Run one strategy, many strategies, or a shared cash account.
 
-**Reads:** market DB (`-db`, table `-table` `backtest_start`). `gridsearch apply` is what reads `gridsearch.db` and calls back into this package. SQL pipelines read `sql/strategies/<id>/` when that directory exists, otherwise the copy embedded in the binary.
+**Reads:** market DB (`-db`, table `-table` `backtest_start`). `gridsearch apply` is what reads `gridsearch.db` and calls back into this package. SQL pipelines read `sql/strategies/<id>/` from disk: the folder named `sql` in the working directory or the nearest parent, with nothing embedded in the binary and no other place searched. Without one the command fails with an error that names the directory it searched from.
 
 **Writes:** `data/reports/<id>.db` (next free `data/reports/<id>_N.db` if the name is taken). Tables `signals`, `trades`, `equity_curve`, `performance_summary`, and when relevant `return_breakdown` and `run_metrics`. HTML at `data/reports/backtest_report.html`. Auto-download (`-auto-download`, default on) writes missing bars into the market DB. Window starts `2021-01-01` (`-start`); earlier bars warm up SMAs only. Capital default `$100,000`. `-download-years` default `5`.
 

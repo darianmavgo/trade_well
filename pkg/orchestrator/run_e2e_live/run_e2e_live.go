@@ -31,6 +31,8 @@ import (
 	"sync"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/backtest/runner"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/job_runs"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/strategies"
@@ -152,7 +154,7 @@ func Run(ctx context.Context, out io.Writer, db *sql.DB, cron http.Handler, opts
 	}
 	if afterStaged > 0 {
 		fmt.Fprintln(out, "  newest stage_order rows (account, strategy, symbol, qty, entry price, status, reason):")
-		show(out, db, `SELECT account_number, strategy_name, symbol, quantity, entry_price, status, IFNULL(reject_reason,'') FROM stage_order ORDER BY id DESC LIMIT 6`)
+		show(out, db, orchestratorsql.Q("run_e2e_live/run"))
 	}
 
 	heading(out, "STEP 4 — "+stepSubmitOrders.title)
@@ -182,16 +184,16 @@ func Run(ctx context.Context, out io.Writer, db *sql.DB, cron http.Handler, opts
 	heading(out, "WHAT THE PIPELINE LEFT BEHIND (read from the database)")
 	fmt.Fprintln(out, "  manage_exit: trades the exit manager is tracking (newest first)")
 	if count(db, "manage_exit") > 0 {
-		show(out, db, `SELECT account_number, symbol, strategy_name, status, entry_time, trading_days_held, max_trading_days FROM manage_exit ORDER BY id DESC LIMIT 10`)
+		show(out, db, orchestratorsql.Q("run_e2e_live/run_2"))
 	} else {
 		fmt.Fprintln(out, "    (none). If Schwab shows open positions, nothing is managing their exits.")
 	}
-	newFindings := countWhere(db, `SELECT COUNT(*) FROM check_health_finding WHERE id > ?`, lastFinding)
+	newFindings := countWhere(db, orchestratorsql.Q("run_e2e_live/run_3"), lastFinding)
 	fmt.Fprintf(out, "  check_health findings written by the last audit: %d\n", newFindings)
 	if newFindings > 0 {
-		rows := queryRows(db, `SELECT account_number, severity, check_name, IFNULL(subject,''), detail FROM check_health_finding WHERE id > ? ORDER BY id`, lastFinding)
+		rows := queryRows(db, orchestratorsql.Q("run_e2e_live/run_4"), lastFinding)
 		printRows(out, rows)
-		critical := countWhere(db, `SELECT COUNT(*) FROM check_health_finding WHERE id > ? AND severity = 'CRITICAL'`, lastFinding)
+		critical := countWhere(db, orchestratorsql.Q("run_e2e_live/run_5"), lastFinding)
 		if critical > 0 {
 			res.fail(out, fmt.Sprintf("%d CRITICAL check_health finding(s) from the last audit (listed above)", critical))
 		}

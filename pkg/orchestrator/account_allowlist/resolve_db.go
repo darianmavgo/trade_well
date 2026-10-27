@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/schwaber/trader"
 )
 
@@ -17,14 +19,12 @@ func ResolveFromDB(db *sql.DB, targetAcc string) (*trader.ResolvedAccount, error
 
 	var accNum, hashVal, accType string
 	var cash, liqVal float64
-	err := db.QueryRow(`SELECT account_number, hash_value, account_type, cash_balance, liquidation_value
-		FROM account_state_account WHERE account_number = ?`, targetAcc).Scan(&accNum, &hashVal, &accType, &cash, &liqVal)
+	err := db.QueryRow(orchestratorsql.Q("account_allowlist/resolve_from_db"), targetAcc).Scan(&accNum, &hashVal, &accType, &cash, &liqVal)
 	if err != nil {
 		return nil, fmt.Errorf("account %s not found in the Turso account_state mirror (run `orchestrator account_state` first): %w", targetAcc, err)
 	}
 
-	rows, err := db.Query(`SELECT symbol, asset_type, long_quantity, short_quantity, average_price, market_value
-		FROM account_state_position WHERE account_number = ?`, accNum)
+	rows, err := db.Query(orchestratorsql.Q("account_allowlist/resolve_from_db_2"), accNum)
 	var positions []trader.Position
 	if err == nil {
 		defer rows.Close()

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/job_runs"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/scan_market"
 )
@@ -78,8 +80,7 @@ func FilledThisMonth(db *sql.DB, accNum, month string) map[string]bool {
 	if db == nil {
 		return out
 	}
-	rows, err := db.Query(`SELECT strategy_name, strategy_id, symbol, COALESCE(entry_filled_at, entry_time)
-		FROM manage_exit WHERE (account_number = ? OR ? = '')`, accNum, accNum)
+	rows, err := db.Query(orchestratorsql.Q("stage_orders/filled_this_month"), accNum, accNum)
 	if err != nil {
 		return out // no manage_exit table yet: nothing has filled
 	}

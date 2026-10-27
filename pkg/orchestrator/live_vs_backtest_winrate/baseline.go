@@ -9,6 +9,8 @@ import (
 	"os"
 	"slices"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/runtables"
 )
 
@@ -62,11 +64,7 @@ func Baseline() ([]BaselineRow, error) {
 
 // loadBaseline puts the compiled-in rows in winrate_baseline for the slice SQL.
 func loadBaseline(ctx context.Context, run *runtables.Run) error {
-	if err := run.Exec(ctx, `DROP TABLE IF EXISTS winrate_baseline;
-CREATE TABLE winrate_baseline (strategy_id TEXT, is_trades INTEGER, is_win_rate REAL, oos_trades INTEGER, oos_win_rate REAL,
-	all_trades INTEGER, all_win_rate REAL, is_start TEXT, is_end TEXT, oos_start TEXT, oos_end TEXT, evaluated_at TEXT, all_evaluated_at TEXT);
-DROP TABLE IF EXISTS winrate_baseline_trade;
-CREATE TABLE winrate_baseline_trade (strategy_id TEXT, pass TEXT, symbol TEXT, exit_date TEXT, win INTEGER, return_pct REAL)`); err != nil {
+	if err := run.Exec(ctx, orchestratorsql.Q("live_vs_backtest_winrate/load_baseline")); err != nil {
 		return err
 	}
 	rows, err := Baseline()
@@ -96,11 +94,7 @@ CREATE TABLE winrate_baseline_trade (strategy_id TEXT, pass TEXT, symbol TEXT, e
 // the form baseline.json takes. Nothing is written for a strategy with no backtest rate.
 func ExportBaseline(ctx context.Context, db *sql.DB, path string, ids []string) (int, error) {
 	wanted := func(id string) bool { return len(ids) == 0 || slices.Contains(ids, id) }
-	rows, err := db.QueryContext(ctx, `SELECT strategy_id, is_trades, is_win_rate, oos_trades, oos_win_rate, COALESCE(all_trades, 0), all_win_rate,
-		COALESCE(is_start, ''), COALESCE(is_end, ''), COALESCE(oos_start, ''), COALESCE(oos_end, ''), COALESCE(evaluated_at, ''), COALESCE(all_evaluated_at, '')
-		FROM live_vs_backtest_winrate
-		WHERE (is_win_rate IS NOT NULL OR oos_win_rate IS NOT NULL OR all_win_rate IS NOT NULL)
-		ORDER BY strategy_id`)
+	rows, err := db.QueryContext(ctx, orchestratorsql.Q("live_vs_backtest_winrate/export_baseline"))
 	if err != nil {
 		return 0, err
 	}
@@ -129,7 +123,7 @@ func ExportBaseline(ctx context.Context, db *sql.DB, path string, ids []string) 
 		for i, r := range out {
 			at[r.Strategy] = i
 		}
-		tr, err := db.QueryContext(ctx, `SELECT strategy_id, pass, symbol, exit_date, win, return_pct FROM live_vs_backtest_deployed_trade ORDER BY strategy_id, pass, exit_date, symbol`)
+		tr, err := db.QueryContext(ctx, orchestratorsql.Q("live_vs_backtest_winrate/export_baseline_2"))
 		if err != nil {
 			return 0, err
 		}

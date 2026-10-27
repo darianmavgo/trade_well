@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/backtest/models"
 	"github.com/darianmavgo/trade_well/pkg/backtest/storage"
 )
@@ -120,10 +122,7 @@ func SaveMarketWorkingCopyToTurso(ctx context.Context, db *sql.DB, marketDB stri
 			Volume   int64   `db:"volume"`
 		}
 		if err := local.SelectContext(ctx, &rows,
-			`SELECT substr(CAST(Date AS TEXT), 1, 10) AS d, open, high, low, close, COALESCE("Adj Close", close) AS adj, COALESCE(volume, 0) AS volume
-			 FROM backtest_start
-			 WHERE symbol = ? AND timeframe = '1d' AND length(CAST(Date AS TEXT)) = 10 AND CAST(Date AS TEXT) >= ?
-			 ORDER BY Date`, sym, from); err != nil {
+			orchestratorsql.Q("scan_market/save_market_working_copy_to_turso"), sym, from); err != nil {
 			return written, fmt.Errorf("read %s %s: %w", marketDB, sym, err)
 		}
 		for _, r := range rows {

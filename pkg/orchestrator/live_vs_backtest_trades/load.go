@@ -4,13 +4,12 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 func loadSignals(db *sql.DB) ([]buySig, error) {
-	rows, err := db.Query(`SELECT id, strategy_id, symbol, as_of_date, next_session,
-		close, buy_limit, take_profit, stop_loss, hold_days, status,
-		COALESCE(notes, ''), COALESCE(staged_order_id, 0)
-		FROM scan_market_buy_signal`)
+	rows, err := db.Query(orchestratorsql.Q("live_vs_backtest_trades/load_signals"))
 	if err != nil {
 		return nil, err
 	}
@@ -29,10 +28,7 @@ func loadSignals(db *sql.DB) ([]buySig, error) {
 }
 
 func loadStages(db *sql.DB) ([]stageRow, error) {
-	rows, err := db.Query(`SELECT id, COALESCE(signal_id, 0), account_number, strategy_name, symbol,
-		quantity, entry_price, take_profit_price, stop_loss_price, max_trading_days, status,
-		COALESCE(reject_reason, ''), COALESCE(order_id, ''), staged_at
-		FROM stage_order`)
+	rows, err := db.Query(orchestratorsql.Q("live_vs_backtest_trades/load_stages"))
 	if err != nil {
 		return nil, err
 	}
@@ -53,15 +49,7 @@ func loadStages(db *sql.DB) ([]stageRow, error) {
 }
 
 func loadExits(db *sql.DB) ([]exitRow, error) {
-	rows, err := db.Query(`SELECT id, account_number, symbol, strategy_name,
-		COALESCE(strategy_id, ''), COALESCE(as_of_date, ''), COALESCE(next_session, ''),
-		COALESCE(signal_id, 0), COALESCE(buy_signal_id, 0), COALESCE(stage_order_id, 0),
-		COALESCE(entry_order_id, ''),
-		COALESCE(entry_price, 0), COALESCE(entry_fill_price, 0), COALESCE(exit_fill_price, 0),
-		COALESCE(exit_price, 0), COALESCE(filled_qty, 0), COALESCE(fees, 0), COALESCE(quantity, 0),
-		status, COALESCE(exit_reason, ''), COALESCE(exit_reason_code, ''), COALESCE(exit_date, ''),
-		COALESCE(pnl_pct, 0), entry_time, entry_filled_at, COALESCE(max_trading_days, 0)
-		FROM manage_exit`)
+	rows, err := db.Query(orchestratorsql.Q("live_vs_backtest_trades/load_exits"))
 	if err != nil {
 		return nil, err
 	}

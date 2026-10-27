@@ -3,6 +3,8 @@ package submit_orders
 import (
 	"database/sql"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // logAttempt records one submission attempt (successful or not) to the
@@ -12,8 +14,5 @@ func logAttempt(db *sql.DB, stagedOrderID int64, brokerOrderID, symbol string, q
 	if db == nil {
 		return
 	}
-	_, _ = db.Exec(`
-	INSERT INTO submit_order (staged_order_id, broker_order_id, symbol, quantity, status, detail, submitted_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, stagedOrderID, brokerOrderID, symbol, quantity, status, detail, at)
+	_, _ = db.Exec(orchestratorsql.Q("submit_orders/log_attempt"), stagedOrderID, brokerOrderID, symbol, quantity, status, detail, at)
 }

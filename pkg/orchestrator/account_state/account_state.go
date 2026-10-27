@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/manage_exits"
 	"github.com/darianmavgo/trade_well/pkg/schwaber/accountstore"
 	"github.com/darianmavgo/trade_well/pkg/schwaber/schwab"
@@ -364,8 +366,8 @@ func SyncWithProgress(ctx context.Context, db *sql.DB, tc *trader.TraderClient, 
 	}
 
 	res.AccountsFound = len(selected)
-	_ = db.QueryRow("SELECT COUNT(*) FROM account_state_order").Scan(&res.OrdersFound)
-	_ = db.QueryRow("SELECT COUNT(*) FROM account_state_transaction").Scan(&res.TransactionsFound)
+	_ = db.QueryRow(orchestratorsql.Q("account_state/sync_with_progress")).Scan(&res.OrdersFound)
+	_ = db.QueryRow(orchestratorsql.Q("account_state/sync_with_progress_2")).Scan(&res.TransactionsFound)
 
 	return res, nil
 }

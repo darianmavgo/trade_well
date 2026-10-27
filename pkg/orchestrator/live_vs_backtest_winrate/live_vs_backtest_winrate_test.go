@@ -402,64 +402,129 @@ func TestRefreshOfARefdataAssetNeedsStrategyIDs(t *testing.T) {
 	}
 }
 
-// Compare leaves its slice tables in Turso, named for the run, and keeps only the newest few runs.
-func TestCompareKeepsOnlyTheNewestRunsOfItsTables(t *testing.T) {
-	ctx := context.Background()
-	orch := open(t, "orch.db")
-	for i := 0; i < keepRuns+2; i++ {
-		if _, err := Compare(ctx, orch, Options{IDs: []string{"mull"}}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	var n int
-	if err := orch.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE name LIKE 'winrate_compare\_\_r%' ESCAPE '\'`).Scan(&n); err != nil || n != keepRuns {
-		t.Fatalf("winrate_compare tables = %d (%v), want the newest %d runs", n, err, keepRuns)
-	}
-}
-
-func countTables(t *testing.T, db *sql.DB, like string) int {
+// runTables counts the per-run slice tables of the comparison left in db.
+func runTables(t *testing.T, db *sql.DB) int {
 	t.Helper()
 	var n int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name LIKE ? ESCAPE '\'`, like).Scan(&n); err != nil {
+	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name LIKE 'winrate\_%\_\_r%' ESCAPE '\'`).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
 	return n
 }
 
-// Asked the same question within MaxAge, Compare reads the tables it already built instead of
-// creating new ones; asked a different question, or with no MaxAge, it builds.
-func TestCompareReusesAFinishedRunWithinMaxAge(t *testing.T) {
+// The slice tables exist only while a calculation runs. After Compare and Recent return, none is
+// left, and live_vs_backtest_winrate is the one win-rate table in the database.
+func TestCompareAndRecentLeaveNoRunTablesBehind(t *testing.T) {
 	ctx := context.Background()
 	orch := open(t, "orch.db")
-	all := `winrate\_compare\_\_r%`
-	first, err := Compare(ctx, orch, Options{IDs: []string{"mull"}, MaxAge: time.Minute})
-	if err != nil {
+	if err := live_vs_backtest_trades.EnsureSchema(orch); err != nil {
 		t.Fatal(err)
 	}
-	if n := countTables(t, orch, all); n != 1 {
-		t.Fatalf("after the first call there are %d compare tables, want 1", n)
-	}
-	tables := countTables(t, orch, "%")
-	again, err := Compare(ctx, orch, Options{IDs: []string{"mull"}, MaxAge: time.Minute})
-	if err != nil {
+	if err := manage_exits.EnsureSchema(orch); err != nil {
 		t.Fatal(err)
 	}
-	if got := countTables(t, orch, "%"); got != tables {
-		t.Fatalf("a repeat within MaxAge created %d new tables", got-tables)
+	addLive(t, orch, "leaves-nothing", 12, 6, 6)
+	rows, err := Compare(ctx, orch, Options{IDs: []string{"leaves-nothing"}})
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("Compare = %v, %v", rows, err)
 	}
-	if len(again) != len(first) {
-		t.Fatalf("reused rows %d, first rows %d", len(again), len(first))
-	}
-	if _, err := Compare(ctx, orch, Options{IDs: []string{"other"}, MaxAge: time.Minute}); err != nil {
+	if _, err := Recent(ctx, orch, 2, 0); err != nil {
 		t.Fatal(err)
 	}
-	if n := countTables(t, orch, all); n != 2 {
-		t.Fatalf("a different question built %d compare tables in all, want 2", n)
+	if n := runTables(t, orch); n != 0 {
+		t.Fatalf("%d run tables left behind", n)
 	}
-	if _, err := Compare(ctx, orch, Options{IDs: []string{"mull"}}); err != nil {
+	var winrate int
+	if err := orch.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name LIKE '%winrate%'`).Scan(&winrate); err != nil {
 		t.Fatal(err)
 	}
-	if n := countTables(t, orch, all); n != 3 {
-		t.Fatalf("a call with no MaxAge built %d compare tables in all, want 3", n)
+	if winrate != 0 {
+		// live_vs_backtest_winrate is created by Refresh/EnsureSchema, not by Compare, so it is absent here
+		t.Fatalf("Compare created %d win-rate tables of its own", winrate)
+	}
+}
+
+// A calculation that fails half way still drops what it built.
+func TestCompareDropsItsTablesWhenItFails(t *testing.T) {
+	orch := open(t, "orch.db")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := Compare(ctx, orch, Options{IDs: []string{"fails"}}); err == nil {
+		t.Fatal("Compare with a cancelled context succeeded")
+	}
+	if n := runTables(t, orch); n != 0 {
+		t.Fatalf("a failed Compare left %d run tables", n)
+	}
+}
+
+// Tables left by an earlier process (older runs, including the kind Turso still holds from before
+// this change) are swept by the next calculation; a run that is in progress, and the stored
+// backtest rates, are not touched.
+func TestCompareSweepsTablesLeftByEarlierRuns(t *testing.T) {
+	ctx := context.Background()
+	orch := open(t, "orch.db")
+	if err := EnsureSchema(orch); err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, orch, `INSERT INTO live_vs_backtest_winrate (strategy_id, is_trades, is_win_rate, synced_at) VALUES ('stored', 10, 0.5, 'now')`)
+	inFlight := "winrate_compare__r" + time.Now().UTC().Format("20060102t150405") + "001"
+	for _, name := range []string{
+		"winrate_compare__r20261026t233551001_kdf2d8bfc53", // a keyed run from before, as in Turso today
+		"winrate_progress__r20261026t220910001",
+		"winrate_baseline__r20260101t000000001",
+		"winrate_done__r20261026t233551001_kdf2d8bfc53", // the marker older versions left per run
+		inFlight, // another request's run that began just now
+	} {
+		mustExec(t, orch, `CREATE TABLE "`+name+`" (v INTEGER)`)
+	}
+	if _, err := Compare(ctx, orch, Options{IDs: []string{"sweeps"}}); err != nil {
+		t.Fatal(err)
+	}
+	if n := runTables(t, orch); n != 1 {
+		t.Fatalf("%d run tables left, want only the run in progress", n)
+	}
+	var left int
+	if err := orch.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE name = ?`, inFlight).Scan(&left); err != nil || left != 1 {
+		t.Fatalf("the run in progress was dropped (%v)", err)
+	}
+	var stored int
+	if err := orch.QueryRow(`SELECT COUNT(*) FROM live_vs_backtest_winrate WHERE strategy_id = 'stored'`).Scan(&stored); err != nil || stored != 1 {
+		t.Fatalf("the stored backtest rates were touched (%v)", err)
+	}
+}
+
+// Asked the same question within MaxAge, Compare answers from this process's memory and does not
+// calculate again; with no MaxAge, or a different question, it calculates.
+func TestCompareAnswersFromMemoryWithinMaxAge(t *testing.T) {
+	ctx := context.Background()
+	orch := open(t, "orch.db")
+	if err := live_vs_backtest_trades.EnsureSchema(orch); err != nil {
+		t.Fatal(err)
+	}
+	if err := manage_exits.EnsureSchema(orch); err != nil {
+		t.Fatal(err)
+	}
+	addLive(t, orch, "remembered", 12, 6, 6)
+	opt := Options{IDs: []string{"remembered"}, MaxAge: time.Minute}
+	first, err := Compare(ctx, orch, opt)
+	if err != nil || byID(first)["remembered"].LiveDecisions != 12 {
+		t.Fatalf("first answer: %v %v", first, err)
+	}
+	// Change the data underneath: only a new calculation could notice.
+	mustExec(t, orch, `DELETE FROM manage_exit`)
+	mustExec(t, orch, `DELETE FROM live_vs_backtest_trade`)
+	again, err := Compare(ctx, orch, opt)
+	if err != nil || byID(again)["remembered"].LiveDecisions != 12 {
+		t.Fatalf("a repeat within MaxAge recalculated: %v %v", again, err)
+	}
+	// A caller that changes the rows it was given does not change what the next caller gets.
+	again[0].Strategy = "changed by the caller"
+	third, err := Compare(ctx, orch, opt)
+	if err != nil || byID(third)["remembered"].LiveDecisions != 12 {
+		t.Fatalf("the remembered rows were changed through a caller's copy: %v %v", third, err)
+	}
+	fresh, err := Compare(ctx, orch, Options{IDs: []string{"remembered"}})
+	if err != nil || byID(fresh)["remembered"].LiveDecisions != 0 {
+		t.Fatalf("a call with no MaxAge did not recalculate: %v %v", fresh, err)
 	}
 }

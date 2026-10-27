@@ -15,7 +15,8 @@
 //	             record. Function names contain "WorkingCopy"; files are sqlite_working_copy_*.go.
 //
 // There is no Scratch kind. A calculation that used to run in a throwaway SQLite database now
-// runs in Turso, in tables named for the run (package runtables), so it can be audited and nothing
-// is local. A file named sqlite_scratch_*.go, or a function that opens an in-memory database,
+// runs in Turso, in tables named for the run (package runtables), so nothing is local. The win-rate
+// comparison drops its tables when it returns; the report and sync calculations keep their newest
+// few for audit. A file named sqlite_scratch_*.go, or a function that opens an in-memory database,
 // fails the test.
 package sqliteguard

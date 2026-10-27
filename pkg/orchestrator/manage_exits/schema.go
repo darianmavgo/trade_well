@@ -3,51 +3,15 @@ package manage_exits
 import (
 	"database/sql"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/schwaber/dbutil"
 )
 
 // EnsureSchema creates the manage_exit table if it does not already exist and
 // adds the exit-date columns to a table created before they existed.
 func EnsureSchema(db *sql.DB) error {
-	_, err := db.Exec(`
-CREATE TABLE IF NOT EXISTS manage_exit (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	account_number TEXT NOT NULL,
-	symbol TEXT NOT NULL,
-	strategy_name TEXT NOT NULL,
-	entry_order_id TEXT,
-	exit_order_id TEXT,
-	entry_price REAL NOT NULL,
-	target_profit_price REAL NOT NULL,
-	stop_loss_price REAL DEFAULT 0,
-	quantity REAL NOT NULL,
-	entry_time DATETIME NOT NULL,
-	max_trading_days INTEGER NOT NULL DEFAULT 8,
-	trading_days_held INTEGER NOT NULL DEFAULT 0,
-	status TEXT NOT NULL DEFAULT 'OPEN',
-	exit_reason TEXT,
-	exit_time DATETIME,
-	exit_price REAL DEFAULT 0,
-	pnl REAL DEFAULT 0,
-	pnl_pct REAL DEFAULT 0,
-	exit_date TEXT NOT NULL DEFAULT '',
-	exit_date_source TEXT NOT NULL DEFAULT '',
-	entry_filled_at DATETIME,
-	strategy_id TEXT NOT NULL DEFAULT '',
-	as_of_date TEXT NOT NULL DEFAULT '',
-	next_session TEXT NOT NULL DEFAULT '',
-	signal_id INTEGER NOT NULL DEFAULT 0,
-	buy_signal_id INTEGER NOT NULL DEFAULT 0,
-	stage_order_id INTEGER NOT NULL DEFAULT 0,
-	entry_fill_price REAL NOT NULL DEFAULT 0,
-	exit_fill_price REAL NOT NULL DEFAULT 0,
-	filled_qty REAL NOT NULL DEFAULT 0,
-	fees REAL NOT NULL DEFAULT 0,
-	exit_reason_code TEXT NOT NULL DEFAULT ''
-);
-CREATE INDEX IF NOT EXISTS idx_manage_exit_status ON manage_exit(status);
-CREATE INDEX IF NOT EXISTS idx_manage_exit_acc_sym ON manage_exit(account_number, symbol);
-`)
+	_, err := db.Exec(orchestratorsql.Q("manage_exits/ensure_schema"))
 	if err != nil {
 		return err
 	}

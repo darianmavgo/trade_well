@@ -49,7 +49,7 @@ go test ./pkg/strategy -run TestName              # one test
 4. Add a test using a real temp SQLite DB with literal bars. No mocks or fakes.
 5. If the Go side needs a new indicator, write it as SQL instead of extending `strategy/indicators.go` or `decisiontree.go`.
 
-SQL files are embedded via `sql/embed.go`; rebuild after editing them.
+SQL files are read from the `sql/` folder on disk (`sql/sqlfiles.go` finds it), not embedded in the binary: editing one takes effect on the next run, no rebuild. The orchestrator's SQL is in `sql/orchestrator` and is not the backtest layer's to import.
 
 ## Rule 5: Signals use absolute prices
 

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/manage_exits"
 )
@@ -147,37 +149,14 @@ func abs(f float64) float64 {
 	return f
 }
 
-const positionSchema = `
-CREATE TABLE IF NOT EXISTS check_health_position (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	run_at DATETIME NOT NULL,
-	account_number TEXT NOT NULL,
-	symbol TEXT NOT NULL,
-	quantity REAL NOT NULL,
-	average_price REAL NOT NULL,
-	strategy TEXT NOT NULL DEFAULT '',
-	entry_order_id TEXT NOT NULL DEFAULT '',
-	entry_fill_date TEXT NOT NULL DEFAULT '',
-	exit_date TEXT NOT NULL DEFAULT '',
-	exit_date_source TEXT NOT NULL DEFAULT '',
-	expected_exit_date TEXT NOT NULL DEFAULT '',
-	take_profit REAL NOT NULL DEFAULT 0,
-	expected_take_profit REAL NOT NULL DEFAULT 0,
-	stop_loss REAL NOT NULL DEFAULT 0,
-	expected_stop_loss REAL NOT NULL DEFAULT 0,
-	status TEXT NOT NULL,
-	issues TEXT NOT NULL DEFAULT ''
-);
-CREATE INDEX IF NOT EXISTS idx_check_health_position_run ON check_health_position(account_number, run_at);`
+var positionSchema = orchestratorsql.Q("check_health/position_schema")
 
 // RecordPositionAudit stores a run's per-position audits so /check_health can show them.
 func RecordPositionAudit(db *sql.DB, a PositionAudit) error {
 	if _, err := db.Exec(positionSchema); err != nil {
 		return err
 	}
-	_, err := db.Exec(`INSERT INTO check_health_position (run_at, account_number, symbol, quantity, average_price, strategy,
-		entry_order_id, entry_fill_date, exit_date, exit_date_source, expected_exit_date, take_profit, expected_take_profit,
-		stop_loss, expected_stop_loss, status, issues) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+	_, err := db.Exec(orchestratorsql.Q("check_health/record_position_audit"),
 		a.RunAt.UTC().Format(time.RFC3339), a.AccountNumber, a.Symbol, a.Quantity, a.AveragePrice, a.Strategy,
 		a.EntryOrderID, a.EntryFilledAt, a.ExitDate, a.ExitDateSrc, a.ExpectedExit, a.TakeProfit, a.ExpectedTP,
 		a.StopLoss, a.ExpectedStop, a.Status, strings.Join(a.Issues, "; "))
@@ -189,13 +168,7 @@ func LatestPositionAudits(db *sql.DB) ([]PositionAudit, error) {
 	if _, err := db.Exec(positionSchema); err != nil {
 		return nil, err
 	}
-	rows, err := db.Query(`SELECT p.run_at, p.account_number, p.symbol, p.quantity, p.average_price, p.strategy, p.entry_order_id,
-		p.entry_fill_date, p.exit_date, p.exit_date_source, p.expected_exit_date, p.take_profit, p.expected_take_profit,
-		p.stop_loss, p.expected_stop_loss, p.status, p.issues
-		FROM check_health_position p
-		WHERE p.run_at = (SELECT MAX(x.run_at) FROM check_health_position x WHERE x.account_number = p.account_number)
-		AND p.symbol <> ''
-		ORDER BY CASE p.status WHEN 'CRITICAL' THEN 0 WHEN 'WARNING' THEN 1 ELSE 2 END, p.account_number, p.symbol`)
+	rows, err := db.Query(orchestratorsql.Q("check_health/latest_position_audits"))
 	if err != nil {
 		return nil, err
 	}

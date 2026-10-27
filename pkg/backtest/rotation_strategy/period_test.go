@@ -2,6 +2,7 @@ package rotation_strategy
 
 import (
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -280,7 +281,7 @@ var _ = models.Signal{}
 // The matched-leverage pairs are data in the pipeline: every pair is listed both
 // ways and single-name leveraged ETFs are not paired.
 func TestInversePairsRoundTrip(t *testing.T) {
-	text, err := sqlfiles.Strategies.ReadFile("strategies/rotation_period/02_inverse_pairs.sql")
+	text, err := fs.ReadFile(sqlfiles.FS, "strategies/rotation_period/02_inverse_pairs.sql")
 	if err != nil {
 		t.Fatal(err)
 	}

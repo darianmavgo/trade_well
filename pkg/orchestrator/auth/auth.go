@@ -9,6 +9,8 @@ package auth
 import (
 	"database/sql"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // Recorder returns an audit callback (event, detail) that appends to the auth
@@ -25,7 +27,7 @@ func logEvent(db *sql.DB, event, detail string) {
 		return
 	}
 	_, _ = db.Exec(
-		`INSERT INTO auth (event, detail, logged_at) VALUES (?, ?, ?)`,
+		orchestratorsql.Q("auth/log_event"),
 		event, detail, time.Now().UTC().Format(time.RFC3339),
 	)
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/job_runs"
 )
 
@@ -35,7 +37,7 @@ func AutoKillReason(db *sql.DB, l Limits, states []State) (string, error) {
 			return "", err
 		}
 		for _, job := range autoKillJobs {
-			rows, err := db.Query(`SELECT status FROM job_run WHERE job = ? ORDER BY id DESC LIMIT ?`, job, n)
+			rows, err := db.Query(orchestratorsql.Q("risk/auto_kill_reason"), job, n)
 			if err != nil {
 				return "", fmt.Errorf("risk: read %s runs: %w", job, err)
 			}

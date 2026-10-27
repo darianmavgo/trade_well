@@ -9,6 +9,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/backtest/dailybars"
 	"github.com/darianmavgo/trade_well/pkg/backtest/models"
 )
@@ -41,7 +43,7 @@ func BuildDailyBarsWorkingCopyFromTurso(ctx context.Context, db *sql.DB, barsPat
 		if have.equal(want) {
 			continue
 		}
-		rows, err := db.QueryContext(ctx, `SELECT date, close, adj_close, volume FROM daily_bars_live WHERE symbol = ? ORDER BY date`, sym)
+		rows, err := db.QueryContext(ctx, orchestratorsql.Q("modelstate/build_daily_bars_working_copy_from_turso"), sym)
 		if err != nil {
 			return rebuilt, err
 		}

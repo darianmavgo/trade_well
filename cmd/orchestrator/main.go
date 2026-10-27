@@ -103,6 +103,8 @@ func main() {
 		runRisk(subArgs)
 	case "weekly_digest":
 		runWeeklyDigest(subArgs)
+	case "trade_history":
+		runTradeHistory(subArgs)
 	case "live_vs_backtest_trades":
 		runReconcileTrades(subArgs)
 	case "backfill_fills":
@@ -190,6 +192,7 @@ func printUsage() {
 	fmt.Printf("  %srisk%s           Record each account's equity and set what NEW entries may do from drawdown, daily loss and exposure (exits never limited; --dry-run previews; --reset-peak after a withdrawal; also /cron/risk)\n", colGreen, colReset)
 	fmt.Printf("  %sready%s          Pre-flight: does the allowlist resolve from the bundle, are models and market data current, is the Schwab token good (--static = bundle check only, for deploy.sh; --email sends the report if not ok; also /ready)\n", colGreen, colReset)
 	fmt.Printf("  %sweekly_digest%s  Builds the Saturday summary (signals, orders, job health, positions, readiness) and emails it (--dry-run prints only)\n", colGreen, colReset)
+	fmt.Printf("  %strade_history%s            Captures the trades that actually happened (strategy, entry and exit order ids) into trade_history, then prints the ongoing live win rate against the backtest (--dry-run counts; also runs at the end of manage_exits)\n", colGreen, colReset)
 	fmt.Printf("  %slive_vs_backtest_trades%s  Compares each live decision with a one-share backtest replay (not scheduled)\n", colGreen, colReset)
 	fmt.Printf("  %sbackfill_fills%s    Gives closed manage_exit rows the broker's real entry/exit fill prices (from Schwab's orders) and re-measures their P&L; places nothing (--dry-run writes nothing; not scheduled, manage_exits does it too)\n", colGreen, colReset)
 	fmt.Printf("  %sorders%s            Lists every Schwab order (brackets unfolded) with its real fill price beside the limit and stop sent; -symbol, -status, -days. Read-only, no --dry-run. Page: /orders\n", colGreen, colReset)

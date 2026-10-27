@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/account_allowlist"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/account_state"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/appconfig"
@@ -99,7 +101,7 @@ func (s *Server) reopenDB() error {
 func (s *Server) ensureDB() error {
 	if s.db != nil {
 		if err := s.db.Ping(); err == nil {
-			if _, err := s.db.Exec("SELECT count(*) FROM sqlite_master"); err == nil {
+			if _, err := s.db.Exec(orchestratorsql.Q("dashboard/ensure_db")); err == nil {
 				return ensureAllSchemas(s.db)
 			}
 		}

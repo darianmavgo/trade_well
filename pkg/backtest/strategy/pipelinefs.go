@@ -4,45 +4,47 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 
 	sqlfiles "github.com/darianmavgo/trade_well/sql"
 )
 
-// A pipeline directory is normally a path like "sql/strategies/mara_tree",
-// relative to the process working directory. That only exists when the process
-// runs from a backtestgosqlite checkout. readPipelineDir/readPipelineFile use
-// the directory on disk when it exists (repo-root runs, and editing SQL without
-// rebuilding) and otherwise fall back to the copy embedded in the binary
-// (sqlfiles.Strategies), keyed by the directory's final element. Library
-// callers therefore run the same SQL as the CLI, from any working directory.
+// A pipeline directory is a path like "sql/strategies/mara_tree": relative to the folder that holds
+// the sql folder (found from the working directory, see sqlfiles), or absolute. It is read from disk
+// and nowhere else, so editing the SQL needs no rebuild; a directory that is not there is an error
+// that names the path it looked at.
 
-func pipelineOnDisk(dir string) bool {
-	info, err := os.Stat(dir)
-	return err == nil && info.IsDir()
-}
-
-func embeddedPipelinePath(dir string) string {
-	return path.Join("strategies", filepath.Base(dir))
+// pipelinePath is the directory on disk.
+func pipelinePath(dir string) (string, error) {
+	p, err := sqlfiles.Resolve(dir)
+	if err != nil {
+		return "", fmt.Errorf("pipeline directory %q: %w", dir, err)
+	}
+	return p, nil
 }
 
 // readPipelineDir lists the entries of a pipeline directory.
 func readPipelineDir(dir string) ([]fs.DirEntry, error) {
-	if pipelineOnDisk(dir) {
-		return os.ReadDir(dir)
-	}
-	entries, err := fs.ReadDir(sqlfiles.Strategies, embeddedPipelinePath(dir))
+	p, err := pipelinePath(dir)
 	if err != nil {
-		return nil, fmt.Errorf("pipeline dir %q not found on disk or embedded: %w", dir, err)
+		return nil, err
+	}
+	entries, err := os.ReadDir(p)
+	if err != nil {
+		return nil, fmt.Errorf("pipeline directory %q (%s): %w", dir, p, err)
 	}
 	return entries, nil
 }
 
 // readPipelineFile reads one file of a pipeline directory.
 func readPipelineFile(dir, name string) ([]byte, error) {
-	if pipelineOnDisk(dir) {
-		return os.ReadFile(filepath.Join(dir, name))
+	p, err := pipelinePath(dir)
+	if err != nil {
+		return nil, err
 	}
-	return fs.ReadFile(sqlfiles.Strategies, path.Join(embeddedPipelinePath(dir), name))
+	b, err := os.ReadFile(filepath.Join(p, name))
+	if err != nil {
+		return nil, fmt.Errorf("pipeline file %q in %q (%s): %w", name, dir, p, err)
+	}
+	return b, nil
 }

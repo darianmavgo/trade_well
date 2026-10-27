@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/job_runs"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/jobenv"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/live_vs_backtest_trades"
@@ -63,36 +65,20 @@ func Run(ctx context.Context, db *sql.DB) (Result, error) {
 		return Result{}, err
 	}
 	var n int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM live_vs_backtest_trade`).Scan(&n); err != nil {
+	if err := db.QueryRow(orchestratorsql.Q("live_vs_backtest_slippage/run")).Scan(&n); err != nil {
 		return Result{}, err
 	}
 	if n == 0 {
 		return Result{}, fmt.Errorf("live_vs_backtest_slippage: live_vs_backtest_trade is empty; run orchestrator live_vs_backtest_trades first")
 	}
 	built := time.Now().UTC().Format(time.RFC3339)
-	if _, err := db.Exec(`DELETE FROM live_vs_backtest_slippage`); err != nil {
+	if _, err := db.Exec(orchestratorsql.Q("live_vs_backtest_slippage/run_2")); err != nil {
 		return Result{}, err
 	}
-	if _, err := db.Exec(`INSERT INTO live_vs_backtest_slippage (
-		strategy_id, fills, avg_entry_slippage_bps, avg_exit_slippage_bps, worst_entry_slippage_bps,
-		avg_entry_vs_limit_bps, avg_fill_delay_sessions, total_fees, built_at
-	)
-	SELECT strategy_id,
-		SUM(CASE WHEN entry_fill_price > 0 THEN 1 ELSE 0 END),
-		AVG(entry_slippage_bps),
-		AVG(exit_slippage_bps),
-		MAX(entry_slippage_bps),
-		AVG(entry_vs_limit_bps),
-		AVG(fill_delay_sessions),
-		SUM(fees),
-		?
-	FROM live_vs_backtest_trade
-	GROUP BY strategy_id`, built); err != nil {
+	if _, err := db.Exec(orchestratorsql.Q("live_vs_backtest_slippage/run_3"), built); err != nil {
 		return Result{}, err
 	}
-	rows, err := db.Query(`SELECT strategy_id, fills, avg_entry_slippage_bps, avg_exit_slippage_bps,
-		worst_entry_slippage_bps, avg_entry_vs_limit_bps, avg_fill_delay_sessions, total_fees
-		FROM live_vs_backtest_slippage ORDER BY strategy_id`)
+	rows, err := db.Query(orchestratorsql.Q("live_vs_backtest_slippage/run_4"))
 	if err != nil {
 		return Result{}, err
 	}
@@ -116,12 +102,7 @@ func Run(ctx context.Context, db *sql.DB) (Result, error) {
 }
 
 func worstFills(db *sql.DB) ([]Fill, error) {
-	rows, err := db.Query(`SELECT strategy_id, symbol, as_of_date, entry_slippage_bps, exit_slippage_bps,
-		fill_delay_sessions, fees, entry_fill_price, model_entry_price
-		FROM live_vs_backtest_trade
-		WHERE entry_slippage_bps IS NOT NULL
-		ORDER BY entry_slippage_bps DESC
-		LIMIT 8`)
+	rows, err := db.Query(orchestratorsql.Q("live_vs_backtest_slippage/worst_fills"))
 	if err != nil {
 		return nil, err
 	}

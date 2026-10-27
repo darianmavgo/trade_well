@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // Buy-signal review statuses. Evening-scan writes NEW only; staging is a
@@ -57,13 +59,7 @@ func InsertBuySignal(db *sql.DB, s *BuySignal) (int64, error) {
 	if s.StagedOrderID.Valid {
 		staged = s.StagedOrderID.Int64
 	}
-	res, err := db.Exec(`
-INSERT INTO scan_market_buy_signal (
-	scan_run_id, stack_id, strategy_id, strategy_name, symbol, direction,
-	as_of_date, next_session, price, close, buy_limit, take_profit, stop_loss,
-	allocation_pct, hold_days, stack_priority, status, staged_order_id,
-	raw_json, notes, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	res, err := db.Exec(orchestratorsql.Q("scan_market/insert_buy_signal"),
 		s.ScanRunID, s.StackID, s.StrategyID, s.StrategyName, s.Symbol, s.Direction,
 		s.AsOfDate, s.NextSession, s.Price, s.Close, s.BuyLimit, s.TakeProfit, s.StopLoss,
 		s.AllocationPct, s.HoldDays, s.StackPriority, s.Status, staged,
@@ -91,12 +87,7 @@ func PendingBuySignals(db *sql.DB) (latest, superseded []BuySignal, err error) {
 	if db == nil {
 		return nil, nil, fmt.Errorf("PendingBuySignals: nil db")
 	}
-	rows, err := db.Query(`
-SELECT id, scan_run_id, stack_id, strategy_id, strategy_name, symbol, direction,
-	as_of_date, next_session, price, close, buy_limit, take_profit, stop_loss,
-	allocation_pct, hold_days, stack_priority, status, staged_order_id,
-	raw_json, notes, created_at
-FROM scan_market_buy_signal WHERE status = ? ORDER BY scan_run_id DESC, stack_priority ASC, id ASC`, BuySignalNew)
+	rows, err := db.Query(orchestratorsql.Q("scan_market/pending_buy_signals"), BuySignalNew)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -135,9 +126,6 @@ func SetBuySignalStatus(db *sql.DB, id int64, status string, stagedOrderID int64
 	if stagedOrderID > 0 {
 		staged = stagedOrderID
 	}
-	_, err := db.Exec(`UPDATE scan_market_buy_signal
-SET status = ?, staged_order_id = COALESCE(?, staged_order_id),
-	notes = CASE WHEN ? = '' THEN notes WHEN notes = '' THEN ? ELSE notes || '; ' || ? END
-WHERE id = ?`, status, staged, note, note, note, id)
+	_, err := db.Exec(orchestratorsql.Q("scan_market/set_buy_signal_status"), status, staged, note, note, note, id)
 	return err
 }

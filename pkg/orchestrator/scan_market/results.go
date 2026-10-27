@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // BuyRow is one BUY candidate a scan produced, and what became of it.
@@ -62,10 +64,7 @@ func RecentFor(db *sql.DB, now time.Time, days int, ids []string) (Results, erro
 	}
 	since := now.UTC().AddDate(0, 0, -days).Format("2006-01-02")
 
-	rows, err := db.Query(`
-SELECT created_at, as_of_date, next_session, stack_id, strategy_id, symbol, close, buy_limit,
-       take_profit, stop_loss, allocation_pct, hold_days, status, notes
-FROM scan_market_buy_signal WHERE as_of_date >= ? ORDER BY as_of_date DESC, id DESC`, since)
+	rows, err := db.Query(orchestratorsql.Q("scan_market/recent_for"), since)
 	if err != nil {
 		return res, err
 	}
@@ -86,10 +85,7 @@ FROM scan_market_buy_signal WHERE as_of_date >= ? ORDER BY as_of_date DESC, id D
 		return res, err
 	}
 
-	nb, err := db.Query(`
-SELECT COALESCE(signal_date, ''), strategy_name, COALESCE(indicator_data, '')
-FROM scan_market_signal WHERE signal_type = 'NO_BUY' AND signal_date >= ?
-ORDER BY signal_date DESC, strategy_name`, since)
+	nb, err := db.Query(orchestratorsql.Q("scan_market/recent_for_2"), since)
 	if err != nil {
 		return res, err
 	}

@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // Status is everything the /check_health page shows: each scheduled job against
@@ -48,12 +50,7 @@ func LoadStatus(db *sql.DB, now time.Time) (*Status, error) {
 		return nil, fmt.Errorf("read position audits: %w", err)
 	}
 
-	arows, err := db.Query(`
-		SELECT id, account_number, timestamp, total_positions, protected_positions, unprotected_positions,
-		       orphan_orders, status, IFNULL(notes, ''), critical_findings, warning_findings
-		FROM check_health_audit
-		WHERE id IN (SELECT MAX(id) FROM check_health_audit GROUP BY account_number)
-		ORDER BY account_number`)
+	arows, err := db.Query(orchestratorsql.Q("check_health/load_status"))
 	if err != nil {
 		return nil, fmt.Errorf("read audits: %w", err)
 	}
@@ -70,12 +67,7 @@ func LoadStatus(db *sql.DB, now time.Time) (*Status, error) {
 		return nil, err
 	}
 
-	frows, err := db.Query(`
-		SELECT f.id, f.run_at, f.account_number, f.check_name, f.category, f.severity, IFNULL(f.subject, ''), f.detail
-		FROM check_health_finding f
-		WHERE f.run_at = (SELECT MAX(x.run_at) FROM check_health_finding x WHERE x.account_number = f.account_number)
-		ORDER BY CASE f.severity WHEN 'CRITICAL' THEN 0 ELSE 1 END, f.account_number, f.check_name, f.subject
-		LIMIT 200`)
+	frows, err := db.Query(orchestratorsql.Q("check_health/load_status_2"))
 	if err != nil {
 		return nil, fmt.Errorf("read findings: %w", err)
 	}

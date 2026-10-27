@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/backtest/storage"
 )
 
@@ -56,8 +58,7 @@ func CopyMarkovModelAssetPredictionsToTurso(db *sql.DB, modelDB, scanRunID strin
 		if err := rows.Scan(&sym, &date, &state, &bull, &bear, &sig, &through); err != nil {
 			return n, err
 		}
-		if _, err := tx.Exec(`INSERT OR REPLACE INTO markov_prediction_live (symbol, date, state, prob_bull, prob_bear, signal, trained_through, scan_run_id, saved_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, sym, date, state, bull, bear, sig, through, scanRunID, now.UTC().Format(time.RFC3339)); err != nil {
+		if _, err := tx.Exec(orchestratorsql.Q("scan_market/copy_markov_model_asset_predictions_to_turso"), sym, date, state, bull, bear, sig, through, scanRunID, now.UTC().Format(time.RFC3339)); err != nil {
 			return n, err
 		}
 		n++

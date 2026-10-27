@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/schwaber/dbutil"
 )
 
@@ -175,28 +177,7 @@ func (s State) GrossRoom(equity, longValue float64) float64 {
 // EnsureSchema creates the tables: one equity row per account per session, and the latest
 // assessment per account.
 func EnsureSchema(db *sql.DB) error {
-	_, err := db.Exec(`
-CREATE TABLE IF NOT EXISTS risk_equity (
-	account_number TEXT NOT NULL,
-	session_date TEXT NOT NULL,
-	equity REAL NOT NULL,
-	recorded_at DATETIME NOT NULL,
-	PRIMARY KEY (account_number, session_date)
-);
-CREATE TABLE IF NOT EXISTS risk_state (
-	account_number TEXT PRIMARY KEY,
-	assessed_at DATETIME NOT NULL,
-	session_date TEXT NOT NULL,
-	equity REAL NOT NULL,
-	peak REAL NOT NULL,
-	drawdown REAL NOT NULL,
-	day_change REAL NOT NULL,
-	gross REAL NOT NULL,
-	scale REAL NOT NULL,
-	halt_entries INTEGER NOT NULL,
-	max_gross REAL NOT NULL,
-	reasons TEXT NOT NULL
-)`)
+	_, err := db.Exec(orchestratorsql.Q("risk/ensure_schema"))
 	if err != nil {
 		return err
 	}
@@ -226,9 +207,7 @@ func Load(db *sql.DB, account string) (State, error) {
 	var s State
 	var halt int
 	var reasons string
-	err := db.QueryRow(`SELECT assessed_at, session_date, equity, peak, drawdown, day_change, gross, scale, halt_entries, max_gross, reasons,
-	max_order_pct, max_orders_per_day, max_positions
-FROM risk_state WHERE account_number = ?`, account).
+	err := db.QueryRow(orchestratorsql.Q("risk/load"), account).
 		Scan(&s.AssessedAt, &s.Session, &s.Equity, &s.Peak, &s.Drawdown, &s.DayChange, &s.Gross, &s.Scale, &halt, &s.MaxGross, &reasons,
 			&s.MaxOrderPct, &s.MaxOrdersPerDay, &s.MaxPositions)
 	if err == sql.ErrNoRows {
@@ -249,7 +228,7 @@ func All(db *sql.DB) ([]State, error) {
 	if err := EnsureSchema(db); err != nil {
 		return nil, err
 	}
-	rows, err := db.Query(`SELECT account_number FROM risk_state ORDER BY account_number`)
+	rows, err := db.Query(orchestratorsql.Q("risk/all"))
 	if err != nil {
 		return nil, err
 	}
@@ -279,14 +258,7 @@ func save(db *sql.DB, s State) error {
 	if s.HaltEntries {
 		halt = 1
 	}
-	_, err := db.Exec(`
-INSERT INTO risk_state (account_number, assessed_at, session_date, equity, peak, drawdown, day_change, gross, scale, halt_entries, max_gross, reasons,
-	max_order_pct, max_orders_per_day, max_positions)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-ON CONFLICT(account_number) DO UPDATE SET assessed_at=excluded.assessed_at, session_date=excluded.session_date,
-	equity=excluded.equity, peak=excluded.peak, drawdown=excluded.drawdown, day_change=excluded.day_change,
-	gross=excluded.gross, scale=excluded.scale, halt_entries=excluded.halt_entries, max_gross=excluded.max_gross, reasons=excluded.reasons,
-	max_order_pct=excluded.max_order_pct, max_orders_per_day=excluded.max_orders_per_day, max_positions=excluded.max_positions`,
+	_, err := db.Exec(orchestratorsql.Q("risk/save"),
 		s.Account, s.AssessedAt.UTC(), s.Session, s.Equity, s.Peak, s.Drawdown, s.DayChange, s.Gross, s.Scale, halt, s.MaxGross, strings.Join(s.Reasons, "\n"),
 		s.MaxOrderPct, s.MaxOrdersPerDay, s.MaxPositions)
 	return err
@@ -304,7 +276,7 @@ func History(db *sql.DB, limit int) ([]Point, error) {
 	if err := EnsureSchema(db); err != nil {
 		return nil, err
 	}
-	rows, err := db.Query(`SELECT account_number, session_date, equity FROM risk_equity ORDER BY session_date DESC, account_number LIMIT ?`, limit)
+	rows, err := db.Query(orchestratorsql.Q("risk/history"), limit)
 	if err != nil {
 		return nil, err
 	}

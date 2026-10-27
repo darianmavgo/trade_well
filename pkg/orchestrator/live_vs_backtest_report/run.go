@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/account_state"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/appconfig"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/job_runs"
@@ -76,7 +78,7 @@ func Run(ctx context.Context, out io.Writer, env jobenv.Env, opts Options) (Resu
 		notes = append(notes, note{Severity: "warn", Message: marketNote})
 	}
 	var ledgerN int
-	if err := env.DB.QueryRow(`SELECT COUNT(*) FROM live_vs_backtest_trade`).Scan(&ledgerN); err != nil {
+	if err := env.DB.QueryRow(orchestratorsql.Q("live_vs_backtest_report/run")).Scan(&ledgerN); err != nil {
 		record(env.DB, job_runs.JobRunFailed, err.Error(), 0, started)
 		return Result{}, err
 	}
@@ -87,7 +89,7 @@ func Run(ctx context.Context, out io.Writer, env jobenv.Env, opts Options) (Resu
 			record(env.DB, job_runs.JobRunFailed, err.Error(), 0, started)
 			return Result{}, err
 		}
-		if _, err := env.DB.Exec(`DELETE FROM live_vs_backtest_slippage`); err != nil {
+		if _, err := env.DB.Exec(orchestratorsql.Q("live_vs_backtest_report/run_2")); err != nil {
 			record(env.DB, job_runs.JobRunFailed, err.Error(), 0, started)
 			return Result{}, err
 		}
@@ -186,11 +188,11 @@ type note struct {
 func gapNotes(db *sql.DB, account string) ([]note, error) {
 	var notes []note
 	var stages, orders int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM stage_order`).Scan(&stages); err != nil {
+	if err := db.QueryRow(orchestratorsql.Q("live_vs_backtest_report/gap_notes")).Scan(&stages); err != nil {
 		return nil, err
 	}
 	var exits int
-	q := `SELECT COUNT(*) FROM manage_exit`
+	q := orchestratorsql.Q("live_vs_backtest_report/gap_notes_2")
 	var args []any
 	if strings.TrimSpace(account) != "" {
 		q += ` WHERE account_number = ?`
@@ -225,7 +227,7 @@ func ledgerGapNotes(db *sql.DB, trips []roundTrip) ([]note, error) {
 			sold[t.account+"|"+t.symbol] = true
 		}
 	}
-	rows, err := db.Query(`SELECT account_number, symbol, exit_fill_price FROM live_vs_backtest_trade WHERE exit_fill_price = 0 AND live_outcome IN ('OPEN', 'CLOSED')`)
+	rows, err := db.Query(orchestratorsql.Q("live_vs_backtest_report/ledger_gap_notes"))
 	if err != nil {
 		return nil, err
 	}

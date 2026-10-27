@@ -14,6 +14,8 @@ import (
 	"net/textproto"
 	"os"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // Config holds the configuration for sending emails.
@@ -188,8 +190,6 @@ func logAttempt(db *sql.DB, toAddr, subject, jobContext, status, detail string) 
 	if err := EnsureSchema(db); err != nil {
 		return
 	}
-	_, _ = db.Exec(`
-INSERT INTO send_email (to_addr, subject, job_context, status, detail, sent_at)
-VALUES (?, ?, ?, ?, ?, ?)`,
+	_, _ = db.Exec(orchestratorsql.Q("send_email/log_attempt"),
 		toAddr, subject, jobContext, status, detail, time.Now().UTC().Format(time.RFC3339))
 }

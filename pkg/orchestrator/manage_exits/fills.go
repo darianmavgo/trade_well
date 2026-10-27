@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/schwaber/schwab"
 	"github.com/darianmavgo/trade_well/pkg/schwaber/trader"
 )
@@ -39,7 +41,7 @@ func SetEntryFillPrice(db *sql.DB, id int64, price float64) error {
 	if price <= 0 {
 		return nil
 	}
-	if _, err := db.Exec(`UPDATE manage_exit SET entry_fill_price = ? WHERE id = ?`, price, id); err != nil {
+	if _, err := db.Exec(orchestratorsql.Q("manage_exits/set_entry_fill_price"), price, id); err != nil {
 		return err
 	}
 	return repriceClosed(db, id)
@@ -50,7 +52,7 @@ func SetEntryFillPrice(db *sql.DB, id int64, price float64) error {
 // fill when there is one; exit_fill_price records it. Entry cost is the entry fill when known.
 func CloseActiveTradeFilled(db *sql.DB, id int64, status, reason string, orderPrice, fillPrice float64, exitTime time.Time) error {
 	var entryPrice, entryFill, qty float64
-	if err := db.QueryRow("SELECT entry_price, entry_fill_price, quantity FROM manage_exit WHERE id = ?", id).Scan(&entryPrice, &entryFill, &qty); err != nil {
+	if err := db.QueryRow(orchestratorsql.Q("manage_exits/close_active_trade_filled"), id).Scan(&entryPrice, &entryFill, &qty); err != nil {
 		return err
 	}
 	exitPrice := orderPrice
@@ -58,9 +60,7 @@ func CloseActiveTradeFilled(db *sql.DB, id int64, status, reason string, orderPr
 		exitPrice = fillPrice
 	}
 	pnl, pnlPct := measure(entryPrice, entryFill, exitPrice, qty)
-	_, err := db.Exec(`UPDATE manage_exit
-		SET status = ?, exit_reason = ?, exit_reason_code = ?, exit_price = ?, exit_fill_price = ?, exit_time = ?, pnl = ?, pnl_pct = ?
-		WHERE id = ?`, status, reason, ExitReasonCode(status, reason), exitPrice, fillPrice, exitTime, pnl, pnlPct, id)
+	_, err := db.Exec(orchestratorsql.Q("manage_exits/close_active_trade_filled_2"), status, reason, ExitReasonCode(status, reason), exitPrice, fillPrice, exitTime, pnl, pnlPct, id)
 	return err
 }
 
@@ -83,7 +83,7 @@ func measure(entryLimit, entryFill, exitPrice, qty float64) (pnl, pct float64) {
 func repriceClosed(db *sql.DB, id int64) error {
 	var status string
 	var entryPrice, entryFill, exitPrice, exitFill, qty float64
-	if err := db.QueryRow(`SELECT status, entry_price, entry_fill_price, exit_price, exit_fill_price, quantity FROM manage_exit WHERE id = ?`, id).
+	if err := db.QueryRow(orchestratorsql.Q("manage_exits/reprice_closed"), id).
 		Scan(&status, &entryPrice, &entryFill, &exitPrice, &exitFill, &qty); err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func repriceClosed(db *sql.DB, id int64) error {
 		exitPrice = exitFill
 	}
 	pnl, pct := measure(entryPrice, entryFill, exitPrice, qty)
-	_, err := db.Exec(`UPDATE manage_exit SET exit_price = ?, pnl = ?, pnl_pct = ? WHERE id = ?`, exitPrice, pnl, pct, id)
+	_, err := db.Exec(orchestratorsql.Q("manage_exits/reprice_closed_2"), exitPrice, pnl, pct, id)
 	return err
 }
 
@@ -135,9 +135,7 @@ func BackfillFills(db *sql.DB, accountNumber string, orders []schwab.Order, dryR
 	if len(orders) == 0 {
 		return nil
 	}
-	rows, err := db.Query(`SELECT id, symbol, entry_order_id, exit_order_id, COALESCE(exit_time, ''), entry_fill_price, exit_fill_price
-		FROM manage_exit WHERE account_number = ? AND status LIKE 'CLOSED%' AND (entry_fill_price <= 0 OR exit_fill_price <= 0)
-		ORDER BY id DESC LIMIT 200`, accountNumber)
+	rows, err := db.Query(orchestratorsql.Q("manage_exits/backfill_fills"), accountNumber)
 	if err != nil {
 		return []string{fmt.Sprintf("could not read closed rows to backfill fills: %v", err)}
 	}
@@ -178,13 +176,13 @@ func BackfillFills(db *sql.DB, accountNumber string, orders []schwab.Order, dryR
 			continue
 		}
 		if entryPx > 0 {
-			if _, err := db.Exec(`UPDATE manage_exit SET entry_fill_price = ? WHERE id = ?`, entryPx, g.id); err != nil {
+			if _, err := db.Exec(orchestratorsql.Q("manage_exits/set_entry_fill_price"), entryPx, g.id); err != nil {
 				lines[len(lines)-1] += fmt.Sprintf(" -- failed: %v", err)
 				continue
 			}
 		}
 		if exitPx > 0 {
-			if _, err := db.Exec(`UPDATE manage_exit SET exit_fill_price = ? WHERE id = ?`, exitPx, g.id); err != nil {
+			if _, err := db.Exec(orchestratorsql.Q("manage_exits/backfill_fills_2"), exitPx, g.id); err != nil {
 				lines[len(lines)-1] += fmt.Sprintf(" -- failed: %v", err)
 				continue
 			}

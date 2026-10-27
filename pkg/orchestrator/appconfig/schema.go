@@ -4,21 +4,13 @@ import (
 	"database/sql"
 	"strings"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // EnsureSchema creates the appconfig log table if it does not already exist.
 func EnsureSchema(db *sql.DB) error {
-	_, err := db.Exec(`
-CREATE TABLE IF NOT EXISTS appconfig (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	db_path TEXT NOT NULL,
-	backtest_root TEXT NOT NULL,
-	market_db TEXT NOT NULL,
-	livescan_bin TEXT NOT NULL,
-	strategy_allowlist TEXT NOT NULL,
-	loaded_at DATETIME NOT NULL
-);
-`)
+	_, err := db.Exec(orchestratorsql.Q("appconfig/ensure_schema"))
 	return err
 }
 
@@ -36,7 +28,7 @@ func (c *Config) LogUsed(db *sql.DB) error {
 	// table and are always written empty: nothing reads BACKTEST_ROOT or shells
 	// out to a livescan binary any more.
 	_, err := db.Exec(
-		`INSERT INTO appconfig (db_path, backtest_root, market_db, livescan_bin, strategy_allowlist, loaded_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		orchestratorsql.Q("appconfig/log_used"),
 		dbLabel(c.DBPath), "", c.MarketDB, "",
 		strings.Join(c.StrategyAllowlist, ","),
 		time.Now().UTC().Format(time.RFC3339),

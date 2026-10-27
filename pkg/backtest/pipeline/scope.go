@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"fmt"
+	"io/fs"
 	"regexp"
 	"sort"
 	"strings"
@@ -39,7 +40,7 @@ func strategiesFor(refDB string, symbols []string) ([]string, error) {
 	if len(symbols) == 0 {
 		return nil, fmt.Errorf("pipeline: no symbols")
 	}
-	text, err := sqlfiles.Stages.ReadFile("stages/pipeline_scope/01_by_symbol.sql")
+	text, err := fs.ReadFile(sqlfiles.FS, "stages/pipeline_scope/01_by_symbol.sql")
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +86,7 @@ func strategiesForFamily(refDB, family string, limit int) (ids, symbols []string
 	if !ok {
 		return nil, nil, fmt.Errorf("pipeline: unknown family %q (families: streak)", family)
 	}
-	text, err := sqlfiles.Stages.ReadFile(file)
+	text, err := fs.ReadFile(sqlfiles.FS, file)
 	if err != nil {
 		return nil, nil, err
 	}

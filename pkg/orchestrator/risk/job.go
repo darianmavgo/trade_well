@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/job_runs"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/killswitch"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/send_email"
@@ -55,7 +57,7 @@ func RunJob(ctx context.Context, db *sql.DB, out io.Writer, o JobOptions) (*Resu
 	}
 	session := now.In(job_runs.EasternTime()).Format("2006-01-02")
 
-	rows, err := db.QueryContext(ctx, `SELECT account_number, COALESCE(liquidation_value, 0), fetched_at FROM account_state_account ORDER BY account_number`)
+	rows, err := db.QueryContext(ctx, orchestratorsql.Q("risk/run_job"))
 	if err != nil {
 		return nil, fmt.Errorf("risk: read accounts (has account_state run?): %w", err)
 	}
@@ -93,21 +95,20 @@ func RunJob(ctx context.Context, db *sql.DB, out io.Writer, o JobOptions) (*Resu
 			return res, err
 		}
 		if o.ResetPeak && !o.DryRun {
-			if _, err := db.Exec(`DELETE FROM risk_equity WHERE account_number = ? AND session_date < ?`, a.num, session); err != nil {
+			if _, err := db.Exec(orchestratorsql.Q("risk/run_job_2"), a.num, session); err != nil {
 				return res, err
 			}
 		}
 		var prev, peak sql.NullFloat64
-		_ = db.QueryRow(`SELECT equity FROM risk_equity WHERE account_number = ? AND session_date < ? ORDER BY session_date DESC LIMIT 1`, a.num, session).Scan(&prev)
-		_ = db.QueryRow(`SELECT MAX(equity) FROM risk_equity WHERE account_number = ? AND session_date <> ?`, a.num, session).Scan(&peak)
+		_ = db.QueryRow(orchestratorsql.Q("risk/run_job_3"), a.num, session).Scan(&prev)
+		_ = db.QueryRow(orchestratorsql.Q("risk/run_job_4"), a.num, session).Scan(&peak)
 		var long float64
-		_ = db.QueryRow(`SELECT COALESCE(SUM(market_value), 0) FROM account_state_position WHERE account_number = ? AND long_quantity > 0`, a.num).Scan(&long)
+		_ = db.QueryRow(orchestratorsql.Q("risk/run_job_5"), a.num).Scan(&long)
 
 		s := Assess(o.Limits, a.equity, peak.Float64, prev.Float64, long)
 		s.Account, s.AssessedAt, s.Session = a.num, now.UTC(), session
 		if !o.DryRun {
-			if _, err := db.Exec(`INSERT INTO risk_equity (account_number, session_date, equity, recorded_at) VALUES (?,?,?,?)
-ON CONFLICT(account_number, session_date) DO UPDATE SET equity = excluded.equity, recorded_at = excluded.recorded_at`,
+			if _, err := db.Exec(orchestratorsql.Q("risk/run_job_6"),
 				a.num, session, a.equity, now.UTC()); err != nil {
 				return res, err
 			}

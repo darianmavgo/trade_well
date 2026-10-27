@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/ready"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/scan_market"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/send_email"
@@ -69,15 +71,14 @@ func Build(db *sql.DB, now time.Time, rep ready.Report, deployed []string) (Dige
 	d.Buys, d.NoBuys = res.Buys, len(res.NoBuys)
 
 	since := now.UTC().AddDate(0, 0, -7).Format(time.RFC3339)
-	if d.Staged, err = counts(db, `SELECT status, COUNT(*) FROM stage_order WHERE staged_at >= ? GROUP BY status ORDER BY status`, since); err != nil {
+	if d.Staged, err = counts(db, orchestratorsql.Q("weekly_digest/build"), since); err != nil {
 		return d, err
 	}
-	if d.Submitted, err = counts(db, `SELECT status, COUNT(*) FROM submit_order WHERE submitted_at >= ? GROUP BY status ORDER BY status`, since); err != nil {
+	if d.Submitted, err = counts(db, orchestratorsql.Q("weekly_digest/build_2"), since); err != nil {
 		return d, err
 	}
 
-	rows, err := db.Query(`SELECT job, status, COUNT(*), MAX(CASE WHEN status = 'FAILED' THEN summary ELSE '' END)
-FROM job_run WHERE finished_at >= ? GROUP BY job, status ORDER BY job`, since)
+	rows, err := db.Query(orchestratorsql.Q("weekly_digest/build_3"), since)
 	if err != nil {
 		return d, err
 	}
@@ -113,10 +114,7 @@ FROM job_run WHERE finished_at >= ? GROUP BY job, status ORDER BY job`, since)
 		d.Jobs = append(d.Jobs, *byJob[j])
 	}
 
-	pos, err := db.Query(`SELECT account_number, symbol, COALESCE(long_quantity, 0) - COALESCE(short_quantity, 0),
-       COALESCE(market_value, 0), COALESCE(market_value, 0) - (COALESCE(long_quantity, 0) - COALESCE(short_quantity, 0)) * COALESCE(average_price, 0),
-       COALESCE(exit_date, '')
-FROM account_state_position WHERE COALESCE(long_quantity, 0) <> 0 OR COALESCE(short_quantity, 0) <> 0 ORDER BY market_value DESC`)
+	pos, err := db.Query(orchestratorsql.Q("weekly_digest/build_4"))
 	if err != nil {
 		return d, err
 	}

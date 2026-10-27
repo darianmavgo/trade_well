@@ -14,17 +14,20 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
-	"embed"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"regexp"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/runtables"
 )
@@ -45,8 +48,8 @@ const (
 	InLine     = "IN_LINE"
 )
 
-//go:embed sql/*.sql
-var sqlFiles embed.FS
+// sqlFiles is this package's folder of stage SQL, sql/orchestrator/live_vs_backtest_winrate.
+var sqlFiles = orchestratorsql.Dir("live_vs_backtest_winrate")
 
 // Row is one strategy. Win rates are fractions 0 to 1; nil means no data for that column.
 type Row struct {
@@ -115,22 +118,12 @@ type Point struct {
 
 // EnsureSchema creates live_vs_backtest_winrate and adds columns a older copy lacks.
 func EnsureSchema(db *sql.DB) error {
-	if _, err := db.Exec(`
-CREATE TABLE IF NOT EXISTS live_vs_backtest_winrate (
-	strategy_id TEXT PRIMARY KEY,
-	is_start TEXT, is_end TEXT, oos_start TEXT, oos_end TEXT,
-	is_trades INTEGER NOT NULL DEFAULT 0,
-	is_win_rate REAL,
-	oos_trades INTEGER NOT NULL DEFAULT 0,
-	oos_win_rate REAL,
-	evaluated_at TEXT,
-	synced_at TEXT NOT NULL
-)`); err != nil {
+	if _, err := db.Exec(orchestratorsql.Q("live_vs_backtest_winrate/ensure_schema")); err != nil {
 		return err
 	}
 	for _, c := range [][2]string{{"all_trades", "INTEGER NOT NULL DEFAULT 0"}, {"all_win_rate", "REAL"}, {"all_evaluated_at", "TEXT"}} {
 		var have int
-		if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('live_vs_backtest_winrate') WHERE name = ?`, c[0]).Scan(&have); err != nil {
+		if err := db.QueryRow(orchestratorsql.Q("live_vs_backtest_winrate/ensure_schema_2"), c[0]).Scan(&have); err != nil {
 			return err
 		}
 		if have == 0 {
@@ -249,7 +242,7 @@ func Refresh(ctx context.Context, db *sql.DB, src Sources, dryRun bool) (int, er
 		return 0, err
 	}
 	var n int
-	err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM live_vs_backtest_winrate`).Scan(&n)
+	err = db.QueryRowContext(ctx, orchestratorsql.Q("live_vs_backtest_winrate/refresh")).Scan(&n)
 	return n, err
 }
 
@@ -260,28 +253,28 @@ type Options struct {
 	// RefDB is an optional refdata strategies.db read in place for whole-window backtest rates
 	// that no refresh has copied yet. A missing file is ignored.
 	RefDB string
-	// MaxAge lets Compare read the tables of an earlier run with the same IDs and RefDB, if one
-	// finished within this long, instead of building new ones. Zero always builds. A page that is
-	// viewed again and again sets it; the CLI leaves it zero.
+	// MaxAge lets Compare answer from the rows an earlier call with the same IDs and RefDB returned,
+	// if that was within this long, instead of calculating again. The rows are kept in this
+	// process, not in Turso. Zero always calculates. A page that is viewed again and again sets
+	// it; the CLI leaves it zero.
 	MaxAge time.Duration
 }
 
 // Compare returns one row per greenlit strategy, and per other strategy that has traded live, worst
 // verdict first. The calculation runs in Turso: each stage writes a slice table of its own for
-// this run (see runtables), the newest few runs are kept for audit, and the tables it reads are
-// never changed. A database with no live_vs_backtest_winrate or no live_vs_backtest_trade yet is
-// treated as having no rows on that side.
+// this run (see runtables), and all of them are dropped when Compare returns, whether it
+// succeeded or not. live_vs_backtest_winrate is the only table of win rates that stays; the tables
+// Compare reads are never changed. A database with no live_vs_backtest_winrate or no
+// live_vs_backtest_trade yet is treated as having no rows on that side.
 func Compare(ctx context.Context, db *sql.DB, opt Options) ([]Row, error) {
-	key := compareKey(opt)
-	if run, ok, err := runtables.FindRecent(ctx, db, stageTables, "winrate_done", key, opt.MaxAge); err != nil {
-		return nil, err
-	} else if ok {
-		return readCompare(ctx, run)
+	key := cacheKey(db, "compare:"+compareKey(opt))
+	if rows, ok := cacheGet[Row](key, opt.MaxAge); ok {
+		return rows, nil
 	}
-	run := runtables.BeginKeyed(db, stageTables, key)
-	defer func() { _ = runtables.Prune(context.WithoutCancel(ctx), db, stageTables, keepRuns) }()
+	run := runtables.Begin(db, stageTables)
+	defer finish(ctx, db, run)
 
-	if err := run.Exec(ctx, `DROP TABLE IF EXISTS winrate_ids; CREATE TABLE winrate_ids (strategy_id TEXT PRIMARY KEY)`); err != nil {
+	if err := run.Exec(ctx, orchestratorsql.Q("live_vs_backtest_winrate/compare")); err != nil {
 		return nil, err
 	}
 	ids := make([][]any, len(opt.IDs))
@@ -309,10 +302,10 @@ func Compare(ctx context.Context, db *sql.DB, opt Options) ([]Row, error) {
 		have      func() (bool, error)
 		full, nil string
 	}{
-		{func() (bool, error) { return hasTable(ctx, db, "live_vs_backtest_winrate") }, "sql/02_slice_backtest.sql", "sql/02_slice_backtest_empty.sql"},
-		{func() (bool, error) { return hasTable(ctx, db, "manage_exit") }, "sql/04_slice_decisions.sql", "sql/04_slice_decisions_empty.sql"},
-		{func() (bool, error) { return hasTable(ctx, db, "manage_exit") }, "sql/04_slice_holding.sql", "sql/04_slice_holding_empty.sql"},
-		{func() (bool, error) { return hasTable(ctx, db, "live_vs_backtest_trade") }, "sql/05_slice_model.sql", "sql/05_slice_model_empty.sql"},
+		{func() (bool, error) { return hasTable(ctx, db, "live_vs_backtest_winrate") }, "02_slice_backtest.sql", "02_slice_backtest_empty.sql"},
+		{func() (bool, error) { return hasTable(ctx, db, "manage_exit") }, "04_slice_decisions.sql", "04_slice_decisions_empty.sql"},
+		{func() (bool, error) { return hasTable(ctx, db, "manage_exit") }, "04_slice_holding.sql", "04_slice_holding_empty.sql"},
+		{func() (bool, error) { return hasTable(ctx, db, "live_vs_backtest_trade") }, "05_slice_model.sql", "05_slice_model_empty.sql"},
 	} {
 		ok, err := st.have()
 		if err != nil {
@@ -325,22 +318,22 @@ func Compare(ctx context.Context, db *sql.DB, opt Options) ([]Row, error) {
 		}
 	}
 	// The baseline overlay goes right after the stored backtest slice it extends.
-	stages = slices.Insert(stages, 1, "sql/02b_overlay_baseline.sql", "sql/03_slice_refs.sql")
+	stages = slices.Insert(stages, 1, "02b_overlay_baseline.sql", "03_slice_refs.sql")
 	// Live results are always derived from the decisions slice, so they need no empty variant.
-	stages = slices.Insert(stages, 5, "sql/04_slice_live.sql", "sql/04_slice_trades.sql")
+	stages = slices.Insert(stages, 5, "04_slice_live.sql", "04_slice_trades.sql")
 	if ok, err := hasTable(ctx, db, "live_vs_backtest_deployed_trade"); err != nil {
 		return nil, err
 	} else if ok {
-		stages = append(stages, "sql/11_slice_bt_trades_stored.sql")
+		stages = append(stages, "11_slice_bt_trades_stored.sql")
 	} else {
-		stages = append(stages, "sql/11_slice_bt_trades_empty.sql")
+		stages = append(stages, "11_slice_bt_trades_empty.sql")
 	}
-	stages = append(stages, "sql/12_overlay_bt_trades.sql", "sql/13_slice_bt_progress.sql", "sql/06_slice_join.sql", "sql/07_slice_interval.sql", "sql/08_compare.sql", "sql/09_slice_progress_count.sql", "sql/10_slice_progress.sql")
+	stages = append(stages, "12_overlay_bt_trades.sql", "13_slice_bt_progress.sql", "06_slice_join.sql", "07_slice_interval.sql", "08_compare.sql", "09_slice_progress_count.sql", "10_slice_progress.sql")
 	for _, f := range stages {
 		if err := runFile(ctx, run, f); err != nil {
 			return nil, err
 		}
-		if f == "sql/03_slice_refs.sql" {
+		if f == "03_slice_refs.sql" {
 			var rows [][]any
 			for _, r := range refs {
 				if slices.Contains(opt.IDs, r.ID) {
@@ -352,11 +345,12 @@ func Compare(ctx context.Context, db *sql.DB, opt Options) ([]Row, error) {
 			}
 		}
 	}
-	// The marker goes last: a run without it is unfinished and is never reused.
-	if err := run.Exec(ctx, `CREATE TABLE winrate_done (built_at TEXT)`); err != nil {
+	rows, err := readCompare(ctx, run)
+	if err != nil {
 		return nil, err
 	}
-	return readCompare(ctx, run)
+	cachePut(key, rows)
+	return rows, nil
 }
 
 // compareKey sums up what Compare was asked, so a finished run can answer the same question again.
@@ -373,16 +367,7 @@ func compareKey(opt Options) string {
 
 // readCompare reads the finished comparison out of a run's tables.
 func readCompare(ctx context.Context, run *runtables.Run) ([]Row, error) {
-	rows, err := run.Query(ctx, `
-SELECT strategy_id, verdict, greenlit, is_win_rate, COALESCE(is_trades, 0), oos_win_rate, COALESCE(oos_trades, 0),
-	all_win_rate, COALESCE(all_trades, 0),
-	live_win_rate, live_wins, live_n, live_fills, live_ci_low, live_ci_high, model_win_rate, model_n,
-	COALESCE(base_kind, ''), live_minus_base, live_minus_model, live_avg_return, open_n, pending_n,
-	COALESCE(first_close, ''), COALESCE(last_close, ''), COALESCE(evaluated_at, all_evaluated_at, ''), COALESCE(source, '')
-FROM winrate_compare
-WHERE greenlit OR live_n > 0 OR open_n > 0 OR pending_n > 0
-ORDER BY CASE verdict WHEN 'BELOW' THEN 0 WHEN 'IN_LINE' THEN 1 WHEN 'ABOVE' THEN 2 WHEN 'TOO_EARLY' THEN 3 ELSE 4 END,
-	live_n DESC, strategy_id`)
+	rows, err := run.Query(ctx, orchestratorsql.Q("live_vs_backtest_winrate/read_compare"))
 	if err != nil {
 		return nil, err
 	}
@@ -406,8 +391,7 @@ ORDER BY CASE verdict WHEN 'BELOW' THEN 0 WHEN 'IN_LINE' THEN 1 WHEN 'ABOVE' THE
 		return nil, err
 	}
 	rows.Close()
-	prog, err := run.Query(ctx, `SELECT strategy_id, n, COALESCE(exit_date, ''), COALESCE(symbol, ''), win, COALESCE(pnl_pct, 0), wins, rate, ci_low, ci_high
-		FROM winrate_progress ORDER BY strategy_id, n`)
+	prog, err := run.Query(ctx, orchestratorsql.Q("live_vs_backtest_winrate/read_compare_2"))
 	if err != nil {
 		return nil, err
 	}
@@ -431,8 +415,7 @@ ORDER BY CASE verdict WHEN 'BELOW' THEN 0 WHEN 'IN_LINE' THEN 1 WHEN 'ABOVE' THE
 	if err := prog.Err(); err != nil {
 		return nil, err
 	}
-	bt, err := run.Query(ctx, `SELECT strategy_id, pass, n, COALESCE(exit_date, ''), COALESCE(symbol, ''), win, COALESCE(return_pct, 0), rate
-		FROM winrate_bt_progress ORDER BY strategy_id, pass, n`)
+	bt, err := run.Query(ctx, orchestratorsql.Q("live_vs_backtest_winrate/read_compare_3"))
 	if err != nil {
 		return nil, err
 	}
@@ -512,42 +495,43 @@ type Trade struct {
 }
 
 // Recent returns the trades that closed in the last days UTC dates, newest first: 1 is today only,
-// 2 is today and yesterday. A finished run of the same days within maxAge is read instead of building new tables (zero always builds). The slice table is a run-scoped table in Turso (see runtables); the tables it reads are never changed.
+// 2 is today and yesterday. The same days asked again within maxAge are answered from this process's memory (zero always calculates). Its slice tables are run-scoped tables in Turso (see runtables), dropped when it returns; the tables it reads are never changed.
 func Recent(ctx context.Context, db *sql.DB, days int, maxAge time.Duration) ([]Trade, error) {
 	if days < 1 {
 		days = 1
 	}
-	key := fmt.Sprintf("d%d", days)
-	if run, ok, err := runtables.FindRecent(ctx, db, stageTables, "winrate_recent", key, maxAge); err != nil {
-		return nil, err
-	} else if ok {
-		return readRecent(ctx, run)
+	key := cacheKey(db, fmt.Sprintf("recent:d%d", days))
+	if trades, ok := cacheGet[Trade](key, maxAge); ok {
+		return trades, nil
 	}
-	run := runtables.BeginKeyed(db, stageTables, key)
-	defer func() { _ = runtables.Prune(context.WithoutCancel(ctx), db, stageTables, keepRuns) }()
-	if err := run.Exec(ctx, `DROP TABLE IF EXISTS winrate_window; CREATE TABLE winrate_window (days INTEGER)`); err != nil {
+	run := runtables.Begin(db, stageTables)
+	defer finish(ctx, db, run)
+	if err := run.Exec(ctx, orchestratorsql.Q("live_vs_backtest_winrate/recent")); err != nil {
 		return nil, err
 	}
 	if err := run.InsertRows(ctx, "winrate_window", []string{"days"}, [][]any{{days - 1}}); err != nil {
 		return nil, err
 	}
-	stage := "sql/20_slice_recent.sql"
+	stage := "20_slice_recent.sql"
 	if ok, err := hasTable(ctx, db, "manage_exit"); err != nil {
 		return nil, err
 	} else if !ok {
-		stage = "sql/20_slice_recent_empty.sql"
+		stage = "20_slice_recent_empty.sql"
 	}
 	if err := runFile(ctx, run, stage); err != nil {
 		return nil, err
 	}
-	return readRecent(ctx, run)
+	trades, err := readRecent(ctx, run)
+	if err != nil {
+		return nil, err
+	}
+	cachePut(key, trades)
+	return trades, nil
 }
 
 // readRecent reads the recent closed trades out of a run's tables.
 func readRecent(ctx context.Context, run *runtables.Run) ([]Trade, error) {
-	rows, err := run.Query(ctx, `SELECT strategy_id, COALESCE(account_number, ''), symbol, status, exit_reason, exit_reason_code, entry_time, exit_time,
-		COALESCE(quantity, 0), COALESCE(entry_price, 0), COALESCE(entry_fill_price, 0), COALESCE(exit_fill_price, 0), COALESCE(exit_price, 0), COALESCE(pnl, 0), COALESCE(pnl_pct, 0), stop_loss
-		FROM winrate_recent ORDER BY exit_time DESC, strategy_id, account_number`)
+	rows, err := run.Query(ctx, orchestratorsql.Q("live_vs_backtest_winrate/read_recent"))
 	if err != nil {
 		return nil, err
 	}
@@ -566,19 +550,88 @@ func readRecent(ctx context.Context, run *runtables.Run) ([]Trade, error) {
 	return out, rows.Err()
 }
 
-// keepRuns is how many runs' slice tables are kept in Turso for audit.
-const keepRuns = 3
+// orphanAge is how old a run's tables must be before the sweep treats them as left behind by a
+// process that died. It is far longer than any comparison takes.
+const orphanAge = time.Hour
+
+// finish ends a run: it drops the run's slice tables and sweeps any older runs' tables that a
+// crashed process left. It runs even when the caller's context is cancelled, and its errors are
+// ignored: a table that survives here is dropped by the next run's sweep.
+func finish(ctx context.Context, db *sql.DB, run *runtables.Run) {
+	ctx = context.WithoutCancel(ctx)
+	_ = run.Drop(ctx)
+	_ = runtables.PruneBefore(ctx, db, sweepTables, time.Now().Add(-orphanAge))
+}
+
+// sweepTables are the names the orphan sweep looks for: the slice tables, plus winrate_done, the
+// marker table older versions left per run (it is no longer created).
+var sweepTables = append(slices.Clone(stageTables), "winrate_done")
+
+// results are the answers Compare and Recent gave lately, kept in this process so a page viewed
+// again and again does not recalculate. They are not stored in Turso.
+var results = struct {
+	sync.Mutex
+	m map[string]result
+}{m: map[string]result{}}
+
+type result struct {
+	at   time.Time
+	rows any
+}
+
+// cacheKey scopes a question to the database it was asked of, so two databases in one process (as in
+// tests) never answer for each other.
+func cacheKey(db *sql.DB, question string) string { return fmt.Sprintf("%p|%s", db, question) }
+
+// cacheGet returns a copy of the rows stored under key, if they are younger than maxAge.
+func cacheGet[T any](key string, maxAge time.Duration) ([]T, bool) {
+	if maxAge <= 0 {
+		return nil, false
+	}
+	results.Lock()
+	defer results.Unlock()
+	r, ok := results.m[key]
+	if !ok || time.Since(r.at) > maxAge {
+		return nil, false
+	}
+	rows, ok := r.rows.([]T)
+	if !ok {
+		return nil, false
+	}
+	return slices.Clone(rows), true
+}
+
+// cachePut stores rows under key and forgets anything older than an hour, so keys that are never
+// asked for again (a changed refdata file makes a new one) do not pile up.
+func cachePut[T any](key string, rows []T) {
+	results.Lock()
+	defer results.Unlock()
+	for k, r := range results.m {
+		if time.Since(r.at) > time.Hour {
+			delete(results.m, k)
+		}
+	}
+	results.m[key] = result{at: time.Now(), rows: slices.Clone(rows)}
+}
 
 // stageTables are the slice tables of the comparison, found in the embedded stage SQL plus the
-// three that Go creates. Each run has its own copy of them in Turso.
+// ones that Go creates. Each run has its own copy of them in Turso while it runs.
 var stageTables = sliceTableNames()
 
 func sliceTableNames() []string {
-	re := regexp.MustCompile(`CREATE TABLE (?:IF NOT EXISTS )?(winrate_\w+)`)
-	seen := map[string]bool{"winrate_done": true, "winrate_ids": true, "winrate_baseline": true, "winrate_baseline_trade": true, "winrate_window": true}
-	files, _ := sqlFiles.ReadDir("sql")
+	re := regexp.MustCompile(`CREATE TABLE (?:IF NOT EXISTS )?(winrate_\w+)`) // a regular expression over the SQL text, not SQL
+	seen := map[string]bool{"winrate_ids": true, "winrate_baseline": true, "winrate_baseline_trade": true, "winrate_window": true}
+	// The stage SQL is read from files. If it cannot be, stop here with the reason: a table list
+	// missing the stage tables would make every comparison fail in a confusing way later.
+	files, err := fs.ReadDir(sqlFiles, ".")
+	if err != nil {
+		panic(fmt.Sprintf("live_vs_backtest_winrate: cannot read the stage SQL (sql/orchestrator/live_vs_backtest_winrate): %v", err))
+	}
 	for _, f := range files {
-		b, _ := sqlFiles.ReadFile("sql/" + f.Name())
+		b, err := fs.ReadFile(sqlFiles, f.Name())
+		if err != nil {
+			panic(fmt.Sprintf("live_vs_backtest_winrate: cannot read %s: %v", f.Name(), err))
+		}
 		for _, m := range re.FindAllStringSubmatch(string(b), -1) {
 			seen[m[1]] = true
 		}
@@ -594,18 +647,18 @@ func sliceTableNames() []string {
 // hasTable reports whether db has a table called name.
 func hasTable(ctx context.Context, db *sql.DB, name string) (bool, error) {
 	var n int
-	err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, name).Scan(&n)
+	err := db.QueryRowContext(ctx, orchestratorsql.Q("live_vs_backtest_winrate/has_table"), name).Scan(&n)
 	return n > 0, err
 }
 
 // runFile runs one embedded stage file in run's tables.
 func runFile(ctx context.Context, run *runtables.Run, name string) error {
-	b, err := sqlFiles.ReadFile(name)
+	b, err := fs.ReadFile(sqlFiles, name)
 	if err != nil {
 		return err
 	}
 	if err := run.Exec(ctx, string(b)); err != nil {
-		return fmt.Errorf("live_vs_backtest_winrate: %s: %w", strings.TrimPrefix(name, "sql/"), err)
+		return fmt.Errorf("live_vs_backtest_winrate: %s: %w", name, err)
 	}
 	return nil
 }

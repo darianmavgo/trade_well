@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/appconfig"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/bootstrap"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/dashboard"
@@ -231,7 +233,7 @@ func writeE2EPage(w http.ResponseWriter) {
 }
 
 func recentE2ERuns(db *sql.DB) string {
-	rs, err := db.Query(`SELECT status, summary, finished_at FROM job_run WHERE job = ? ORDER BY id DESC LIMIT 5`, run_e2e_live.JobName)
+	rs, err := db.Query(orchestratorsql.Q("appserve/recent_e2_eruns"), run_e2e_live.JobName)
 	if err != nil {
 		return ""
 	}

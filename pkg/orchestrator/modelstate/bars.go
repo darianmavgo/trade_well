@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/backtest/calendar"
 	"github.com/darianmavgo/trade_well/pkg/backtest/dailybars"
 	"github.com/darianmavgo/trade_well/pkg/backtest/models"
@@ -25,15 +27,7 @@ const barsBatch = 150
 // EnsureBarsSchema creates the table the daily bars are stored in. Its columns are those of
 // daily_bar in daily_bars.db.
 func EnsureBarsSchema(db *sql.DB) error {
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS daily_bars_live (
-	symbol TEXT NOT NULL,
-	date TEXT NOT NULL,
-	close REAL NOT NULL,
-	adj_close REAL NOT NULL,
-	volume INTEGER NOT NULL,
-	source TEXT NOT NULL,
-	PRIMARY KEY (symbol, date)
-) WITHOUT ROWID`)
+	_, err := db.Exec(orchestratorsql.Q("modelstate/ensure_bars_schema"))
 	if err != nil {
 		return fmt.Errorf("modelstate: create daily_bars_live: %w", err)
 	}
@@ -58,7 +52,7 @@ func EnsureBars(ctx context.Context, db *sql.DB, symbols []string, now time.Time
 	written := 0
 	for _, sym := range symbols {
 		var newest sql.NullString
-		if err := db.QueryRowContext(ctx, `SELECT MAX(date) FROM daily_bars_live WHERE symbol = ?`, sym).Scan(&newest); err != nil {
+		if err := db.QueryRowContext(ctx, orchestratorsql.Q("modelstate/ensure_bars"), sym).Scan(&newest); err != nil {
 			return written, fmt.Errorf("modelstate: %s: %w", sym, err)
 		}
 		if newest.Valid && newest.String >= completed {
@@ -107,7 +101,7 @@ func EnsureBars(ctx context.Context, db *sql.DB, symbols []string, now time.Time
 }
 
 func heldTail(ctx context.Context, db *sql.DB, symbol, from string) ([]dailybars.Stored, error) {
-	rows, err := db.QueryContext(ctx, `SELECT date, adj_close FROM daily_bars_live WHERE symbol = ? AND date >= ? ORDER BY date`, symbol, from)
+	rows, err := db.QueryContext(ctx, orchestratorsql.Q("modelstate/held_tail"), symbol, from)
 	if err != nil {
 		return nil, err
 	}
@@ -130,14 +124,14 @@ func storeBars(ctx context.Context, db *sql.DB, symbol string, bars []models.Bar
 	}
 	defer tx.Rollback()
 	if replaceAll {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM daily_bars_live WHERE symbol = ?`, symbol); err != nil {
+		if _, err := tx.ExecContext(ctx, orchestratorsql.Q("modelstate/store_bars"), symbol); err != nil {
 			return err
 		}
 	}
 	for i := 0; i < len(bars); i += barsBatch {
 		end := min(i+barsBatch, len(bars))
 		var q strings.Builder
-		q.WriteString(`INSERT OR REPLACE INTO daily_bars_live (symbol, date, close, adj_close, volume, source) VALUES `)
+		q.WriteString(orchestratorsql.Q("modelstate/store_bars_2"))
 		args := make([]any, 0, (end-i)*6)
 		for j, b := range bars[i:end] {
 			if j > 0 {

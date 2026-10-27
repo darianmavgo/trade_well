@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // HMMTip is the newest hidden Markov prediction stored in Turso for one model.
@@ -22,8 +24,7 @@ func LatestHMMPredictionInTurso(ctx context.Context, db *sql.DB, symbol, trained
 	if err := ensureHMMSchema(db); err != nil {
 		return t, err
 	}
-	err := db.QueryRowContext(ctx, `SELECT date, regime, regime_prob, next_regime, next_regime_prob
-		FROM hmm_prediction_live WHERE symbol = ? AND trained_at = ? ORDER BY date DESC LIMIT 1`, symbol, trainedAt).
+	err := db.QueryRowContext(ctx, orchestratorsql.Q("modelstate/latest_hmmprediction_in_turso"), symbol, trainedAt).
 		Scan(&t.Date, &t.Regime, &t.RegimeProb, &t.NextRegime, &t.NextRegimeProb)
 	if err != nil && err != sql.ErrNoRows {
 		return t, fmt.Errorf("modelstate: newest %s prediction: %w", symbol, err)

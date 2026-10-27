@@ -9,11 +9,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 
 	_ "modernc.org/sqlite"
 )
@@ -64,12 +67,12 @@ func openBacktestAssetReadOnly(path string) (*sql.DB, error) {
 
 func assetHasTable(ctx context.Context, db *sql.DB, name string) (bool, error) {
 	var n int
-	err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, name).Scan(&n)
+	err := db.QueryRowContext(ctx, orchestratorsql.Q("live_vs_backtest_winrate/has_table"), name).Scan(&n)
 	return n > 0, err
 }
 
 func assetQuery(name string) string {
-	b, err := sqlFiles.ReadFile("sql/" + name)
+	b, err := fs.ReadFile(sqlFiles, name)
 	if err != nil {
 		panic(err) // the file is embedded: a missing one is a build error
 	}

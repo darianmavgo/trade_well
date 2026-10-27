@@ -4,17 +4,13 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // RecordAudit logs the daily account inspection result to check_health_audit.
 func RecordAudit(db *sql.DB, audit *Audit) error {
-	query := `
-	INSERT INTO check_health_audit (
-		account_number, timestamp, total_positions, protected_positions,
-		unprotected_positions, orphan_orders, status, notes,
-		critical_findings, warning_findings
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
+	query := orchestratorsql.Q("check_health/record_audit")
 	_, err := db.Exec(query,
 		audit.AccountNumber, audit.Timestamp, audit.TotalPositions,
 		audit.ProtectedPositions, audit.UnprotectedPositions,
@@ -27,9 +23,7 @@ func RecordAudit(db *sql.DB, audit *Audit) error {
 // ListChecks returns every defined health check (built-in or custom),
 // grouped by category then name.
 func ListChecks(db *sql.DB) ([]Def, error) {
-	rows, err := db.Query(`
-		SELECT id, name, category, severity, enabled, query, description, created_at
-		FROM check_health ORDER BY category, name`)
+	rows, err := db.Query(orchestratorsql.Q("check_health/list_checks"))
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +47,7 @@ func ListChecks(db *sql.DB) ([]Def, error) {
 // noisy check, or (for a custom row inserted directly into check_health)
 // turn a new one on.
 func SetEnabled(db *sql.DB, name string, enabled bool) error {
-	res, err := db.Exec(`UPDATE check_health SET enabled = ? WHERE name = ?`, enabled, name)
+	res, err := db.Exec(orchestratorsql.Q("check_health/set_enabled"), enabled, name)
 	if err != nil {
 		return err
 	}
@@ -70,9 +64,7 @@ func SetEnabled(db *sql.DB, name string, enabled bool) error {
 // RecordFinding persists one check_health violation, whether it came from a
 // Def's SQL query or from Run's own live-broker-data inspection.
 func RecordFinding(db *sql.DB, f *Finding) error {
-	res, err := db.Exec(`
-		INSERT INTO check_health_finding (run_at, account_number, check_name, category, severity, subject, detail)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+	res, err := db.Exec(orchestratorsql.Q("check_health/record_finding"),
 		f.RunAt, f.AccountNumber, f.CheckName, f.Category, f.Severity, f.Subject, f.Detail)
 	if err != nil {
 		return err
@@ -87,12 +79,7 @@ func GetRecentFindings(db *sql.DB, accountNumber string, limit int) ([]Finding, 
 	if limit <= 0 {
 		limit = 50
 	}
-	rows, err := db.Query(`
-		SELECT id, run_at, account_number, check_name, category, severity, subject, detail
-		FROM check_health_finding
-		WHERE account_number = ? OR ? = ''
-		ORDER BY run_at DESC, id DESC
-		LIMIT ?`, accountNumber, accountNumber, limit)
+	rows, err := db.Query(orchestratorsql.Q("check_health/get_recent_findings"), accountNumber, accountNumber, limit)
 	if err != nil {
 		return nil, err
 	}

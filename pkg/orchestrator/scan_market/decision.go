@@ -3,6 +3,8 @@ package scan_market
 import (
 	"database/sql"
 	"strings"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // StagedDecision is the scan identity of one staged order: which buy signal,
@@ -25,8 +27,7 @@ func DecisionForStagedOrder(db *sql.DB, stagedOrderID, signalID int64) (StagedDe
 	}
 	var d StagedDecision
 	if stagedOrderID > 0 {
-		err := db.QueryRow(`SELECT id, strategy_id, as_of_date, next_session
-			FROM scan_market_buy_signal WHERE staged_order_id = ? ORDER BY id DESC LIMIT 1`, stagedOrderID).
+		err := db.QueryRow(orchestratorsql.Q("scan_market/decision_for_staged_order"), stagedOrderID).
 			Scan(&d.BuySignalID, &d.StrategyID, &d.AsOfDate, &d.NextSession)
 		if err == nil {
 			return d, nil
@@ -37,7 +38,7 @@ func DecisionForStagedOrder(db *sql.DB, stagedOrderID, signalID int64) (StagedDe
 	}
 	if signalID > 0 {
 		var strategy, day string
-		err := db.QueryRow(`SELECT strategy_name, signal_date FROM scan_market_signal WHERE id = ?`, signalID).
+		err := db.QueryRow(orchestratorsql.Q("scan_market/decision_for_staged_order_2"), signalID).
 			Scan(&strategy, &day)
 		if err == nil {
 			d.StrategyID = strategy

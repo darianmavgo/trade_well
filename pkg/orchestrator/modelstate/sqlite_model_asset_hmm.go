@@ -10,6 +10,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -18,7 +20,7 @@ type hmmModelAssetMeta struct {
 }
 
 func readHMMModelAssetMeta(local *sql.DB) ([]hmmModelAssetMeta, error) {
-	rows, err := local.Query(`SELECT symbol, trained_at, trained_through, last_date FROM hmm_model_meta ORDER BY symbol`)
+	rows, err := local.Query(orchestratorsql.Q("modelstate/read_hmmmodel_asset_meta"))
 	if err != nil {
 		return nil, err
 	}
@@ -62,8 +64,7 @@ func HydrateHMMModelAssetFromTurso(ctx context.Context, db *sql.DB, modelPath st
 }
 
 func hydrateHMMModelAssetFromTursoOne(ctx context.Context, db, local *sql.DB, m hmmModelAssetMeta) (int, error) {
-	preds, err := db.QueryContext(ctx, `SELECT date, ret, vol, regime, regime_prob, next_regime, next_regime_prob, loglik_bar, in_sample
-		FROM hmm_prediction_live WHERE symbol = ? AND trained_at = ? AND date > ? ORDER BY date`, m.symbol, m.trainedAt, m.lastDate)
+	preds, err := db.QueryContext(ctx, orchestratorsql.Q("modelstate/hydrate_hmmmodel_asset_from_turso_one"), m.symbol, m.trainedAt, m.lastDate)
 	if err != nil {
 		return 0, err
 	}
@@ -81,9 +82,7 @@ func hydrateHMMModelAssetFromTursoOne(ctx context.Context, db, local *sql.DB, m 
 		if err := preds.Scan(&date, &ret, &vol, &reg, &regProb, &nextReg, &nextProb, &ll, &inSample); err != nil {
 			return 0, err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT OR REPLACE INTO hmm_prediction
-			(symbol, date, ret, vol, regime, regime_prob, next_regime, next_regime_prob, loglik_bar, in_sample)
-			VALUES (?,?,?,?,?,?,?,?,?,?)`, m.symbol, date, ret, vol, reg, regProb, nextReg, nextProb, ll, inSample); err != nil {
+		if _, err := tx.ExecContext(ctx, orchestratorsql.Q("modelstate/hydrate_hmmmodel_asset_from_turso_one_2"), m.symbol, date, ret, vol, reg, regProb, nextReg, nextProb, ll, inSample); err != nil {
 			return 0, err
 		}
 		last = date
@@ -95,8 +94,7 @@ func hydrateHMMModelAssetFromTursoOne(ctx context.Context, db, local *sql.DB, m 
 	if n == 0 {
 		return 0, nil
 	}
-	states, err := db.QueryContext(ctx, `SELECT date, state, prob, next_prob FROM hmm_state_prob_live
-		WHERE symbol = ? AND trained_at = ? AND date > ? ORDER BY date, state`, m.symbol, m.trainedAt, m.lastDate)
+	states, err := db.QueryContext(ctx, orchestratorsql.Q("modelstate/hydrate_hmmmodel_asset_from_turso_one_3"), m.symbol, m.trainedAt, m.lastDate)
 	if err != nil {
 		return 0, err
 	}
@@ -108,7 +106,7 @@ func hydrateHMMModelAssetFromTursoOne(ctx context.Context, db, local *sql.DB, m 
 		if err := states.Scan(&date, &state, &prob, &next); err != nil {
 			return 0, err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT OR REPLACE INTO hmm_state_prob (symbol, date, state, prob, next_prob) VALUES (?,?,?,?,?)`,
+		if _, err := tx.ExecContext(ctx, orchestratorsql.Q("modelstate/hydrate_hmmmodel_asset_from_turso_one_4"),
 			m.symbol, date, state, prob, next); err != nil {
 			return 0, err
 		}
@@ -116,7 +114,7 @@ func hydrateHMMModelAssetFromTursoOne(ctx context.Context, db, local *sql.DB, m 
 	if err := states.Err(); err != nil {
 		return 0, err
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE hmm_model_meta SET last_date = ? WHERE symbol = ?`, last, m.symbol); err != nil {
+	if _, err := tx.ExecContext(ctx, orchestratorsql.Q("modelstate/hydrate_hmmmodel_asset_from_turso_one_5"), last, m.symbol); err != nil {
 		return 0, err
 	}
 	return n, tx.Commit()
@@ -151,7 +149,7 @@ func PersistHMMModelAssetToTurso(ctx context.Context, db *sql.DB, modelPath stri
 
 func persistHMMModelAssetToTursoOne(ctx context.Context, db, local *sql.DB, m hmmModelAssetMeta) (int, error) {
 	var newest sql.NullString
-	if err := db.QueryRowContext(ctx, `SELECT MAX(date) FROM hmm_prediction_live WHERE symbol = ? AND trained_at = ?`,
+	if err := db.QueryRowContext(ctx, orchestratorsql.Q("modelstate/persist_hmmmodel_asset_to_turso_one"),
 		m.symbol, m.trainedAt).Scan(&newest); err != nil {
 		return 0, err
 	}
@@ -159,8 +157,7 @@ func persistHMMModelAssetToTursoOne(ctx context.Context, db, local *sql.DB, m hm
 	if newest.Valid && newest.String > since {
 		since = newest.String
 	}
-	preds, err := local.QueryContext(ctx, `SELECT date, ret, vol, regime, regime_prob, next_regime, next_regime_prob, loglik_bar, in_sample
-		FROM hmm_prediction WHERE symbol = ? AND date > ? ORDER BY date`, m.symbol, since)
+	preds, err := local.QueryContext(ctx, orchestratorsql.Q("modelstate/persist_hmmmodel_asset_to_turso_one_2"), m.symbol, since)
 	if err != nil {
 		return 0, err
 	}
@@ -178,9 +175,7 @@ func persistHMMModelAssetToTursoOne(ctx context.Context, db, local *sql.DB, m hm
 		if err := preds.Scan(&date, &ret, &vol, &reg, &regProb, &nextReg, &nextProb, &ll, &inSample); err != nil {
 			return 0, err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT OR REPLACE INTO hmm_prediction_live
-			(symbol, trained_at, date, ret, vol, regime, regime_prob, next_regime, next_regime_prob, loglik_bar, in_sample)
-			VALUES (?,?,?,?,?,?,?,?,?,?,?)`, m.symbol, m.trainedAt, date, ret, vol, reg, regProb, nextReg, nextProb, ll, inSample); err != nil {
+		if _, err := tx.ExecContext(ctx, orchestratorsql.Q("modelstate/persist_hmmmodel_asset_to_turso_one_3"), m.symbol, m.trainedAt, date, ret, vol, reg, regProb, nextReg, nextProb, ll, inSample); err != nil {
 			return 0, err
 		}
 		n++
@@ -191,8 +186,7 @@ func persistHMMModelAssetToTursoOne(ctx context.Context, db, local *sql.DB, m hm
 	if n == 0 {
 		return 0, nil
 	}
-	states, err := local.QueryContext(ctx, `SELECT date, state, prob, next_prob FROM hmm_state_prob
-		WHERE symbol = ? AND date > ? ORDER BY date, state`, m.symbol, since)
+	states, err := local.QueryContext(ctx, orchestratorsql.Q("modelstate/persist_hmmmodel_asset_to_turso_one_4"), m.symbol, since)
 	if err != nil {
 		return 0, err
 	}
@@ -204,8 +198,7 @@ func persistHMMModelAssetToTursoOne(ctx context.Context, db, local *sql.DB, m hm
 		if err := states.Scan(&date, &state, &prob, &next); err != nil {
 			return 0, err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT OR REPLACE INTO hmm_state_prob_live (symbol, trained_at, date, state, prob, next_prob)
-			VALUES (?,?,?,?,?,?)`, m.symbol, m.trainedAt, date, state, prob, next); err != nil {
+		if _, err := tx.ExecContext(ctx, orchestratorsql.Q("modelstate/persist_hmmmodel_asset_to_turso_one_5"), m.symbol, m.trainedAt, date, state, prob, next); err != nil {
 			return 0, err
 		}
 	}

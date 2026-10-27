@@ -5,6 +5,8 @@ package ready
 import (
 	"database/sql"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/backtest/markov_strategy"
 	"github.com/darianmavgo/trade_well/pkg/backtest/storage"
 )
@@ -16,7 +18,7 @@ func readMarkovModelAssetTrainedThrough(path, sym string) string {
 	}
 	defer db.Close()
 	var t sql.NullString
-	if err := db.Get(&t, "SELECT trained_through FROM markov_model_meta WHERE symbol = ?", sym); err != nil || !t.Valid {
+	if err := db.Get(&t, orchestratorsql.Q("ready/read_markov_model_asset_trained_through"), sym); err != nil || !t.Valid {
 		return "unknown"
 	}
 	return t.String

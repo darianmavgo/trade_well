@@ -29,8 +29,8 @@ func find(rep Report, name string) Check {
 func TestStaticAllowlistResolvesFromTheBundle(t *testing.T) {
 	t.Setenv("APP_FOLDER", t.TempDir())
 	rep := Run(context.Background(), Options{Static: true, Allowlist: []string{liveStack}})
-	if rep.Status != OK || len(rep.Checks) != 2 || rep.Checks[0].Name != "allowlist" || rep.Checks[1].Name != "allocation" {
-		t.Fatalf("report %+v, want ok allowlist and allocation checks", rep)
+	if rep.Status != OK || len(rep.Checks) != 3 || rep.Checks[0].Name != "allowlist" || rep.Checks[1].Name != "allocation" || rep.Checks[2].Name != "sql_files" {
+		t.Fatalf("report %+v, want ok allowlist, allocation and sql_files checks", rep)
 	}
 }
 
@@ -140,5 +140,21 @@ func TestDatabaseCheckBadWithoutTurso(t *testing.T) {
 	c := databaseCheck(context.Background(), nil)
 	if c.Status != Bad || !strings.Contains(c.Detail, "TURSO_DATABASE_URL is not set") {
 		t.Fatalf("got %s %q, want Bad naming TURSO_DATABASE_URL", c.Status, c.Detail)
+	}
+}
+
+// The SQL is read from the sql folder on disk, so /ready says where it was found, even in a static run.
+func TestReadyReportsWhereTheSQLFolderWas(t *testing.T) {
+	c := sqlFilesCheck()
+	if c.Name != "sql_files" || c.Status != OK || !strings.Contains(c.Detail, "orchestrator SQL files") {
+		t.Fatalf("sql_files check = %+v", c)
+	}
+	rep := Run(context.Background(), Options{Static: true})
+	var found bool
+	for _, ch := range rep.Checks {
+		found = found || ch.Name == "sql_files"
+	}
+	if !found {
+		t.Fatalf("a static run has no sql_files check: %+v", rep.Checks)
 	}
 }

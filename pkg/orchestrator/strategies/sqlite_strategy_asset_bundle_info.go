@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -49,7 +51,7 @@ func ReadBundledStrategyAssetInfo() (BundledAssetInfo, error) {
 	for _, table := range []string{"streak_strategy", "tree_strategy", "hold_strategy", "markov_strategy", "hmm_strategy", "rotation_strategy"} {
 		// A bundle exported before a family existed has no table for it, and so no rows.
 		var have int
-		if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&have); err != nil {
+		if err := db.QueryRow(orchestratorsql.Q("strategies/read_bundled_strategy_asset_info"), table).Scan(&have); err != nil {
 			return info, fmt.Errorf("bundle %s: %w", table, err)
 		}
 		if have == 0 {
@@ -71,7 +73,7 @@ func ReadBundledStrategyAssetInfo() (BundledAssetInfo, error) {
 	}
 	sort.Strings(info.IDs)
 	var v string
-	switch err := db.QueryRow(`SELECT value FROM bundle_meta WHERE key = 'alloc_pct'`).Scan(&v); {
+	switch err := db.QueryRow(orchestratorsql.Q("strategies/read_bundled_strategy_asset_info_2")).Scan(&v); {
 	case err == nil:
 		if _, err := fmt.Sscan(v, &info.Alloc); err != nil {
 			return info, fmt.Errorf("bundle_meta alloc_pct %q: %w", v, err)

@@ -2,18 +2,10 @@ package runtimeenv
 
 import (
 	"database/sql"
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
-const schemaDDL = `
-CREATE TABLE IF NOT EXISTS runtimeenv (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  environment TEXT,
-  service TEXT,
-  version TEXT,
-  project TEXT,
-  detected_at TIMESTAMP
-);
-`
+var schemaDDL = orchestratorsql.Q("runtimeenv/schema_ddl")
 
 // EnsureSchema creates the runtimeenv audit table if it doesn't exist.
 func EnsureSchema(db *sql.DB) error {

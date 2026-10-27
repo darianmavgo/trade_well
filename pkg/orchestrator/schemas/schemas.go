@@ -26,6 +26,7 @@ import (
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/stage_orders"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/strategies"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/submit_orders"
+	"github.com/darianmavgo/trade_well/pkg/orchestrator/trade_history"
 	"github.com/darianmavgo/trade_well/pkg/schwaber/dbutil"
 )
 
@@ -52,6 +53,7 @@ func ensureAll(db *sql.DB) error {
 		{"stage_orders", stage_orders.EnsureSchema},
 		{"submit_orders", submit_orders.EnsureSchema},
 		{"manage_exits", manage_exits.EnsureSchema},
+		{"trade_history", trade_history.EnsureSchema},
 		{"live_vs_backtest_trades", live_vs_backtest_trades.EnsureSchema},
 		{"live_vs_backtest_slippage", live_vs_backtest_slippage.EnsureSchema},
 		{"check_health", check_health.EnsureSchema},

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"io/fs"
 	"strings"
 
 	sqlfiles "github.com/darianmavgo/trade_well/sql"
@@ -91,7 +92,7 @@ func Run(ctx context.Context, db *sql.DB, gates Gates) ([]Verdict, error) {
 		gates.MinOOSTrades, gates.TrialCutoff, gates.Decay); err != nil {
 		return nil, err
 	}
-	script, err := sqlfiles.Validation.ReadFile("validation/check_overfit.sql")
+	script, err := fs.ReadFile(sqlfiles.FS, "validation/check_overfit.sql")
 	if err != nil {
 		return nil, err
 	}

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/appconfig"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/dashboard"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/killswitch"
@@ -165,7 +167,7 @@ func writeKillswitchPage(w http.ResponseWriter, notice string) {
 }
 
 func recentJobRuns(db *sql.DB) string {
-	rs, err := db.Query(`SELECT job, status, finished_at FROM job_run ORDER BY id DESC LIMIT 8`)
+	rs, err := db.Query(orchestratorsql.Q("appserve/recent_job_runs"))
 	if err != nil {
 		return ""
 	}

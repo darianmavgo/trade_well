@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/account_state"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/strategies"
 	"github.com/darianmavgo/trade_well/pkg/schwaber/accountstore"
@@ -183,10 +185,7 @@ func idString(v any) string {
 }
 
 func loadExits(db *sql.DB, account string) (map[string]exitInfo, error) {
-	q := `SELECT id, account_number, symbol,
-		CASE WHEN COALESCE(strategy_id, '') != '' THEN strategy_id ELSE strategy_name END,
-		COALESCE(entry_order_id, ''), status
-		FROM manage_exit`
+	q := orchestratorsql.Q("live_vs_backtest_report/load_exits")
 	var args []any
 	if account != "" {
 		q += ` WHERE account_number = ?`

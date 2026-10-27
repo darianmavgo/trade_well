@@ -9,6 +9,7 @@ import (
 
 	"github.com/darianmavgo/trade_well/pkg/backtest/calendar"
 	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
+	"github.com/darianmavgo/trade_well/pkg/orchestrator/trade_history"
 	"github.com/darianmavgo/trade_well/pkg/schwaber/schwab"
 	"github.com/darianmavgo/trade_well/pkg/schwaber/trader"
 )
@@ -285,6 +286,16 @@ func Run(
 		row.Status = "OPEN"
 		row.Detail = fmt.Sprintf("held %d/%d days (%d remaining); exit date %s (%s); target $%.2f, last $%.2f", daysHeld, holdDays, remaining, trade.ExitDate, trade.ExitDateSource, target, last)
 		res.Rows = append(res.Rows, row)
+	}
+
+	// Trades closed above, and any closed since the last run, go into trade_history. A failure here
+	// does not fail the exit job: the next run captures them.
+	if !dryRun {
+		if cap, err := trade_history.Capture(ctx, db, false); err != nil {
+			res.Details = append(res.Details, fmt.Sprintf("trade_history: capture failed: %v", err))
+		} else if cap.New > 0 {
+			res.Details = append(res.Details, fmt.Sprintf("trade_history: captured %d new trade(s); %d in all.", cap.New, cap.Total))
+		}
 	}
 
 	return res, nil

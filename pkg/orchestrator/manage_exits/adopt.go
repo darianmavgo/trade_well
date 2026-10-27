@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
 	"github.com/darianmavgo/trade_well/pkg/schwaber/schwab"
 	"github.com/darianmavgo/trade_well/pkg/schwaber/trader"
@@ -24,7 +26,7 @@ import (
 // dryRun reports without writing.
 func adoptUntracked(db *sql.DB, acc *trader.ResolvedAccount, strats []strategy.Strategy, orders []schwab.Order, now time.Time, dryRun bool, res *Result) {
 	tracked := map[string]bool{}
-	rows, err := db.Query(`SELECT UPPER(symbol) FROM manage_exit WHERE account_number = ? AND status IN (?, ?)`,
+	rows, err := db.Query(orchestratorsql.Q("manage_exits/adopt_untracked"),
 		acc.AccountNumber, TradeStatusOpen, TradeStatusPendingFill)
 	if err != nil {
 		res.Details = append(res.Details, fmt.Sprintf("adopt: could not read manage_exit: %v", err))

@@ -197,7 +197,7 @@ The orchestrator database (job runs, risk state, orders, account mirror, order i
 - **Remote only, pure Go** (`libsql-client-go`, no cgo, builds for App Engine). `libsql://` URLs are used over HTTPS. Every query is a network call, so jobs are somewhat slower than against a local file.
 - **`/ready` is the proof.** Its `database` check is bad without Turso (on any platform), bad when Turso does not answer or a table the jobs use is missing, and otherwise reports the job runs it can read.
 - **Tests never use Turso.** `dbutil.Turso()` returns off under `go test`, so exported variables cannot make a test write the real database. Tests use real SQLite in a `t.TempDir()` or `:memory:` (the only local SQLite the orchestrator opens); `appconfig.Load` sets `Config.DBPath` only under `go test`, and `dbutil.Open` refuses a local file otherwise.
-- **`live_vs_backtest_winrate -reports-dir …` works on Turso.** It reads each backtest asset file read-only, for only the columns the comparison needs (`pkg/orchestrator/live_vs_backtest_winrate/sql/asset_*.sql`), and upserts them into `live_vs_backtest_winrate` in one transaction. The comparison itself runs in Turso: every stage writes a slice table named for the run (`winrate_compare__r20261026t…`), the newest 3 runs are kept for audit and older ones dropped (`pkg/orchestrator/runtables`). Nothing is staged in a local database, and `--dry-run` reads the assets and writes nothing.
+- **`live_vs_backtest_winrate -reports-dir …` works on Turso. The comparison builds its stage tables in Turso while it runs and drops them when it returns (an in-process cache serves repeat page views); `live_vs_backtest_winrate` is the only table of win rates that stays.** It reads each backtest asset file read-only, for only the columns the comparison needs (`pkg/orchestrator/live_vs_backtest_winrate/sql/asset_*.sql`), and upserts them into `live_vs_backtest_winrate` in one transaction. The comparison itself runs in Turso: every stage writes a slice table named for the run (`winrate_compare__r20261026t…`), the newest 3 runs are kept for audit and older ones dropped (`pkg/orchestrator/runtables`). Nothing is staged in a local database, and `--dry-run` reads the assets and writes nothing.
 - The market DB (`MARKET_DB`) and the other read-only files (strategies, backtest reports) are local files on the instance; the scan rebuilds the market file from Turso `market_bars` and the data source.
 
 ## End-to-end live run (`/run_e2e_live`)
@@ -386,6 +386,7 @@ These commands compare a live strategy with its backtest. Each one is a `pkg/` f
 |---|---|---|---|
 | `validate walk` | `pkg/backtest/walk_forward` | Rolling in-sample and out-of-sample windows. Writes `walk_forward_fold` and `walk_forward_summary`. | `-strategy` (required), `-market-db`, `-table`, `-db`, `-train-months`, `-test-months`, `-step-months`, `-capital` |
 | `validate verdict` | `pkg/backtest/check_overfit` | Reads that summary and writes `check_overfit`. Does not re-simulate. | `-db`, `-min-oos-trades`, `-trial-cutoff`, `-decay` |
+| `trade_history` | `pkg/orchestrator/trade_history` | Copies the trades that actually happened (a closed position with both fills recorded, attributed to a strategy, entry order not contradicted by the broker mirror) into `trade_history` with their entry and exit order ids, then prints the `live_vs_backtest` view. Runs at the end of every `manage_exits` run too; a trade already captured is left as it was. | `--dry-run` (counts, writes nothing) |
 | `live_vs_backtest_trades` | `pkg/orchestrator/live_vs_backtest_trades` | One row per decision in `live_vs_backtest_trade`: the live fill against a one-share replay of that signal. | `--account`, `--market-db`, `--table` (default `backtest_start`) |
 | `live_vs_backtest_slippage` | `pkg/orchestrator/live_vs_backtest_slippage` | Averages entry and exit slippage, the worst entry slippage, slippage versus the limit, fill delay, and fees into `live_vs_backtest_slippage`. Run `live_vs_backtest_trades` first. | none |
 | `live_vs_backtest_report` | `pkg/orchestrator/live_vs_backtest_report` | Runs `live_vs_backtest_trades` and `live_vs_backtest_slippage`, then writes `live_vs_backtest_report.db` and an HTML page. The report file is separate from `orchestrator.db`. | `--account`, `--market-db`, `--table` (default `backtest_start`), `--db`, `--html` |
@@ -430,6 +431,31 @@ go run ./cmd/validate verdict -db reports/walk_forward.db -min-oos-trades 8 -tri
 `INSUFFICIENT` means too few out-of-sample trades. `CURVE_FIT` means many trials, an in-sample Sharpe above 0.5, and an out-of-sample Sharpe below the decay fraction of in-sample. `DECAYS` means the out-of-sample Sharpe collapsed. `HOLDS` means the out-of-sample Sharpe stays positive and at least half of in-sample.
 
 ### Trade reconciliation
+
+### Where the SQL lives
+
+All SQL that is specific to the orchestrator is in `sql/orchestrator/<package>/<name>.sql`, one statement or stage per file, where `<package>` is the `pkg/orchestrator` package that runs it. A package reads it by name: `orchestratorsql.Q("manage_exits/close_active_trade")`, or `orchestratorsql.Dir("<package>")` for a script of stages. The backtest layer's SQL stays in `sql/stages`, `sql/strategies` and the other folders beside it.
+
+The SQL is **read from files, not embedded in the binary**, so editing a file takes effect on the next run. There is one rule for finding it (`sql/sqlfiles.go`): the folder named `sql` in the working directory or the nearest parent that has one. A laptop run from the repository, a test (which runs inside the repository) and a deployed App Engine instance (whose working directory holds the uploaded source) all satisfy it, with no environment variable and no other place searched. When there is no such folder the process says so and stops, for example `cannot find the sql folder: there is no folder named sql ... in the working directory /tmp or any parent`, with what to do. A deploy therefore has to upload `sql/`: `.gcloudignore` keeps it, and `deploy_gae/deploy.sh` includes it in the change hash. `ready` (and `/ready`) has an `sql_files` check that names the folder the process found and how many orchestrator SQL files are in it, so a deploy that lost them is visible before a job fails.
+
+A statement whose text is not fixed (a table name chosen at run time, an `IN` list of unknown length, an optional `WHERE`) is the one thing that stays in Go. `TestOrchestratorSQLLivesInFiles` lists every such place and fails on a new one; `TestEveryOrchestratorSQLFileExistsAndIsRead` fails on a name with no file or a file nothing reads.
+
+### Trade history and the ongoing live win rate
+
+`trade_history` holds one row per closed round trip in one account that **actually happened**: `strategy_id`, `entry_order_id`, `exit_order_id`, the fills, fees and P&L. `orchestrator trade_history` (and the end of every `manage_exits` run) copies them in from the closed `manage_exit` rows. A row counts only when it is attributed to a strategy, has both order ids, has both fills recorded, and the broker mirror (`account_state_order`) does not say the entry order was anything but FILLED. Cancelled, rejected, still-working and open positions are not trades. The exit order id is kept as `manage_exit` recorded it; the mirror does not list exit orders, so the recorded exit fill is the evidence for the exit.
+
+Views do the arithmetic, one stage each, and follow the table as trades are captured:
+
+| View | What it gives |
+|---|---|
+| `trade_history_candidate` | The closed positions that really traded (what is copied in). |
+| `trade_history_decision` | One row per strategy buying one symbol on one day, however many accounts filled it. A decision is a win when its P&L summed over those fills is positive, so one stop loss in three accounts is one loss. |
+| `trade_history_running_count` | Each decision in the order it closed, with how many a strategy had closed by then and how many were wins. |
+| `trade_history_running` | The ongoing win rate and its 95% Wilson interval after each decision: it moves, and narrows, as trades are attributed to a strategy. |
+| `trade_history_win_rate` | Each strategy's newest running row: where it stands now. |
+| `live_vs_backtest` | That live rate against the stored backtest rates in `live_vs_backtest_winrate` (out-of-sample, else in-sample, else whole-window), with the same verdicts as the win-rate comparison: `NO_BACKTEST`, `TOO_EARLY` (fewer than 10 closed live decisions), `BELOW`, `ABOVE`, `IN_LINE`. |
+
+`live_vs_backtest` reads only the tables, so it needs no recalculation and has no run tables. It does not add the compiled-in baseline that `live_vs_backtest_winrate` falls back to when a strategy has no stored backtest rates yet, nor the model replay column; the comparison command still does.
 
 `live_vs_backtest_trades` rebuilds `live_vs_backtest_trade`: one row per account, strategy, symbol, and signal date. The live fill is compared with a one-share replay of that same signal through the backtest's entry and exit rules.
 
@@ -629,6 +655,7 @@ Each job is one package, and the job has one name everywhere: the package direct
 | `submit_orders` | Re-checks each staged order against current cash and positions, places the bracket, confirms fills, and opens the managed trade. Reconciles orders left mid-submit. | `submit_order` (attempt log), `manage_exit`, updates `stage_order` |
 | `manage_exits` | Tracks open trades, counts trading days held (the backtest layer's `calendar`), and sells when the holding window or target is reached. | `manage_exit` |
 | `check_health` | Live-data checks, a strategy-contract audit, and data-defined checks stored in the DB. Records findings and emails a report. | `check_health`, `check_health_audit`, `check_health_finding` |
+| `trade_history` | Captures the trades that actually happened into `trade_history`, with their entry and exit order ids, and prints the `live_vs_backtest` view. Also runs at the end of `manage_exits`. Not a cron job. | `trade_history` |
 | `live_vs_backtest_trades` | Rebuilds the live-versus-replay ledger. Not a cron job. | `live_vs_backtest_trade` |
 | `live_vs_backtest_slippage` | Summarizes that ledger. Not a cron job. Run `live_vs_backtest_trades` first. | `live_vs_backtest_slippage` |
 | `live_vs_backtest_report` | Runs those two commands and writes the report database and HTML. Not a cron job. | `live_vs_backtest_report.db` (separate file) |

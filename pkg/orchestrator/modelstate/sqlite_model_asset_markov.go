@@ -9,6 +9,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 type markovModelAssetMeta struct {
@@ -17,7 +19,7 @@ type markovModelAssetMeta struct {
 }
 
 func readMarkovModelAssetMeta(local *sql.DB) ([]markovModelAssetMeta, error) {
-	rows, err := local.Query(`SELECT symbol, trained_at, last_date, trained_through FROM markov_model_meta ORDER BY symbol`)
+	rows, err := local.Query(orchestratorsql.Q("modelstate/read_markov_model_asset_meta"))
 	if err != nil {
 		return nil, err
 	}
@@ -63,8 +65,7 @@ func HydrateMarkovModelAssetFromTurso(ctx context.Context, db *sql.DB, modelPath
 }
 
 func hydrateMarkovModelAssetFromTursoOne(ctx context.Context, db, local *sql.DB, m markovModelAssetMeta) (int, error) {
-	rows, err := db.QueryContext(ctx, `SELECT date, state, prob_bull, prob_bear, signal FROM markov_extension_live
-		WHERE symbol = ? AND trained_at = ? AND date > ? ORDER BY date`, m.symbol, m.trainedAt, m.lastDate)
+	rows, err := db.QueryContext(ctx, orchestratorsql.Q("modelstate/hydrate_markov_model_asset_from_turso_one"), m.symbol, m.trainedAt, m.lastDate)
 	if err != nil {
 		return 0, err
 	}
@@ -82,7 +83,7 @@ func hydrateMarkovModelAssetFromTursoOne(ctx context.Context, db, local *sql.DB,
 		if err := rows.Scan(&date, &state, &bull, &bear, &signal); err != nil {
 			return 0, err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT OR REPLACE INTO markov_prediction (symbol, date, state, prob_bull, prob_bear, signal) VALUES (?,?,?,?,?,?)`,
+		if _, err := tx.ExecContext(ctx, orchestratorsql.Q("modelstate/hydrate_markov_model_asset_from_turso_one_2"),
 			m.symbol, date, state, bull, bear, signal); err != nil {
 			return 0, err
 		}
@@ -95,7 +96,7 @@ func hydrateMarkovModelAssetFromTursoOne(ctx context.Context, db, local *sql.DB,
 	if n == 0 {
 		return 0, nil
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE markov_model_meta SET trained_through = COALESCE(trained_through, last_date), bars = bars + ?, last_date = ? WHERE symbol = ?`,
+	if _, err := tx.ExecContext(ctx, orchestratorsql.Q("modelstate/hydrate_markov_model_asset_from_turso_one_3"),
 		n, last, m.symbol); err != nil {
 		return 0, err
 	}
@@ -135,14 +136,13 @@ func persistMarkovModelAssetToTursoOne(ctx context.Context, db, local *sql.DB, m
 		since = m.trainedThrough.String
 	}
 	var newest sql.NullString
-	if err := db.QueryRowContext(ctx, `SELECT MAX(date) FROM markov_extension_live WHERE symbol = ? AND trained_at = ?`, m.symbol, m.trainedAt).Scan(&newest); err != nil {
+	if err := db.QueryRowContext(ctx, orchestratorsql.Q("modelstate/persist_markov_model_asset_to_turso_one"), m.symbol, m.trainedAt).Scan(&newest); err != nil {
 		return 0, err
 	}
 	if newest.Valid && newest.String > since {
 		since = newest.String
 	}
-	rows, err := local.QueryContext(ctx, `SELECT date, state, prob_bull, prob_bear, signal FROM markov_prediction
-		WHERE symbol = ? AND date > ? ORDER BY date`, m.symbol, since)
+	rows, err := local.QueryContext(ctx, orchestratorsql.Q("modelstate/persist_markov_model_asset_to_turso_one_2"), m.symbol, since)
 	if err != nil {
 		return 0, err
 	}
@@ -160,7 +160,7 @@ func persistMarkovModelAssetToTursoOne(ctx context.Context, db, local *sql.DB, m
 		if err := rows.Scan(&date, &state, &bull, &bear, &signal); err != nil {
 			return 0, err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT OR REPLACE INTO markov_extension_live (symbol, trained_at, date, state, prob_bull, prob_bear, signal) VALUES (?,?,?,?,?,?,?)`,
+		if _, err := tx.ExecContext(ctx, orchestratorsql.Q("modelstate/persist_markov_model_asset_to_turso_one_3"),
 			m.symbol, m.trainedAt, date, state, bull, bear, signal); err != nil {
 			return 0, err
 		}

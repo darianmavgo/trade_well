@@ -25,6 +25,7 @@ import (
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/stage_orders"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/strategies"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/strategy_status"
+	"github.com/darianmavgo/trade_well/pkg/orchestrator/trade_history"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/weekly_digest"
 	"github.com/darianmavgo/trade_well/pkg/schwaber/trader"
 )
@@ -348,4 +349,38 @@ func runHealthChecks(args []string) {
 		env.DB.Close()
 		fail(err)
 	}
+}
+
+// runTradeHistory is `orchestrator trade_history [--dry-run]`: copy the trades that actually happened
+// (closed positions with both fills recorded) into trade_history, then print the live_vs_backtest
+// view, the ongoing live win rate of each strategy against its backtest. It also runs at the end of
+// every manage_exits run. With --dry-run it counts the trades it would add and writes nothing.
+func runTradeHistory(args []string) {
+	fs := flag.NewFlagSet("trade_history", flag.ExitOnError)
+	dryRun := fs.Bool("dry-run", false, "Count the trades that would be captured; write nothing")
+	fs.Parse(args)
+
+	env := openEnv()
+	defer env.DB.Close()
+	ctx := context.Background()
+	res, err := trade_history.Capture(ctx, env.DB, *dryRun)
+	if err != nil {
+		env.DB.Close()
+		fail(err)
+	}
+	if !res.Ready {
+		fmt.Println("[trade_history] trade_history does not exist yet; a real run creates it and its views")
+		return
+	}
+	verb := "captured"
+	if *dryRun {
+		verb = "would capture"
+	}
+	fmt.Printf("[trade_history] %s %d new trade(s); trade_history holds %d\n", verb, res.New, res.Total)
+	rows, err := trade_history.LiveVsBacktest(ctx, env.DB)
+	if err != nil {
+		env.DB.Close()
+		fail(err)
+	}
+	trade_history.Format(os.Stdout, rows)
 }

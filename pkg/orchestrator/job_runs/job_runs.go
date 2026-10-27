@@ -7,6 +7,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // Job run statuses recorded for the dashboard empty-state.
@@ -29,18 +31,7 @@ type JobRun struct {
 
 // EnsureSchema creates the job_run table if it does not already exist.
 func EnsureSchema(db *sql.DB) error {
-	_, err := db.Exec(`
-CREATE TABLE IF NOT EXISTS job_run (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	job TEXT NOT NULL,
-	status TEXT NOT NULL,
-	summary TEXT NOT NULL DEFAULT '',
-	rows_written INTEGER NOT NULL DEFAULT 0,
-	started_at DATETIME NOT NULL,
-	finished_at DATETIME NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_job_run_job_finished ON job_run(job, finished_at DESC);
-`)
+	_, err := db.Exec(orchestratorsql.Q("job_runs/ensure_schema"))
 	return err
 }
 
@@ -65,9 +56,7 @@ func RecordJobRun(db *sql.DB, run JobRun) (int64, error) {
 	if run.StartedAt.IsZero() {
 		run.StartedAt = run.FinishedAt
 	}
-	res, err := db.Exec(`
-INSERT INTO job_run (job, status, summary, rows_written, started_at, finished_at)
-VALUES (?, ?, ?, ?, ?, ?)`,
+	res, err := db.Exec(orchestratorsql.Q("job_runs/record_job_run"),
 		run.Job, run.Status, run.Summary, run.RowsWritten,
 		run.StartedAt.UTC().Format(time.RFC3339),
 		run.FinishedAt.UTC().Format(time.RFC3339),
@@ -90,9 +79,7 @@ func LastJobRun(db *sql.DB, job string) (*JobRun, error) {
 }
 
 func lastRun(db *sql.DB, job string) (*JobRun, error) {
-	row := db.QueryRow(`
-SELECT id, job, status, summary, rows_written, started_at, finished_at
-FROM job_run WHERE job = ? ORDER BY id DESC LIMIT 1`, job)
+	row := db.QueryRow(orchestratorsql.Q("job_runs/last_run"), job)
 	var r JobRun
 	var started, finished string
 	err := row.Scan(&r.ID, &r.Job, &r.Status, &r.Summary, &r.RowsWritten, &started, &finished)
@@ -121,7 +108,7 @@ func MaxID(db *sql.DB, job string) (int64, error) {
 		return 0, err
 	}
 	var id int64
-	err := db.QueryRow(`SELECT COALESCE(MAX(id), 0) FROM job_run WHERE job = ?`, job).Scan(&id)
+	err := db.QueryRow(orchestratorsql.Q("job_runs/max_id"), job).Scan(&id)
 	return id, err
 }
 

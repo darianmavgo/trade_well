@@ -2,6 +2,7 @@ package runview
 
 import (
 	"fmt"
+	"io/fs"
 	"net/url"
 	"path/filepath"
 	"strconv"
@@ -45,7 +46,7 @@ type etfCache struct {
 }
 
 func readStage(name string) (string, error) {
-	b, err := sqlfiles.Stages.ReadFile("stages/runview/" + name)
+	b, err := fs.ReadFile(sqlfiles.FS, "stages/runview/"+name)
 	return string(b), err
 }
 

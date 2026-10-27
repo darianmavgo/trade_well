@@ -16,6 +16,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // JobName is this capability's name everywhere: package, route, CLI subcommand.
@@ -49,14 +51,7 @@ func orDash(s string) string {
 
 // EnsureSchema creates the single-row killswitch table.
 func EnsureSchema(db *sql.DB) error {
-	_, err := db.Exec(`
-CREATE TABLE IF NOT EXISTS killswitch (
-	id INTEGER PRIMARY KEY CHECK (id = 1),
-	engaged INTEGER NOT NULL DEFAULT 0,
-	changed_at DATETIME,
-	changed_by TEXT,
-	reason TEXT
-)`)
+	_, err := db.Exec(orchestratorsql.Q("killswitch/ensure_schema"))
 	return err
 }
 
@@ -72,7 +67,7 @@ func Current(db *sql.DB) (State, error) {
 	var engaged int
 	var at sql.NullTime
 	var by, reason sql.NullString
-	err := db.QueryRow(`SELECT engaged, changed_at, changed_by, reason FROM killswitch WHERE id = 1`).Scan(&engaged, &at, &by, &reason)
+	err := db.QueryRow(orchestratorsql.Q("killswitch/current")).Scan(&engaged, &at, &by, &reason)
 	if err == sql.ErrNoRows {
 		return State{}, nil
 	}
@@ -95,10 +90,7 @@ func Set(db *sql.DB, engaged bool, by, reason string, now time.Time) (State, err
 	if engaged {
 		on = 1
 	}
-	_, err := db.Exec(`
-INSERT INTO killswitch (id, engaged, changed_at, changed_by, reason) VALUES (1, ?, ?, ?, ?)
-ON CONFLICT(id) DO UPDATE SET engaged = excluded.engaged, changed_at = excluded.changed_at,
-	changed_by = excluded.changed_by, reason = excluded.reason`, on, now.UTC(), by, reason)
+	_, err := db.Exec(orchestratorsql.Q("killswitch/set"), on, now.UTC(), by, reason)
 	if err != nil {
 		return State{}, err
 	}

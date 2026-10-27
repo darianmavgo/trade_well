@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/runtables"
 )
 
@@ -76,7 +78,7 @@ type tripView struct {
 func loadPage(run *runtables.Run, db *sql.DB) (page, error) {
 	ctx := context.Background()
 	meta := map[string]string{}
-	rows, err := run.Query(ctx, `SELECT key, value FROM live_vs_backtest_report_meta`)
+	rows, err := run.Query(ctx, orchestratorsql.Q("live_vs_backtest_report/load_page"))
 	if err != nil {
 		return page{}, err
 	}
@@ -108,7 +110,7 @@ func loadPage(run *runtables.Run, db *sql.DB) (page, error) {
 	}
 	p.Command = commandLine(p)
 
-	notes, err := run.Query(ctx, `SELECT severity, message FROM live_vs_backtest_report_note ORDER BY id`)
+	notes, err := run.Query(ctx, orchestratorsql.Q("live_vs_backtest_report/load_page_2"))
 	if err != nil {
 		return page{}, err
 	}
@@ -133,7 +135,7 @@ func loadPage(run *runtables.Run, db *sql.DB) (page, error) {
 	}
 
 	var green sql.NullFloat64
-	if err := run.QueryRow(ctx, `SELECT SUM(cash_pnl) FROM live_vs_backtest_report_round_trip WHERE greenlit = 1 AND sell_order_id != ''`).Scan(&green); err != nil {
+	if err := run.QueryRow(ctx, orchestratorsql.Q("live_vs_backtest_report/load_page_3")).Scan(&green); err != nil {
 		return page{}, err
 	}
 	p.GreenlitCash = formatMoney(green)
@@ -181,11 +183,7 @@ func shellArg(s string) string {
 }
 
 func loadStrategies(ctx context.Context, run *runtables.Run) ([]strategyView, error) {
-	rows, err := run.Query(ctx, `SELECT strategy_id,
-		SUM(CASE WHEN sell_order_id != '' AND cash_pnl IS NOT NULL THEN 1 ELSE 0 END),
-		SUM(CASE WHEN sell_order_id != '' THEN cash_pnl END),
-		MAX(greenlit)
-		FROM live_vs_backtest_report_round_trip GROUP BY strategy_id ORDER BY strategy_id`)
+	rows, err := run.Query(ctx, orchestratorsql.Q("live_vs_backtest_report/load_strategies"))
 	if err != nil {
 		return nil, err
 	}
@@ -214,9 +212,7 @@ func loadStrategies(ctx context.Context, run *runtables.Run) ([]strategyView, er
 }
 
 func loadSlippage(ctx context.Context, db *sql.DB) ([]slipView, error) {
-	rows, err := db.QueryContext(ctx, `SELECT strategy_id, fills, avg_entry_slippage_bps, avg_exit_slippage_bps,
-		worst_entry_slippage_bps, avg_entry_vs_limit_bps, avg_fill_delay_sessions, total_fees
-		FROM live_vs_backtest_slippage ORDER BY strategy_id`)
+	rows, err := db.QueryContext(ctx, orchestratorsql.Q("live_vs_backtest_report/load_slippage"))
 	if err != nil {
 		return nil, err
 	}
@@ -243,10 +239,7 @@ func loadSlippage(ctx context.Context, db *sql.DB) ([]slipView, error) {
 }
 
 func loadDecisions(ctx context.Context, db *sql.DB, account string) ([]decisionView, error) {
-	q := `SELECT account_number, strategy_id, symbol, as_of_date, live_outcome, model_outcome,
-		live_return_pct, model_return_pct, entry_slippage_bps, exit_slippage_bps,
-		signal_match, outcome_match, live_exit_reason, model_exit_reason, skip_reason
-		FROM live_vs_backtest_trade`
+	q := orchestratorsql.Q("live_vs_backtest_report/load_decisions")
 	var args []any
 	if account != "" {
 		q += ` WHERE account_number = ? OR account_number = ''`
@@ -279,9 +272,7 @@ func loadDecisions(ctx context.Context, db *sql.DB, account string) ([]decisionV
 }
 
 func loadTrips(ctx context.Context, run *runtables.Run) ([]tripView, error) {
-	rows, err := run.Query(ctx, `SELECT account_number, strategy_id, symbol, greenlit, buy_order_id, sell_order_id,
-		buy_price, sell_price, qty, fees, cash_pnl, return_pct, opened_at, closed_at, manage_status
-		FROM live_vs_backtest_report_round_trip ORDER BY opened_at, symbol, account_number`)
+	rows, err := run.Query(ctx, orchestratorsql.Q("live_vs_backtest_report/load_trips"))
 	if err != nil {
 		return nil, err
 	}

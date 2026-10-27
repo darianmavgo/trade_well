@@ -22,6 +22,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/csvlist"
 )
@@ -75,15 +77,7 @@ func ResolveRequest(strategiesFlag, strategyFlag string) ([]string, error) {
 
 // EnsureSchema creates the strategies log table if it does not already exist.
 func EnsureSchema(db *sql.DB) error {
-	_, err := db.Exec(`
-CREATE TABLE IF NOT EXISTS strategies (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	strategy_id TEXT NOT NULL,
-	config_json TEXT NOT NULL,
-	resolved_at DATETIME NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_strategies_strategy_id ON strategies(strategy_id, resolved_at DESC);
-`)
+	_, err := db.Exec(orchestratorsql.Q("strategies/ensure_schema"))
 	return err
 }
 
@@ -137,7 +131,7 @@ func logResolved(db *sql.DB, s strategy.Strategy) error {
 		return err
 	}
 	_, err = db.Exec(
-		`INSERT INTO strategies (strategy_id, config_json, resolved_at) VALUES (?, ?, ?)`,
+		orchestratorsql.Q("strategies/log_resolved"),
 		s.ID(), string(cfgJSON), time.Now().UTC().Format(time.RFC3339),
 	)
 	return err

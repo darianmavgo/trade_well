@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/account_state"
 	"github.com/darianmavgo/trade_well/pkg/schwaber/accountstore"
 )
@@ -48,13 +50,12 @@ func backfillFills(db *sql.DB) error {
 		buy, qty, buyOK := accountstore.FillPrice(order, "BUY")
 		sell, _, sellOK := accountstore.FillPrice(order, "SELL")
 		if buyOK {
-			if _, err := db.Exec(`UPDATE manage_exit SET entry_fill_price = ?, filled_qty = CASE WHEN ? > 0 THEN ? ELSE filled_qty END
-				WHERE id = ? AND entry_fill_price = 0`, buy, qty, qty, h.id); err != nil {
+			if _, err := db.Exec(orchestratorsql.Q("live_vs_backtest_trades/backfill_fills"), buy, qty, qty, h.id); err != nil {
 				return err
 			}
 		}
 		if sellOK {
-			if _, err := db.Exec(`UPDATE manage_exit SET exit_fill_price = ? WHERE id = ? AND exit_fill_price = 0`, sell, h.id); err != nil {
+			if _, err := db.Exec(orchestratorsql.Q("live_vs_backtest_trades/backfill_fills_2"), sell, h.id); err != nil {
 				return err
 			}
 		}
@@ -72,18 +73,10 @@ func backfillFills(db *sql.DB) error {
 	)`); err != nil {
 		return err
 	}
-	if _, err := db.Exec(`UPDATE manage_exit SET stage_order_id = (
-		SELECT id FROM stage_order WHERE order_id = manage_exit.entry_order_id ORDER BY id DESC LIMIT 1
-	) WHERE stage_order_id = 0 AND entry_order_id != ''
-		AND EXISTS (SELECT 1 FROM stage_order WHERE order_id = manage_exit.entry_order_id)`); err != nil {
+	if _, err := db.Exec(orchestratorsql.Q("live_vs_backtest_trades/backfill_fills_3")); err != nil {
 		return err
 	}
-	_, err = db.Exec(`UPDATE manage_exit SET
-		buy_signal_id = COALESCE((SELECT id FROM scan_market_buy_signal b WHERE b.staged_order_id = manage_exit.stage_order_id ORDER BY id DESC LIMIT 1), 0),
-		strategy_id = CASE WHEN strategy_id = '' THEN COALESCE((SELECT strategy_id FROM scan_market_buy_signal b WHERE b.staged_order_id = manage_exit.stage_order_id ORDER BY id DESC LIMIT 1), strategy_name) ELSE strategy_id END,
-		as_of_date = CASE WHEN as_of_date = '' THEN COALESCE((SELECT as_of_date FROM scan_market_buy_signal b WHERE b.staged_order_id = manage_exit.stage_order_id ORDER BY id DESC LIMIT 1), '') ELSE as_of_date END,
-		next_session = CASE WHEN next_session = '' THEN COALESCE((SELECT next_session FROM scan_market_buy_signal b WHERE b.staged_order_id = manage_exit.stage_order_id ORDER BY id DESC LIMIT 1), '') ELSE next_session END
-		WHERE stage_order_id > 0 AND (buy_signal_id = 0 OR strategy_id = '' OR as_of_date = '')`)
+	_, err = db.Exec(orchestratorsql.Q("live_vs_backtest_trades/backfill_fills_4"))
 	return err
 }
 

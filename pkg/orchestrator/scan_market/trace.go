@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/backtest/appenv"
 	"github.com/darianmavgo/trade_well/pkg/backtest/runner"
 )
@@ -50,8 +52,7 @@ func SaveTrace(db *sql.DB, scanRunID, asOf string, rows []runner.SignalScanRow, 
 			if t.Entry {
 				entry = 1
 			}
-			if _, err := tx.Exec(`INSERT INTO scan_market_trace (scan_run_id, strategy_id, symbol, session_date, is_asof, entry, reason, facts_json, created_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			if _, err := tx.Exec(orchestratorsql.Q("scan_market/save_trace"),
 				scanRunID, r.StrategyID, t.Symbol, t.Date, asof, entry, t.Reason, string(t.Facts), now.UTC().Format(time.RFC3339)); err != nil {
 				return n, err
 			}

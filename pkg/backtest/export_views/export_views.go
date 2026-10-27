@@ -34,13 +34,13 @@ var viewName = regexp.MustCompile(`(?im)^\s*CREATE\s+VIEW\s+(\w+)`)
 // Script returns every view file in name order, joined into one SQL script,
 // and the names of the views it creates.
 func Script() (script string, views []string, err error) {
-	files, err := fs.Glob(sqlfiles.Views, "views/*.sql")
+	files, err := fs.Glob(sqlfiles.FS, "views/*.sql")
 	if err != nil {
 		return "", nil, err
 	}
 	var b strings.Builder
 	for _, f := range files {
-		body, err := fs.ReadFile(sqlfiles.Views, f)
+		body, err := fs.ReadFile(sqlfiles.FS, f)
 		if err != nil {
 			return "", nil, err
 		}

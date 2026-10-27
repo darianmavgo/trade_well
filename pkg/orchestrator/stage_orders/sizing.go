@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/scan_market"
 	"github.com/darianmavgo/trade_well/pkg/schwaber/trader"
 )
@@ -147,7 +149,7 @@ func heldSymbols(db *sql.DB, acc *trader.ResolvedAccount, accNum string) map[str
 	held := make(map[string]bool)
 	if acc == nil {
 		if db != nil && accNum != "" {
-			rows, err := db.Query(`SELECT symbol FROM manage_exit WHERE status = 'OPEN' AND account_number = ?`, accNum)
+			rows, err := db.Query(orchestratorsql.Q("stage_orders/held_symbols"), accNum)
 			if err == nil {
 				for rows.Next() {
 					var sym string

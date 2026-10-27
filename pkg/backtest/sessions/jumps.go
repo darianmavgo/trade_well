@@ -36,7 +36,7 @@ func SplitJumps(db *sqlx.DB, symbols []string, ratio float64, start, end string)
 	if ratio <= 1 {
 		ratio = DefaultSplitJumpRatio
 	}
-	text, err := fs.ReadFile(sqlfiles.Stages, "stages/split_jumps/jumps.sql")
+	text, err := fs.ReadFile(sqlfiles.FS, "stages/split_jumps/jumps.sql")
 	if err != nil {
 		return nil, err
 	}

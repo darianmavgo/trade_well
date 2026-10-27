@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/fs"
 	"sort"
 	"strings"
 
@@ -245,7 +246,7 @@ func Save(db *sql.DB, strategyID string, rows []FoldRow) error {
 
 // Summarize rebuilds walk_forward_summary from every stored fold.
 func Summarize(db *sql.DB) error {
-	script, err := sqlfiles.Validation.ReadFile("validation/walk_forward_summary.sql")
+	script, err := fs.ReadFile(sqlfiles.FS, "validation/walk_forward_summary.sql")
 	if err != nil {
 		return err
 	}

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/backtest/models"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/job_runs"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/jobenv"
@@ -91,22 +93,14 @@ func save(db *sql.DB, account string, rows []ledger) error {
 	}
 	defer tx.Rollback()
 	if account == "" {
-		if _, err := tx.Exec(`DELETE FROM live_vs_backtest_trade`); err != nil {
+		if _, err := tx.Exec(orchestratorsql.Q("live_vs_backtest_trades/save")); err != nil {
 			return err
 		}
-	} else if _, err := tx.Exec(`DELETE FROM live_vs_backtest_trade WHERE account_number = ? OR account_number = ''`, account); err != nil {
+	} else if _, err := tx.Exec(orchestratorsql.Q("live_vs_backtest_trades/save_2"), account); err != nil {
 		return err
 	}
 	built := time.Now().UTC().Format(time.RFC3339)
-	stmt, err := tx.Prepare(`INSERT INTO live_vs_backtest_trade (
-		account_number, strategy_id, symbol, as_of_date, next_session,
-		buy_signal_id, signal_id, stage_order_id, manage_exit_id, entry_order_id,
-		live_outcome, skip_reason, entry_limit, entry_fill_price, exit_fill_price,
-		filled_qty, fees, live_exit_date, live_exit_reason, live_return_pct,
-		model_outcome, model_entry_price, model_exit_price, model_exit_date, model_exit_reason, model_return_pct,
-		entry_slippage_bps, exit_slippage_bps, entry_vs_limit_bps, fill_delay_sessions,
-		signal_match, outcome_match, built_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	stmt, err := tx.Prepare(orchestratorsql.Q("live_vs_backtest_trades/save_3"))
 	if err != nil {
 		return err
 	}

@@ -17,6 +17,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 	"io"
 	"strings"
 	"sync"
@@ -71,24 +72,16 @@ type Result struct {
 	Rows     []Row `json:"rows"`
 }
 
-// Selects. One stage each; Go only orders them and applies the updates.
+// Selects. One stage each; Go only orders them and applies the updates. The SQL is in
+// sql/orchestrator/clear_stale. selectOrphanTrades is the same rule as check_health's
+// orphan_active_trade, plus the two times Go compares.
+var (
+	selectStaleOrders  = orchestratorsql.Q("clear_stale/select_stale_orders")
+	selectOrphanTrades = orchestratorsql.Q("clear_stale/select_orphan_trades")
+)
+
+// The two updates build their text from the status constants, so they stay here.
 const (
-	selectStaleOrders = `
-		SELECT id, account_number, symbol, strategy_name, IFNULL(reject_reason, ''), staged_at
-		FROM stage_order
-		WHERE status = ?
-		ORDER BY id`
-	// Same rule as check_health's orphan_active_trade, plus the two times Go compares.
-	selectOrphanTrades = `
-		SELECT me.id, me.account_number, me.symbol, me.strategy_name, me.strategy_id, IFNULL(me.entry_filled_at, ''),
-		       IFNULL((SELECT a.fetched_at FROM account_state_account a WHERE a.account_number = me.account_number), '')
-		FROM manage_exit me
-		WHERE me.status = 'OPEN'
-		  AND NOT EXISTS (
-		    SELECT 1 FROM account_state_position p
-		    WHERE p.account_number = me.account_number AND p.symbol = me.symbol AND p.long_quantity > 0
-		  )
-		ORDER BY me.id`
 	clearOrder = `
 		UPDATE stage_order
 		SET status = '` + StatusCleared + `', reject_reason = TRIM(IFNULL(reject_reason, '') || ' [cleared as stale]')

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/backtest/appenv"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/modelstate"
 	"github.com/darianmavgo/trade_well/pkg/schwaber/dbutil"
@@ -35,18 +37,7 @@ func OnTurso() bool {
 
 // EnsureBarsSchema creates market_bars: one row per symbol per completed daily session.
 func EnsureBarsSchema(db *sql.DB) error {
-	_, err := db.Exec(`
-CREATE TABLE IF NOT EXISTS market_bars (
-	symbol TEXT NOT NULL,
-	date TEXT NOT NULL,
-	open REAL NOT NULL,
-	high REAL NOT NULL,
-	low REAL NOT NULL,
-	close REAL NOT NULL,
-	adj_close REAL NOT NULL,
-	volume INTEGER NOT NULL,
-	PRIMARY KEY (symbol, date)
-) WITHOUT ROWID`)
+	_, err := db.Exec(orchestratorsql.Q("scan_market/ensure_bars_schema"))
 	return err
 }
 

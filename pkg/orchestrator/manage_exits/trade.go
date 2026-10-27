@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // TradeStatus represents the state of an automated trade.
@@ -147,7 +149,7 @@ func Open(db *sql.DB, params OpenTradeParams) (int64, error) {
 	}
 	if params.EntryOrderID != "" {
 		var id int64
-		err := db.QueryRow(`SELECT id FROM manage_exit WHERE account_number = ? AND entry_order_id = ? AND status IN (?, ?) ORDER BY id DESC LIMIT 1`,
+		err := db.QueryRow(orchestratorsql.Q("manage_exits/open"),
 			params.AccountNumber, params.EntryOrderID, TradeStatusPendingFill, TradeStatusOpen).Scan(&id)
 		if err == nil {
 			if err := writeDecision(db, id, params); err != nil {
@@ -179,15 +181,7 @@ func Open(db *sql.DB, params OpenTradeParams) (int64, error) {
 	return res.LastInsertId()
 }
 
-const insertSQL = `
-	INSERT INTO manage_exit (
-		account_number, symbol, strategy_name, entry_order_id, exit_order_id,
-		entry_price, target_profit_price, stop_loss_price, quantity,
-		entry_time, max_trading_days, trading_days_held, status,
-		exit_date, exit_date_source, entry_filled_at,
-		strategy_id, as_of_date, next_session, signal_id, buy_signal_id, stage_order_id,
-		entry_fill_price, filled_qty
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+var insertSQL = orchestratorsql.Q("manage_exits/insert_sql")
 
 func decisionArgs(p OpenTradeParams) []any {
 	strategyID := p.StrategyID
@@ -205,16 +199,7 @@ func writeDecision(db *sql.DB, id int64, p OpenTradeParams) error {
 	if strategyID == "" {
 		strategyID = p.StrategyName
 	}
-	_, err := db.Exec(`UPDATE manage_exit SET
-		strategy_id = CASE WHEN ? != '' THEN ? ELSE strategy_id END,
-		as_of_date = CASE WHEN ? != '' THEN ? ELSE as_of_date END,
-		next_session = CASE WHEN ? != '' THEN ? ELSE next_session END,
-		signal_id = CASE WHEN ? > 0 THEN ? ELSE signal_id END,
-		buy_signal_id = CASE WHEN ? > 0 THEN ? ELSE buy_signal_id END,
-		stage_order_id = CASE WHEN ? > 0 THEN ? ELSE stage_order_id END,
-		entry_fill_price = CASE WHEN ? > 0 THEN ? ELSE entry_fill_price END,
-		filled_qty = CASE WHEN ? > 0 THEN ? ELSE filled_qty END
-		WHERE id = ?`,
+	_, err := db.Exec(orchestratorsql.Q("manage_exits/write_decision"),
 		strategyID, strategyID, p.AsOfDate, p.AsOfDate, p.NextSession, p.NextSession,
 		p.SignalID, p.SignalID, p.BuySignalID, p.BuySignalID, p.StageOrderID, p.StageOrderID,
 		p.EntryFillPrice, p.EntryFillPrice, p.FilledQty, p.FilledQty, id)
@@ -238,7 +223,7 @@ func RegisterPending(db *sql.DB, params OpenTradeParams) (int64, error) {
 		return 0, fmt.Errorf("manage_exits: RegisterPending needs the entry order id")
 	}
 	var id int64
-	err := db.QueryRow(`SELECT id FROM manage_exit WHERE account_number = ? AND entry_order_id = ? ORDER BY id DESC LIMIT 1`,
+	err := db.QueryRow(orchestratorsql.Q("manage_exits/register_pending"),
 		params.AccountNumber, params.EntryOrderID).Scan(&id)
 	if err == nil {
 		return id, writeDecision(db, id, params)
@@ -269,13 +254,13 @@ func SetFill(db *sql.DB, id int64, filledAt time.Time) error {
 	}
 	var maxDays int
 	var status string
-	if err := db.QueryRow(`SELECT max_trading_days, status FROM manage_exit WHERE id = ?`, id).Scan(&maxDays, &status); err != nil {
+	if err := db.QueryRow(orchestratorsql.Q("manage_exits/set_fill"), id).Scan(&maxDays, &status); err != nil {
 		return err
 	}
 	if status != TradeStatusPendingFill && status != TradeStatusOpen {
 		return fmt.Errorf("manage_exits: trade %d is %s; a fill cannot be recorded on it", id, status)
 	}
-	_, err := db.Exec(`UPDATE manage_exit SET status = ?, entry_time = ?, entry_filled_at = ?, exit_date = ?, exit_date_source = ? WHERE id = ?`,
+	_, err := db.Exec(orchestratorsql.Q("manage_exits/set_fill_2"),
 		TradeStatusOpen, filledAt, filledAt, ExitDateFor(filledAt, maxDays), ExitDateFill, id)
 	return err
 }
@@ -284,10 +269,10 @@ func SetFill(db *sql.DB, id int64, filledAt time.Time) error {
 // but gave no fill time: the exit date stays provisional, computed from asOf.
 func promoteWithoutFill(db *sql.DB, id int64, asOf time.Time) error {
 	var maxDays int
-	if err := db.QueryRow(`SELECT max_trading_days FROM manage_exit WHERE id = ?`, id).Scan(&maxDays); err != nil {
+	if err := db.QueryRow(orchestratorsql.Q("manage_exits/promote_without_fill"), id).Scan(&maxDays); err != nil {
 		return err
 	}
-	_, err := db.Exec(`UPDATE manage_exit SET status = ?, exit_date = CASE WHEN exit_date_source = ? THEN exit_date ELSE ? END WHERE id = ? AND status = ?`,
+	_, err := db.Exec(orchestratorsql.Q("manage_exits/promote_without_fill_2"),
 		TradeStatusOpen, ExitDateFill, ExitDateFor(asOf, maxDays), id, TradeStatusPendingFill)
 	return err
 }
@@ -295,7 +280,7 @@ func promoteWithoutFill(db *sql.DB, id int64, asOf time.Time) error {
 // CancelPending marks a PENDING_FILL entry CANCELLED: the broker canceled, rejected
 // or expired the order without it ever filling, so no position was opened.
 func CancelPending(db *sql.DB, id int64, reason string) error {
-	_, err := db.Exec(`UPDATE manage_exit SET status = ?, exit_reason = ?, exit_reason_code = ? WHERE id = ? AND status = ?`,
+	_, err := db.Exec(orchestratorsql.Q("manage_exits/cancel_pending"),
 		TradeStatusCancelled, reason, ExitReasonCode(TradeStatusCancelled, reason), id, TradeStatusPendingFill)
 	return err
 }
@@ -329,26 +314,26 @@ func CloseActiveTrade(db *sql.DB, id int64, status, reason string, exitPrice flo
 
 // UpdateTradingDaysHeld records the trading days held counter.
 func UpdateTradingDaysHeld(db *sql.DB, id int64, daysHeld int) error {
-	_, err := db.Exec("UPDATE manage_exit SET trading_days_held = ? WHERE id = ?", daysHeld, id)
+	_, err := db.Exec(orchestratorsql.Q("manage_exits/update_trading_days_held"), daysHeld, id)
 	return err
 }
 
 // SetExitOrderID records the broker id of the resting profit-taker (or market exit).
 func SetExitOrderID(db *sql.DB, id int64, orderID string) error {
-	_, err := db.Exec("UPDATE manage_exit SET exit_order_id = ? WHERE id = ?", orderID, id)
+	_, err := db.Exec(orchestratorsql.Q("manage_exits/set_exit_order_id"), orderID, id)
 	return err
 }
 
 // SetExitDate stores an exit date and where it came from on trade id.
 func SetExitDate(db *sql.DB, id int64, exitDate, source string) error {
-	_, err := db.Exec("UPDATE manage_exit SET exit_date = ?, exit_date_source = ? WHERE id = ?", exitDate, source, id)
+	_, err := db.Exec(orchestratorsql.Q("manage_exits/set_exit_date"), exitDate, source, id)
 	return err
 }
 
 // CancelPendingByOrder cancels the PENDING_FILL row for an entry order, if one exists.
 // It reports whether a row was cancelled.
 func CancelPendingByOrder(db *sql.DB, accountNumber, entryOrderID, reason string) (bool, error) {
-	res, err := db.Exec(`UPDATE manage_exit SET status = ?, exit_reason = ?, exit_reason_code = ? WHERE account_number = ? AND entry_order_id = ? AND status = ?`,
+	res, err := db.Exec(orchestratorsql.Q("manage_exits/cancel_pending_by_order"),
 		TradeStatusCancelled, reason, ExitReasonCode(TradeStatusCancelled, reason), accountNumber, entryOrderID, TradeStatusPendingFill)
 	if err != nil {
 		return false, err

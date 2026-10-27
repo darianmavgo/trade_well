@@ -96,7 +96,7 @@ func Run(opt Options) ([]Result, error) {
 }
 
 func ask(db *sqlx.DB, file, name, question string, binds map[string]any) (Result, error) {
-	text, err := fs.ReadFile(sqlfiles.Stages, "stages/check/"+file+".sql")
+	text, err := fs.ReadFile(sqlfiles.FS, "stages/check/"+file+".sql")
 	if err != nil {
 		return Result{}, err
 	}

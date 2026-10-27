@@ -2,10 +2,11 @@
 //
 // A calculation here is a series of SQL stages, each writing a slice table that the next one
 // reads. They used to run in a throwaway in-memory SQLite database. They now run in Turso itself,
-// in real tables, so a run can be audited afterwards and nothing is local. To keep one run from
+// in real tables, so nothing is local and a run can be inspected while it runs; a calculation that
+// has no use for them afterwards drops them (Run.Drop). To keep one run from
 // reading another's rows (a second viewer, a later run), every slice table of a run is named
 // <table>__<run id>: the stage SQL keeps its plain names and Run rewrites them. Old runs are
-// dropped by Prune, keeping the newest few.
+// dropped by Drop when the run ends, and Prune and PruneBefore sweep any a crashed process left.
 package runtables
 
 import (
@@ -17,6 +18,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 var seq atomic.Int64
@@ -30,19 +33,9 @@ type Run struct {
 }
 
 // Begin starts a run whose slice tables are the logical names in tables. The id sorts by time, so
-// Prune can tell the newest runs from the oldest.
-func Begin(db *sql.DB, tables []string) *Run { return begin(db, tables, "") }
-
-// BeginKeyed is Begin for a run whose inputs are summed up in key (a short hex string). Its tables
-// can later be found again with FindRecent, so a caller asked the same question within a short
-// time reads them instead of building new ones.
-func BeginKeyed(db *sql.DB, tables []string, key string) *Run { return begin(db, tables, key) }
-
-func begin(db *sql.DB, tables []string, key string) *Run {
+// Prune and PruneBefore can tell the newest runs from the oldest.
+func Begin(db *sql.DB, tables []string) *Run {
 	id := fmt.Sprintf("r%s%03d", time.Now().UTC().Format("20060102t150405"), seq.Add(1)%1000)
-	if key != "" {
-		id += "_k" + key
-	}
 	names := append([]string(nil), tables...)
 	sort.Slice(names, func(i, j int) bool { return len(names[i]) > len(names[j]) })
 	quoted := make([]string, len(names))
@@ -54,6 +47,18 @@ func begin(db *sql.DB, tables []string, key string) *Run {
 		re = regexp.MustCompile(`\b(?:main\.|temp\.)?(` + strings.Join(quoted, "|") + `)\b`)
 	}
 	return &Run{db: db, ID: id, tables: names, re: re}
+}
+
+// Drop removes this run's tables. A table that was never created is not an error. A calculation
+// that only needs its tables while it runs calls it when it finishes, success or not, so nothing
+// accumulates in the database.
+func (r *Run) Drop(ctx context.Context) error {
+	for _, n := range r.tables {
+		if _, err := r.db.ExecContext(ctx, `DROP TABLE IF EXISTS "`+r.Table(n)+`"`); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Table is the real name of logical table name in this run.
@@ -148,7 +153,7 @@ func Split(text string) []string {
 // Prune drops the tables of all but the newest keep runs among those named <logical>__r…, for
 // each logical name in tables. A table that does not exist is not an error.
 func Prune(ctx context.Context, db *sql.DB, tables []string, keep int) error {
-	rows, err := db.QueryContext(ctx, `SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE '%\_\_r%' ESCAPE '\'`)
+	rows, err := db.QueryContext(ctx, orchestratorsql.Q("runtables/prune"))
 	if err != nil {
 		return err
 	}
@@ -190,6 +195,46 @@ func Prune(ctx context.Context, db *sql.DB, tables []string, keep int) error {
 			if _, err := db.ExecContext(ctx, `DROP TABLE IF EXISTS "`+n+`"`); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+// PruneBefore drops the tables of every run, among those named <logical>__r…, that began before
+// cutoff, for each logical name in tables. It is the sweep for runs a crashed process never
+// dropped: a cutoff well beyond the longest run leaves any run still in progress alone.
+func PruneBefore(ctx context.Context, db *sql.DB, tables []string, cutoff time.Time) error {
+	rows, err := db.QueryContext(ctx, orchestratorsql.Q("runtables/prune"))
+	if err != nil {
+		return err
+	}
+	var names []string
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			rows.Close()
+			return err
+		}
+		names = append(names, n)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	want := map[string]bool{}
+	for _, t := range tables {
+		want[t] = true
+	}
+	for _, n := range names {
+		i := strings.LastIndex(n, "__r")
+		if i < 0 || !want[n[:i]] {
+			continue
+		}
+		if t, ok := idTime(n[i+2:]); !ok || !t.Before(cutoff) {
+			continue
+		}
+		if _, err := db.ExecContext(ctx, `DROP TABLE IF EXISTS "`+n+`"`); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -245,42 +290,4 @@ func idTime(id string) (time.Time, bool) {
 	}
 	t, err := time.Parse("20060102t150405", id[1:16])
 	return t, err == nil
-}
-
-// FindRecent looks for a finished run of the same key built within maxAge. A run is finished when
-// its marker table exists: the caller creates that table last, so a run still being built, or one
-// that failed half way, is never returned. It reports false when there is none.
-func FindRecent(ctx context.Context, db *sql.DB, tables []string, marker, key string, maxAge time.Duration) (*Run, bool, error) {
-	if maxAge <= 0 || key == "" {
-		return nil, false, nil
-	}
-	rows, err := db.QueryContext(ctx, `SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE ? ESCAPE '\'`,
-		strings.NewReplacer(`_`, `\_`, `%`, `\%`).Replace(marker)+`\_\_r%\_k`+key)
-	if err != nil {
-		return nil, false, err
-	}
-	defer rows.Close()
-	best := ""
-	for rows.Next() {
-		var n string
-		if err := rows.Scan(&n); err != nil {
-			return nil, false, err
-		}
-		if n > best {
-			best = n
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return nil, false, err
-	}
-	if best == "" {
-		return nil, false, nil
-	}
-	id := best[strings.LastIndex(best, "__")+2:]
-	if t, ok := idTime(id); !ok || time.Since(t) > maxAge {
-		return nil, false, nil
-	}
-	run := begin(db, tables, "")
-	run.ID = id
-	return run, true, nil
 }

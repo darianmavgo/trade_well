@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	backtestmodels "github.com/darianmavgo/trade_well/pkg/backtest/models"
 	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/job_runs"
@@ -223,7 +225,7 @@ func rawSignal(s scan_market.BuySignal) backtestmodels.Signal {
 
 func latestStagedID(db *sql.DB, account, strategyName, symbol string) int64 {
 	var id int64
-	_ = db.QueryRow(`SELECT id FROM stage_order WHERE account_number = ? AND strategy_name = ? AND symbol = ? ORDER BY id DESC LIMIT 1`,
+	_ = db.QueryRow(orchestratorsql.Q("stage_orders/latest_staged_id"),
 		account, strategyName, symbol).Scan(&id)
 	return id
 }

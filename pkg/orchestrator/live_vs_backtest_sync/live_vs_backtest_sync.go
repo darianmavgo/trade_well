@@ -13,9 +13,9 @@ package live_vs_backtest_sync
 import (
 	"context"
 	"database/sql"
-	"embed"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -24,14 +24,16 @@ import (
 	"text/tabwriter"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/runtables"
 )
 
 // JobName is the CLI subcommand and the log prefix.
 const JobName = "live_vs_backtest_sync"
 
-//go:embed sql/*.sql
-var sqlFiles embed.FS
+// sqlFiles is this package's folder of SQL, sql/orchestrator/live_vs_backtest_sync.
+var sqlFiles = orchestratorsql.Dir("live_vs_backtest_sync")
 
 // syncTables are the slice tables of one sync; each run has its own copy of them in Turso.
 var syncTables = []string{"bs_found", "bs_trades", "bs_run_both", "bs_best_run", "bs_newest", "bs_pick", "bs_pick_trades"}
@@ -78,31 +80,7 @@ type Result struct {
 
 // EnsureSchema creates live_vs_backtest_deployed. It only adds.
 func EnsureSchema(db *sql.DB) error {
-	_, err := db.Exec(`
-CREATE TABLE IF NOT EXISTS live_vs_backtest_deployed (
-	strategy_id TEXT NOT NULL,
-	pass TEXT NOT NULL,
-	run INTEGER NOT NULL,
-	source_path TEXT NOT NULL,
-	source_size INTEGER NOT NULL,
-	source_mtime TEXT NOT NULL,
-	archive_path TEXT NOT NULL,
-	trades INTEGER NOT NULL DEFAULT 0,
-	win_rate REAL,
-	window_start TEXT, window_end TEXT,
-	note TEXT NOT NULL DEFAULT '',
-	synced_at TEXT NOT NULL,
-	PRIMARY KEY (strategy_id, pass)
-);
-CREATE TABLE IF NOT EXISTS live_vs_backtest_deployed_trade (
-	strategy_id TEXT NOT NULL,
-	pass TEXT NOT NULL,
-	symbol TEXT NOT NULL DEFAULT '',
-	exit_date TEXT NOT NULL DEFAULT '',
-	win INTEGER NOT NULL,
-	return_pct REAL
-);
-CREATE INDEX IF NOT EXISTS idx_live_vs_backtest_deployed_trade ON live_vs_backtest_deployed_trade(strategy_id, pass, exit_date)`)
+	_, err := db.Exec(orchestratorsql.Q("live_vs_backtest_sync/ensure_schema"))
 	return err
 }
 
@@ -134,7 +112,10 @@ func Run(ctx context.Context, db *sql.DB, opt Options) (Result, error) {
 	for _, id := range opt.IDs {
 		want[id] = true
 	}
-	schema, _ := sqlFiles.ReadFile("sql/00_schema.sql")
+	schema, err := fs.ReadFile(sqlFiles, "00_schema.sql")
+	if err != nil {
+		return res, fmt.Errorf("live_vs_backtest_sync: %w", err)
+	}
 	if err := calc.Exec(ctx, string(schema)); err != nil {
 		return res, fmt.Errorf("live_vs_backtest_sync: %w", err)
 	}
@@ -143,14 +124,16 @@ func Run(ctx context.Context, db *sql.DB, opt Options) (Result, error) {
 			return res, err
 		}
 	}
-	for _, f := range []string{"sql/01_best_run.sql", "sql/02_newest_pass.sql", "sql/03_pick.sql", "sql/04_pick_trades.sql"} {
-		b, _ := sqlFiles.ReadFile(f)
+	for _, f := range []string{"01_best_run.sql", "02_newest_pass.sql", "03_pick.sql", "04_pick_trades.sql"} {
+		b, err := fs.ReadFile(sqlFiles, f)
+		if err != nil {
+			return res, fmt.Errorf("live_vs_backtest_sync: %w", err)
+		}
 		if err := calc.Exec(ctx, string(b)); err != nil {
 			return res, fmt.Errorf("live_vs_backtest_sync: %s: %w", f, err)
 		}
 	}
-	rows, err := calc.Query(ctx, `SELECT strategy_id, pass, run, path, rel, trades, COALESCE(win_rate, 0),
-		COALESCE(window_start, ''), COALESCE(window_end, ''), note FROM bs_pick ORDER BY strategy_id, pass`)
+	rows, err := calc.Query(ctx, orchestratorsql.Q("live_vs_backtest_sync/run"))
 	if err != nil {
 		return res, err
 	}
@@ -205,13 +188,7 @@ func Run(ctx context.Context, db *sql.DB, opt Options) (Result, error) {
 			}
 			copied[e.Archive] = true
 		}
-		if _, err := db.ExecContext(ctx, `INSERT INTO live_vs_backtest_deployed (strategy_id, pass, run, source_path, source_size, source_mtime,
-			archive_path, trades, win_rate, window_start, window_end, note, synced_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(strategy_id, pass) DO UPDATE SET run = excluded.run, source_path = excluded.source_path,
-			source_size = excluded.source_size, source_mtime = excluded.source_mtime, archive_path = excluded.archive_path,
-			trades = excluded.trades, win_rate = excluded.win_rate, window_start = excluded.window_start,
-			window_end = excluded.window_end, note = excluded.note, synced_at = excluded.synced_at`,
+		if _, err := db.ExecContext(ctx, orchestratorsql.Q("live_vs_backtest_sync/run_2"),
 			e.Strategy, e.Pass, e.Run, e.Source, st.Size(), mtime, e.Archive, e.Trades, e.WinRate,
 			e.WindowStart, e.WindowEnd, e.Note, time.Now().UTC().Format(time.RFC3339)); err != nil {
 			return res, err
@@ -231,10 +208,10 @@ func saveTrades(ctx context.Context, db *sql.DB, calc *runtables.Run, entries []
 	}
 	defer tx.Rollback()
 	for _, e := range entries {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM live_vs_backtest_deployed_trade WHERE strategy_id = ? AND pass = ?`, e.Strategy, e.Pass); err != nil {
+		if _, err := tx.ExecContext(ctx, orchestratorsql.Q("live_vs_backtest_sync/save_trades"), e.Strategy, e.Pass); err != nil {
 			return err
 		}
-		rows, err := calc.Query(ctx, `SELECT symbol, exit_date, win, return_pct FROM bs_pick_trades WHERE strategy_id = ? AND pass = ? ORDER BY exit_date`, e.Strategy, e.Pass)
+		rows, err := calc.Query(ctx, orchestratorsql.Q("live_vs_backtest_sync/save_trades_2"), e.Strategy, e.Pass)
 		if err != nil {
 			return err
 		}
@@ -286,7 +263,7 @@ func status(ctx context.Context, db *sql.DB, e *Entry, size int64, mtime string,
 	var path, m string
 	var sz int64
 	var run int
-	err := db.QueryRowContext(ctx, `SELECT source_path, source_size, source_mtime, run FROM live_vs_backtest_deployed WHERE strategy_id = ? AND pass = ?`, e.Strategy, e.Pass).Scan(&path, &sz, &m, &run)
+	err := db.QueryRowContext(ctx, orchestratorsql.Q("live_vs_backtest_sync/status"), e.Strategy, e.Pass).Scan(&path, &sz, &m, &run)
 	if err != nil {
 		// No row (or no table yet): the strategy has never been synced.
 		return StatusNew, nil

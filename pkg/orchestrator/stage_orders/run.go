@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/risk"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/scan_market"
@@ -219,7 +221,7 @@ func Run(ctx context.Context, db *sql.DB, acc *trader.ResolvedAccount, stackID s
 		if err != nil {
 			res.Details = append(res.Details, fmt.Sprintf("[%s] Failed to stage order: %v", e.Symbol, err))
 			if signalID > 0 {
-				_, _ = db.Exec("UPDATE scan_market_signal SET status = 'ERROR_STAGE_ORDER' WHERE id = ?", signalID)
+				_, _ = db.Exec(orchestratorsql.Q("stage_orders/run"), signalID)
 			}
 			res.Rows = append(res.Rows, Row{
 				Account: accNum, Strategy: e.StrategyID, Symbol: e.Symbol,
@@ -234,7 +236,7 @@ func Run(ctx context.Context, db *sql.DB, acc *trader.ResolvedAccount, stackID s
 			Signal: "BUY", Status: "STAGED", Detail: fmt.Sprintf("%s (stage_order id=%d)", rowDetail, stagedID),
 		})
 		if signalID > 0 {
-			_, _ = db.Exec("UPDATE scan_market_signal SET status = 'STAGED' WHERE id = ?", signalID)
+			_, _ = db.Exec(orchestratorsql.Q("stage_orders/run_2"), signalID)
 		}
 	}
 

@@ -32,6 +32,9 @@ func sqlUnits(sqlDir string) ([]StaleSQL, error) {
 		}
 		rel, _ := filepath.Rel(sqlDir, p)
 		parts := strings.Split(rel, string(filepath.Separator))
+		if d.IsDir() && len(parts) == 1 && parts[0] == "orchestrator" {
+			return filepath.SkipDir // the orchestrator's SQL (sql/orchestrator) is not the backtest's to judge or delete
+		}
 		dirUnit := d.IsDir() && ((len(parts) == 2 && (parts[0] == "stages" || parts[0] == "strategies")) ||
 			(len(parts) == 2 && parts[0] == "studies"))
 		if dirUnit {

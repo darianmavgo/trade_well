@@ -117,7 +117,11 @@ func EnsureBarTable(db *sqlx.DB, tableName string) error {
 	}
 	if tableName == "backtest_start" {
 		// Market databases (daily, hourly, minute) all carry v_symbol_stats.
-		if _, err := db.Exec(sqlfiles.SymbolStatsView); err != nil {
+		view, err := sqlfiles.SymbolStatsView()
+		if err != nil {
+			return fmt.Errorf("read v_symbol_stats: %w", err)
+		}
+		if _, err := db.Exec(view); err != nil {
 			return fmt.Errorf("create v_symbol_stats: %w", err)
 		}
 	}
@@ -1114,7 +1118,7 @@ func runCols(runID int64) (cols, marks string, lead []any) {
 // contain that character.
 func RunStage(db *sqlx.DB, stage string, repl map[string]string) error {
 	dir := path.Join("stages", stage)
-	entries, err := fs.ReadDir(sqlfiles.Stages, dir)
+	entries, err := fs.ReadDir(sqlfiles.FS, dir)
 	if err != nil {
 		return fmt.Errorf("stage %s: %w", stage, err)
 	}
@@ -1122,7 +1126,7 @@ func RunStage(db *sqlx.DB, stage string, repl map[string]string) error {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".sql") {
 			continue
 		}
-		text, err := fs.ReadFile(sqlfiles.Stages, path.Join(dir, e.Name()))
+		text, err := fs.ReadFile(sqlfiles.FS, path.Join(dir, e.Name()))
 		if err != nil {
 			return err
 		}

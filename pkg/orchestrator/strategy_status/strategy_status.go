@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
+
 	"github.com/darianmavgo/trade_well/pkg/backtest/calendar"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/job_runs"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/manage_exits"
@@ -312,9 +314,7 @@ func (s *Status) loadSignals(db *sql.DB, id, today, sinceDate string) error {
 
 	s.SignalCheck.Why = lastReason(db, id)
 
-	rows, err := db.Query(`SELECT id, symbol, as_of_date, next_session, status, buy_limit, take_profit, stop_loss,
-		hold_days, COALESCE(staged_order_id, 0), notes FROM scan_market_buy_signal
-		WHERE strategy_id = ? AND as_of_date >= ? ORDER BY id DESC`, id, sinceDate)
+	rows, err := db.Query(orchestratorsql.Q("strategy_status/load_signals"), id, sinceDate)
 	if err != nil && !missingTable(err) {
 		return fmt.Errorf("read buy signals: %w", err)
 	}
@@ -377,8 +377,7 @@ func lastScanText(run *job_runs.JobRun) string {
 }
 
 func (s *Status) loadStaged(db *sql.DB, id string, now, since time.Time, live *Live) error {
-	rows, err := db.Query(`SELECT id, account_number, symbol, status, quantity, entry_price, COALESCE(order_id, ''),
-		COALESCE(reject_reason, ''), staged_at FROM stage_order WHERE strategy_name = ? AND staged_at >= ? ORDER BY id DESC`,
+	rows, err := db.Query(orchestratorsql.Q("strategy_status/load_staged"),
 		id, since.UTC())
 	if err != nil && !missingTable(err) {
 		return fmt.Errorf("read stage_order: %w", err)
@@ -423,9 +422,7 @@ func (s *Status) loadStaged(db *sql.DB, id string, now, since time.Time, live *L
 		}
 	}
 
-	att, err := db.Query(`SELECT a.staged_order_id, COALESCE(a.broker_order_id, ''), a.status, COALESCE(a.detail, ''), a.submitted_at
-		FROM submit_order a JOIN stage_order o ON o.id = a.staged_order_id
-		WHERE o.strategy_name = ? AND a.submitted_at >= ? ORDER BY a.id DESC`, id, since.UTC())
+	att, err := db.Query(orchestratorsql.Q("strategy_status/load_staged_2"), id, since.UTC())
 	if err != nil {
 		if missingTable(err) {
 			return nil
@@ -454,7 +451,7 @@ func (s *Status) loadStaged(db *sql.DB, id string, now, since time.Time, live *L
 
 // brokerQty is the long quantity the last sync saw per "account|SYMBOL", and when.
 func brokerQty(db *sql.DB) (qty map[string]float64, snapshot string, ok bool, err error) {
-	rows, err := db.Query(`SELECT account_number, symbol, COALESCE(long_quantity, 0), fetched_at FROM account_state_position`)
+	rows, err := db.Query(orchestratorsql.Q("strategy_status/broker_qty"))
 	if err != nil {
 		if missingTable(err) {
 			return nil, "", false, nil
@@ -510,10 +507,7 @@ func (s *Status) loadPositions(db *sql.DB, id string, now time.Time, since time.
 		return mirror[key], haveMirror
 	}
 
-	rows, err := db.Query(`SELECT id, account_number, symbol, status, quantity, COALESCE(entry_order_id, ''), entry_filled_at,
-		entry_time, entry_price, target_profit_price, COALESCE(stop_loss_price, 0), max_trading_days, exit_date, exit_date_source,
-		COALESCE(exit_reason, ''), exit_time, exit_reason_code
-		FROM manage_exit WHERE strategy_id = ? OR strategy_name = ? ORDER BY id DESC`, id, id)
+	rows, err := db.Query(orchestratorsql.Q("strategy_status/load_positions"), id, id)
 	if err != nil && !missingTable(err) {
 		return fmt.Errorf("read manage_exit: %w", err)
 	}
@@ -761,8 +755,7 @@ func parseTS(v any) time.Time {
 // has stored one (an older scan, or the table does not exist yet).
 func lastReason(db *sql.DB, id string) string {
 	var why string
-	if err := db.QueryRow(`SELECT reason FROM scan_market_trace WHERE strategy_id = ? AND is_asof = 1
-		ORDER BY id DESC LIMIT 1`, id).Scan(&why); err != nil {
+	if err := db.QueryRow(orchestratorsql.Q("strategy_status/last_reason"), id).Scan(&why); err != nil {
 		return ""
 	}
 	return why

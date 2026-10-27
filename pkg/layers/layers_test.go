@@ -15,7 +15,7 @@ const module = "github.com/darianmavgo/trade_well/"
 // forbidden lists, for each layer directory, the module paths it must not import.
 var forbidden = map[string][]string{
 	"pkg/schwaber":     {"pkg/backtest", "pkg/orchestrator", "sql", "pkg/layers"},
-	"pkg/backtest":     {"pkg/schwaber", "pkg/orchestrator", "pkg/layers"},
+	"pkg/backtest":     {"pkg/schwaber", "pkg/orchestrator", "sql/orchestrator", "pkg/layers"},
 	"sql":              {"pkg", "cmd"},
 	"pkg/orchestrator": {"pkg/layers"},
 }

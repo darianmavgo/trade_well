@@ -11,12 +11,17 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"math"
 	"os"
 	"slices"
 	"sort"
 	"strings"
 	"time"
+
+	sqlfiles "github.com/darianmavgo/trade_well/sql"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 
 	"github.com/darianmavgo/trade_well/pkg/backtest/appenv"
 	"github.com/darianmavgo/trade_well/pkg/backtest/calendar"
@@ -93,6 +98,7 @@ func Run(ctx context.Context, o Options) Report {
 	members, c := allowlistCheck(o.Allowlist)
 	add(c)
 	add(allocationCheck(members))
+	add(sqlFilesCheck())
 	if o.Static {
 		return rep
 	}
@@ -107,6 +113,43 @@ func Run(ctx context.Context, o Options) Report {
 	}
 	add(databaseCheck(ctx, o.DB))
 	return rep
+}
+
+// sqlFilesCheck reports where this process found its sql folder and that the SQL the jobs read is
+// in it. The SQL is read from files, not embedded in the binary, so a deploy that did not upload
+// sql/ (or an instance that cannot see it) fails here, in the detail, before a job fails on it.
+func sqlFilesCheck() Check {
+	c := Check{Name: "sql_files", Status: OK}
+	root, err := sqlfiles.Root()
+	if err != nil {
+		c.Status, c.Detail = Bad, err.Error()
+		return c
+	}
+	orch := sqlfiles.Sub("orchestrator")
+	var files, packages int
+	err = fs.WalkDir(orch, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		switch {
+		case d.IsDir() && path != ".":
+			packages++
+		case strings.HasSuffix(path, ".sql"):
+			files++
+		}
+		return nil
+	})
+	if err != nil || files == 0 {
+		c.Status, c.Detail = Bad, fmt.Sprintf("the sql folder %s has no orchestrator SQL files (%v): the deploy did not upload sql/orchestrator", root, err)
+		return c
+	}
+	if _, err := fs.Stat(sqlfiles.FS, "stages"); err != nil {
+		c.Status = Warn
+		c.Detail = fmt.Sprintf("sql folder %s: %d orchestrator SQL files in %d package folders, but no stages/ folder for the backtest layer's SQL", root, files, packages)
+		return c
+	}
+	c.Detail = fmt.Sprintf("sql folder %s: %d orchestrator SQL files in %d package folders, and the backtest layer's SQL", root, files, packages)
+	return c
 }
 
 // allowlistCheck resolves every member of every allowlist entry. A row-backed strategy must be
@@ -313,7 +356,7 @@ func marketCheck(members []strategy.Strategy, db *sql.DB, marketDB string, compl
 		source = "Turso market_bars"
 		tipOf = func(sym string) (string, error) {
 			var tip sql.NullString
-			err := db.QueryRow(`SELECT MAX(date) FROM market_bars WHERE symbol = ?`, sym).Scan(&tip)
+			err := db.QueryRow(orchestratorsql.Q("ready/market_check"), sym).Scan(&tip)
 			return tip.String, err
 		}
 	}
@@ -398,7 +441,7 @@ func killswitchCheck(db *sql.DB) Check {
 // buyingPower, at 0 on a CASH account (a Roth) and reports cashAvailableForTrading instead.
 func cashCheck(db *sql.DB) Check {
 	c := Check{Name: "cash", Status: OK}
-	rows, err := db.Query(`SELECT account_number, COALESCE(account_type, ''), COALESCE(available_funds, 0), COALESCE(raw_json, ''), fetched_at FROM account_state_account ORDER BY account_number`)
+	rows, err := db.Query(orchestratorsql.Q("ready/cash_check"))
 	if err != nil {
 		return Check{Name: "cash", Status: Warn, Detail: "no account snapshot yet: " + err.Error()}
 	}
@@ -475,7 +518,7 @@ func databaseCheck(ctx context.Context, db *sql.DB) Check {
 	var missing []string
 	for _, t := range tursoTables {
 		var n int
-		if err := db.QueryRowContext(ctx, "SELECT count(*) FROM sqlite_master WHERE type='table' AND name = ?", t).Scan(&n); err != nil {
+		if err := db.QueryRowContext(ctx, orchestratorsql.Q("ready/database_check"), t).Scan(&n); err != nil {
 			c.Status, c.Detail = Bad, "cannot read Turso: "+err.Error()
 			return c
 		}
@@ -489,7 +532,7 @@ func databaseCheck(ctx context.Context, db *sql.DB) Check {
 	}
 	var jobs int
 	var newest sql.NullString
-	if err := db.QueryRowContext(ctx, "SELECT count(*), MAX(finished_at) FROM job_run").Scan(&jobs, &newest); err != nil {
+	if err := db.QueryRowContext(ctx, orchestratorsql.Q("ready/database_check_2")).Scan(&jobs, &newest); err != nil {
 		c.Status, c.Detail = Bad, "cannot read job_run on Turso: "+err.Error()
 		return c
 	}
