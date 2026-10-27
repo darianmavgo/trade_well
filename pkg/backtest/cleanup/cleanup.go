@@ -5,6 +5,7 @@
 package cleanup
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -35,13 +36,14 @@ type Config struct {
 	Failed       bool // runs: also delete runs where no step finished
 	Vacuum       bool // orphans: rewrite files that are mostly free pages
 	RemoveSQL    bool // sql: delete the unreferenced files under sql/
+	Remove       bool // tables, jobs, bins (and sql): delete what the mode found
 	Out          io.Writer
 }
 
 // All runs the steps in order: aborted runs, losing strategies (only when Keep
 // names the greenlit ids), orphan rows, old versions, then refreshes
 // strategy_last_backtest. It stops at the first error.
-func All(cfg Config) error {
+func All(ctx context.Context, cfg Config) error {
 	cfg.Workers = Workers(cfg.Workers)
 	say := func(f string, a ...any) { fmt.Fprintf(cfg.Out, f+"\n", a...) }
 
@@ -76,8 +78,25 @@ func All(cfg Config) error {
 	say("%d old version files", n)
 
 	say("== sql (report only)")
-	cfg.RemoveSQL = false
+	cfg.RemoveSQL, cfg.Remove = false, false
 	if _, err := SQL(cfg); err != nil {
+		return err
+	}
+
+	say("== bins (report only)")
+	if _, err := Bins(ctx, cfg); err != nil {
+		return err
+	}
+	say("== refs (report only)")
+	if _, err := Refs(ctx, cfg); err != nil {
+		return err
+	}
+	say("== data (report only)")
+	if _, err := Data(ctx, cfg); err != nil {
+		return err
+	}
+	say("== dead (report only)")
+	if _, err := Dead(ctx, cfg); err != nil {
 		return err
 	}
 

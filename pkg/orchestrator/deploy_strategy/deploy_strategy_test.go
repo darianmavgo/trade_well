@@ -28,15 +28,15 @@ func TestPlanKeepsTheLiveListAndAddsTheNewRow(t *testing.T) {
 	if already || !slices.Equal(list, append(slices.Clone(live), "streak-voo-buy-tecl", "markov_model_amd")) {
 		t.Fatalf("export list %v already=%v: the live list, the new row, then bundled rows not yet in it", list, already)
 	}
-	if got := names(steps); !slices.Equal(got, []string{"export", "vendor", "build", "check", "deploy", "allowlist", "restart"}) {
+	if got := names(steps); !slices.Equal(got, []string{"export", "build", "check", "deploy", "allowlist", "restart"}) {
 		t.Fatalf("steps %v", got)
 	}
 	// The bundle is deployed before the list changes, and the list changes before the restart.
-	if steps[4].Name != "deploy" || steps[5].Name != "allowlist" || steps[6].Name != "restart" || steps[6].Env[0] != "FORCE_DEPLOY=1" {
+	if steps[3].Name != "deploy" || steps[4].Name != "allowlist" || steps[5].Name != "restart" || steps[5].Env[0] != "FORCE_DEPLOY=1" {
 		t.Fatalf("order %v", names(steps))
 	}
 	// The check resolves the list with the new row, in a folder of its own, not the shared one.
-	check := steps[3]
+	check := steps[2]
 	if !slices.Contains(check.Env, "STRATEGY_ALLOWLIST="+strings.Join(live, ",")) || !strings.HasPrefix(check.Env[0], "APP_FOLDER=/repo/data/deploy_check") {
 		t.Fatalf("check env %v", check.Env)
 	}
@@ -51,7 +51,7 @@ func TestPlanForARowAlreadyLiveOnlyRefreshesTheBundle(t *testing.T) {
 	if !already || !slices.Equal(list, current) {
 		t.Fatalf("a stack member is live: list %v already=%v", list, already)
 	}
-	if got := names(steps); !slices.Equal(got, []string{"export", "vendor", "build", "check", "deploy"}) {
+	if got := names(steps); !slices.Equal(got, []string{"export", "build", "check", "deploy"}) {
 		t.Fatalf("steps %v (no allowlist step, and none to restart with -no-restart)", got)
 	}
 }
@@ -105,5 +105,12 @@ func TestRunStepRunsInItsFolderWithItsEnvironment(t *testing.T) {
 	}
 	if err := runStep(context.Background(), &out, Step{Name: "bad", Dir: dir, Cmd: []string{"sh", "-c", "exit 3"}}); err == nil {
 		t.Fatal("a failing step must return its error")
+	}
+}
+
+// The strategies database defaults to the repository's own refdata, not a sibling checkout.
+func TestDefaultRefPathIsTheRepositorysRefdata(t *testing.T) {
+	if got, want := defaultRefPath(filepath.Join("a", "repo")), filepath.Join("a", "repo", "refdata", "strategies.db"); got != want {
+		t.Fatalf("defaultRefPath = %q, want %q", got, want)
 	}
 }

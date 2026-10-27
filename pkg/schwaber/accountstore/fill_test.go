@@ -24,7 +24,7 @@ func TestFeeAndSymbol(t *testing.T) {
 
 func TestParseOrdersStoresExecutionPrice(t *testing.T) {
 	db := openTest(t)
-	s := New(Default)
+	s := New(Mirror)
 	if err := s.EnsureSchema(db); err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestParseOrdersStoresExecutionPrice(t *testing.T) {
 		"orderActivityCollection":[{"activityType":"EXECUTION","executionLegs":[{"price":10.20,"quantity":1}]}]}]`)
 	s.ParseOrders(db, "111", body, time.Now().UTC())
 	var px float64
-	if err := db.QueryRow(`SELECT execution_price FROM orders WHERE order_id = '55'`).Scan(&px); err != nil {
+	if err := db.QueryRow(`SELECT execution_price FROM account_state_order WHERE order_id = '55'`).Scan(&px); err != nil {
 		t.Fatal(err)
 	}
 	if px != 10.20 {

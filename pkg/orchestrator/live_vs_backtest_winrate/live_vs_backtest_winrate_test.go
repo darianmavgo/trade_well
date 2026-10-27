@@ -528,3 +528,21 @@ func TestCompareAnswersFromMemoryWithinMaxAge(t *testing.T) {
 		t.Fatalf("a call with no MaxAge did not recalculate: %v %v", fresh, err)
 	}
 }
+
+// A remembered answer keeps the database it was asked of reachable, so the address in the cache key
+// cannot be handed to a later database (a freed database's address can be reused, which once let one
+// test's answer leak into another's).
+func TestRememberedAnswerHoldsItsDatabase(t *testing.T) {
+	ctx := context.Background()
+	orch := open(t, "orch.db")
+	opt := Options{IDs: []string{"holds-its-database"}, MaxAge: time.Minute}
+	if _, err := Compare(ctx, orch, opt); err != nil {
+		t.Fatal(err)
+	}
+	results.Lock()
+	entry, ok := results.m[cacheKey(orch, "compare:"+compareKey(opt))]
+	results.Unlock()
+	if !ok || entry.db != orch {
+		t.Fatalf("the remembered answer does not hold its database: %+v", entry)
+	}
+}

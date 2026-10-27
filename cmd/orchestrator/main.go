@@ -186,7 +186,7 @@ func printUsage() {
 	fmt.Printf("  %sstage_orders%s   Job 2a: Sizes scan_market's buy signals against live cash and stages bracket orders\n", colGreen, colReset)
 	fmt.Printf("  %ssubmit_orders%s  Job 2b: Re-validates and submits orders staged by stage_orders\n", colGreen, colReset)
 	fmt.Printf("  %strigger_limits%s Job 2c: Seats the limit entries stage_orders held back as WATCHING, nearest to filling first; places LIVE unless --dry-run; never cancels; quits after 2 refusals (--account picks the account)\n", colGreen, colReset)
-	fmt.Printf("  %sdeploy_strategy%s    Puts one strategy row live: export the bundle, vendor, check, deploy, add it to STRATEGY_ALLOWLIST, restart (live; --dry-run prints the plan; --no-restart stops before the last deploy)\n", colGreen, colReset)
+	fmt.Printf("  %sdeploy_strategy%s    Puts one strategy row live: export the bundle, build, check, deploy, add it to STRATEGY_ALLOWLIST, restart (live; --dry-run prints the plan; --no-restart stops before the last deploy)\n", colGreen, colReset)
 	fmt.Printf("  %sstrategy_allowlist%s Shows or changes STRATEGY_ALLOWLIST in the config object: show | set LIST | add ID... | remove ID... (live; --dry-run previews; validates every entry first)\n", colGreen, colReset)
 	fmt.Printf("  %scheck_health%s   Job 3: Audits account health -- protective orders, scheduled exits, plus every enabled row in check_health\n", colGreen, colReset)
 	fmt.Printf("  %srisk%s           Record each account's equity and set what NEW entries may do from drawdown, daily loss and exposure (exits never limited; --dry-run previews; --reset-peak after a withdrawal; also /cron/risk)\n", colGreen, colReset)

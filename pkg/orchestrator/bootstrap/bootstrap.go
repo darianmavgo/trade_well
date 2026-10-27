@@ -9,10 +9,8 @@ import (
 	"log"
 
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/appconfig"
-	"github.com/darianmavgo/trade_well/pkg/orchestrator/dashboard"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/jobenv"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/schemas"
-	"github.com/darianmavgo/trade_well/pkg/schwaber/dbutil"
 )
 
 // Load reads config, opens the database with every schema ensured, and logs
@@ -39,10 +37,6 @@ func OpenDB(dbPath string) (*sql.DB, error) {
 		return nil, err
 	}
 	if err := schemas.EnsureAll(db); err != nil {
-		db.Close()
-		return nil, err
-	}
-	if err := dbutil.EnsureOnce("dashboard.EnsureSchema", func() error { return dashboard.EnsureSchema(db) }); err != nil {
 		db.Close()
 		return nil, err
 	}

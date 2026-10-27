@@ -13,10 +13,6 @@ entrypoint: main
 
 build_env_variables:
   GOOGLE_BUILDABLE: "./cmd/orchestrator"
-  GOFLAGS: "-mod=vendor"
-  GOPRIVATE: "github.com/darianmavgo/*"
-  GONOSUMDB: "github.com/darianmavgo/*"
-  GONOPROXY: "github.com/darianmavgo/*"
 
 automatic_scaling:
   min_instances: 0

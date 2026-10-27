@@ -19,7 +19,7 @@ type StaleSQL struct {
 	Dir   bool
 }
 
-var corpusExt = map[string]bool{".go": true, ".md": true, ".sh": true}
+var corpusExt = map[string]bool{".go": true, ".md": true, ".sh": true, ".yaml": true, ".yml": true}
 var corpusSkip = map[string]bool{".git": true, "data": true, "bin": true, "refdata": true, "node_modules": true, "vendor": true}
 
 // sqlUnits lists what is judged: directories under stages/, strategies/ and
@@ -41,7 +41,7 @@ func sqlUnits(sqlDir string) ([]StaleSQL, error) {
 			units = append(units, StaleSQL{Path: rel, Bytes: dirBytes(p), Dir: true})
 			return filepath.SkipDir
 		}
-		if !d.IsDir() && strings.HasSuffix(p, ".sql") {
+		if !d.IsDir() && (strings.HasSuffix(p, ".sql") || strings.HasSuffix(p, ".duckql")) {
 			info, err := d.Info()
 			if err != nil {
 				return err
@@ -150,14 +150,15 @@ func SQL(cfg Config) (int, error) {
 		total += s.Bytes
 	}
 	verb := "found"
-	if cfg.RemoveSQL && !cfg.DryRun {
+	remove := cfg.RemoveSQL || cfg.Remove
+	if remove && !cfg.DryRun {
 		for _, s := range stale {
 			if err := os.RemoveAll(filepath.Join(cfg.Root, "sql", s.Path)); err != nil {
 				return len(stale), err
 			}
 		}
 		verb = "removed"
-	} else if cfg.RemoveSQL {
+	} else if remove {
 		verb = "would remove"
 	}
 	fmt.Fprintf(cfg.Out, "%s: %d unreferenced sql units, %d bytes\n", verb, len(stale), total)

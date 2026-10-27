@@ -238,7 +238,7 @@ cd backtestgosqlite
 
 cd ../trade_orchestrator
 scripts/export_strategies.sh      # re-exports the bundle, including data/hmm_models.db -> pkg/strategies/deploy/hmm_models.db
-go mod vendor                     # then build, test and deploy as usual
+# then build, test and deploy as usual (there is no vendor/ step any more)
 ```
 
 `/ready` shows a `hmm_model` check: ok when the model is current; warn when it trails the last session (normal until 17:00 ET) or its parameters are over two years old; bad when the bundle has no QQQ model.
@@ -342,7 +342,7 @@ sqlite3 refdata/strategies.db < sql/seed/hmm_strategy.sql      # creates the tab
 ./bin/backtest -family hmm -auto-download=false -start 2024-10-09        # every hmm row
 
 # Bundle the rows (the table travels with the others; -alloc 0.20 matches the bundle default)
-cd ../trade_orchestrator && scripts/export_strategies.sh && go mod vendor
+scripts/export_strategies.sh
 ```
 
 QQQ's hourly bars in the market database start 2024-10-09, so `-start` earlier than that adds nothing. The run does an in-sample pass (to the model's `trained_through`, 2025-10-22) and one held-out pass (2025-10-23 onward).

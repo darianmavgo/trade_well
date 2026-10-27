@@ -79,15 +79,11 @@ const (
 
 type execer = accountstore.Execer
 
-// tables are trade_orchestrator's account_state_* names for schwaber's shared
-// Schwab-state mirror (pkg/accountstore); store does all parsing and upserts.
+// store is the Schwab account mirror, in schwaber's accountstore.Mirror tables (account_state_*);
+// store does all parsing and upserts.
 var (
-	tables = accountstore.Tables{
-		Raw: "account_state_raw_response", Account: "account_state_account", Position: "account_state_position",
-		Order: "account_state_order", OrderLeg: "account_state_order_leg", Transaction: "account_state_transaction",
-		Preference: "account_state_preference",
-	}
-	store = accountstore.New(tables)
+	tables = accountstore.Mirror
+	store  = accountstore.New(tables)
 )
 
 // MirrorStore is the Schwab account mirror this process writes

@@ -4,7 +4,6 @@ go 1.26.1
 
 require (
 	github.com/jmoiron/sqlx v1.3.5
-	github.com/mattn/go-sqlite3 v1.14.52
 	github.com/olekukonko/tablewriter v0.0.0-20170122224234-a0225b3f23b5
 	github.com/ryanbressler/CloudForest v0.0.0-20220205065429-8f151e494fd2
 	github.com/tursodatabase/libsql-client-go v0.0.0-20260528064733-9d5d30a29a60
@@ -31,6 +30,7 @@ require (
 	github.com/lib/pq v1.10.2 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-runewidth v0.0.2 // indirect
+	github.com/mattn/go-sqlite3 v1.14.52 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect

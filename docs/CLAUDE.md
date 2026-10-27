@@ -51,7 +51,7 @@ One job has one name, and that name is the same in every place it appears:
 
 ## Working across the layers
 
-- Change the lowest layer first (SW/BT), test it, then update TO. It is one module, so there is no `replace`, no sibling checkout and no vendor refresh between layers (`go mod vendor` only matters for a vendored deploy build).
+- Change the lowest layer first (SW/BT), test it, then update TO. It is one module, so there is no `replace`, no sibling checkout and no `vendor/`: every dependency is a public module.
 - Run `make check` (`go build ./... && go vet ./... && go test ./...`) before saying it works. Build binaries with `make build` into `bin/`.
 - Tests move with the code. When you move a function to a shared package, move its test there too.
 - The trade_well root is a git repo. Do not do bulk deletes or renames without saying what you are removing first.

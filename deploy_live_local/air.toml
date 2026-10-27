@@ -1,7 +1,6 @@
 # air config for deploy_live_local/servelocal.sh. Not the repo-root .air.toml:
 # that one builds `./...` and runs the binary from the repo root, where the app
-# would read .env. Here the build is build.sh (vendor if stale, then the GAE
-# build) and the process is .run_app.sh, which servelocal.sh generates: it runs
+# would read .env. Here the build is build.sh (the GAE build) and the process is .run_app.sh, which servelocal.sh generates: it runs
 # the binary from an empty directory with a scrubbed environment.
 root = "."
 tmp_dir = "tmp"
@@ -10,10 +9,7 @@ tmp_dir = "tmp"
   cmd = "./deploy_live_local/build.sh"
   entrypoint = ["./deploy_live_local/.run_app.sh"]
   include_ext = ["go", "html", "js", "css", "sql"]
-  # vendor/ is excluded: `go mod vendor` rewrites it and would loop the rebuild.
-  exclude_dir = ["bin", "tmp", "data", "vendor", ".git", ".deploy_cache", "node_modules"]
-  # servelocal.sh touches this when ../schwaber or ../backtestgosqlite change.
-  include_file = ["deploy_live_local/.sibling-changed"]
+  exclude_dir = ["bin", "tmp", "data", ".git", ".deploy_cache", "node_modules"]
   delay = 500
   # SIGINT lets the app shut down cleanly (it finishes the request in flight).
   send_interrupt = true

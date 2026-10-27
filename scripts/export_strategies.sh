@@ -2,7 +2,7 @@
 # Rebuild pkg/orchestrator/strategies/deploy/ (strategies.db, markov_models.db, tree_models.db, hmm_models.db) for an
 # allowlist, using `cmd/strategy export` (pkg/backtest) on its own strategies.db and models. Works for every row family
 # (streak, markov, tree, hold, rotation). Run it whenever the allowlist gains a strategy that is a row,
-# then `go mod vendor`, and set the same value with deploy_gae/config.sh before deploying.
+# then rebuild, and set the same value with deploy_gae/config.sh before deploying.
 #
 #   scripts/export_strategies.sh                      # allowlist seeded in deploy_gae/config.sh
 #   scripts/export_strategies.sh "a+b+c,markov_model_muu"

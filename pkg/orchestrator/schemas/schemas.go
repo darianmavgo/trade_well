@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/darianmavgo/trade_well/pkg/orchestrator/account_allowlist"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/account_state"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/appconfig"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/auth"
@@ -20,7 +19,6 @@ import (
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/live_vs_backtest_trades"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/manage_exits"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/risk"
-	"github.com/darianmavgo/trade_well/pkg/orchestrator/runtimeenv"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/scan_market"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/send_email"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/stage_orders"
@@ -47,7 +45,6 @@ func ensureAll(db *sql.DB) error {
 		{"killswitch", killswitch.EnsureSchema},
 		{"risk", risk.EnsureSchema},
 		{"strategies", strategies.EnsureSchema},
-		{"account_allowlist", account_allowlist.EnsureSchema},
 		{"auth", auth.EnsureSchema},
 		{"scan_market", scan_market.EnsureSchema},
 		{"stage_orders", stage_orders.EnsureSchema},
@@ -58,7 +55,6 @@ func ensureAll(db *sql.DB) error {
 		{"live_vs_backtest_slippage", live_vs_backtest_slippage.EnsureSchema},
 		{"check_health", check_health.EnsureSchema},
 		{"send_email", send_email.EnsureSchema},
-		{"runtimeenv", runtimeenv.EnsureSchema},
 	}
 	for _, e := range ensurers {
 		if err := e.fn(db); err != nil {

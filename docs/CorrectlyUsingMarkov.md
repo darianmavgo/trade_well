@@ -123,7 +123,7 @@ This rebuilds `pkg/strategies/deploy/{strategies,markov_models,tree_models}.db` 
 ### Step 5: deploy
 
 ```bash
-go mod vendor
+# then rebuild (there is no vendor/ step any more)
 deploy_gae_turso/deploy.sh      # or deploy_gae/deploy.sh
 ```
 
@@ -196,7 +196,7 @@ Recomputing the signal for one date by hand is also a good check: take the saved
 - [ ] `backtest` run, in-sample tuned, OOS read once.
 - [ ] Rows you intend to trade have `next_day_limit = 1` and a non-zero `slippage_pct`, or you accept the entry-fill gap in 3.2.
 - [ ] `backtest stack -alloc X` and `EXPORT_ALLOC=X` agree.
-- [ ] `scripts/export_strategies.sh "<live allowlist>"` run, `go mod vendor`, redeployed.
+- [ ] `scripts/export_strategies.sh "<live allowlist>"` run, rebuilt, redeployed.
 - [ ] `trained_through` in the bundle equals the cutoff; `/ready` `markov_models` is ok or a short-lived warn.
 - [ ] After the first live scan, `signal_trace` shows `scored_live = true` for sessions after the cutoff and the `reason` matches what the backtest would have done on those dates.
 

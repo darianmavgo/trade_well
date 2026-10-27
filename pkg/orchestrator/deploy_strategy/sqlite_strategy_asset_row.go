@@ -8,10 +8,10 @@ import (
 )
 
 // findStrategyAssetRowTable returns the table that holds id as a strategy definition row in the
-// strategy ASSET at refPath: backtestgosqlite's refdata/strategies.db, opened read-only.
+// strategy ASSET at refPath: the repository's refdata/strategies.db, opened read-only.
 func findStrategyAssetRowTable(refPath, id string) (string, error) {
 	if _, err := os.Stat(refPath); err != nil {
-		return "", fmt.Errorf("%w (the bundle is exported from the strategies database of the sibling backtestgosqlite checkout)", err)
+		return "", fmt.Errorf("%w (the bundle is exported from refdata/strategies.db in this repository, or the database named with the backtest-db option)", err)
 	}
 	db, err := refdb.OpenExisting(refPath)
 	if err != nil {

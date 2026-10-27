@@ -11,7 +11,7 @@
 #   FORCE_DEPLOY=1  redeploy app+cron even if hashes match
 #   FORCE_DEPLOY=app  redeploy the app only (cron.yaml still deploys if it changed)
 #
-# Speed: the upload is limited by ../.gcloudignore to source + vendor/ (a few MB of
+# Speed: the upload is limited by ../.gcloudignore to the source and sql/ (a few MB of
 # changed files, not binaries/databases). Most of what is left is Google's side:
 # Cloud Build queueing (~50 s) and compiling the Go app (~90 s). Each step prints
 # how long it took so you can see where time goes.
@@ -298,47 +298,7 @@ if [ "$DEPLOY_APP" = "0" ] && [ "$DEPLOY_CRON" = "0" ]; then
   exit 0
 fi
 
-# Private Go modules (github.com/darianmavgo/schwaber, backtestgosqlite):
-# App Engine's Go buildpack runs `go mod download` in Cloud Build without
-# GitHub credentials. `.netrc` in the upload is unreliable with this buildpack,
-# so we vendor locally (using the GitHub token) and deploy with -mod=vendor.
-cleanup_netrc() {
-  rm -f "$ROOT_DIR/.netrc" "$ROOT_DIR/.gae_netrc" || true
-}
-trap cleanup_netrc EXIT
-
-GITHUB_TOKEN_VALUE="${GITHUB_TOKEN:-}"
-if [ -z "$GITHUB_TOKEN_VALUE" ] && command -v gh >/dev/null 2>&1; then
-  GITHUB_TOKEN_VALUE="$(gh auth token 2>/dev/null || true)"
-fi
-
 if [ "$DEPLOY_APP" = "1" ]; then
-  if [ -z "$GITHUB_TOKEN_VALUE" ]; then
-    echo "❌ App deploy needs a GitHub token to vendor private modules (schwaber)." >&2
-    echo "   GITHUB_TOKEN is unset and \`gh auth token\` returned nothing. Fix one of:" >&2
-    echo "     export GITHUB_TOKEN=ghp_..." >&2
-    echo "     gh auth login" >&2
-    exit 1
-  fi
-
-  T0=$SECONDS
-  echo "   • Vendoring private Go modules for Cloud Build (no GitHub needed in build)..."
-  umask 077
-  printf 'machine github.com\nlogin x-access-token\npassword %s\n' "$GITHUB_TOKEN_VALUE" > "$ROOT_DIR/.netrc"
-  chmod 600 "$ROOT_DIR/.netrc"
-  (
-    cd "$ROOT_DIR"
-    export NETRC="$ROOT_DIR/.netrc"
-    export GOPRIVATE="github.com/darianmavgo/*"
-    export GONOSUMDB="github.com/darianmavgo/*"
-    export GONOPROXY="github.com/darianmavgo/*"
-    go mod vendor
-  )
-  if [ ! -f "$ROOT_DIR/vendor/modules.txt" ]; then
-    echo "❌ go mod vendor failed — vendor/modules.txt missing" >&2
-    exit 1
-  fi
-  echo "   • vendor/ ready ($(find "$ROOT_DIR/vendor" -type f | wc -l | tr -d ' ') files, $((SECONDS - T0))s)"
   UPLOAD_FILES="$(cd "$ROOT_DIR" && gcloud meta list-files-for-upload 2>/dev/null | wc -l | tr -d ' ')"
   echo "   • upload set: ${UPLOAD_FILES} files (see .gcloudignore)"
 
@@ -349,7 +309,7 @@ if [ "$DEPLOY_APP" = "1" ]; then
     echo "   • checking the bundle against the live STRATEGY_ALLOWLIST (orchestrator ready --static)..."
     if ! (cd "$ROOT_DIR" && go run ./cmd/orchestrator ready --static); then
       echo "❌ The bundle does not resolve the live allowlist. Nothing was deployed." >&2
-      echo "   Fix: scripts/export_strategies.sh \"<allowlist>\" && go mod vendor, then deploy again." >&2
+      echo "   Fix: scripts/export_strategies.sh \"<allowlist>\", then deploy again." >&2
       exit 1
     fi
   fi
@@ -375,7 +335,7 @@ fi
 if [ "$DEPLOY_APP" = "1" ]; then
   T_APP=$SECONDS
   echo "[5/5] App sources changed — deploying App Engine service..."
-  # vendor/ is uploaded with source; GOFLAGS=-mod=vendor avoids GitHub in Cloud Build.
+  # The source and sql/ are uploaded; Cloud Build downloads the public Go modules itself.
   gcloud app deploy \
     --appyaml="$SCRIPT_DIR/app.yaml" \
     --project="$PROJECT_ID" \

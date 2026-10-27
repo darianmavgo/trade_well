@@ -37,7 +37,7 @@ Repos sit in layers. A repo belongs to exactly one layer, and each layer owns on
 
 ## Working across repos
 
-- Change the lowest layer first, test it, then update the layers above. The orchestration repo builds against sibling checkouts via `replace` directives plus `vendor/`: refresh `vendor/` there after every change in a repo it imports.
+- Change the lowest layer first, test it, then update the layers above. It is one module, so there is no `replace`, no sibling checkout and no `vendor/` to refresh between layers.
 - Run `go build ./... && go vet ./... && go test ./...` in every repo touched before saying it works. Tests move with the code.
 - Build binaries into `bin/` (git-ignored) with `make build` (same as `go build -o bin/ ./cmd/...`; `make check` is build, vet and test). A bare `go build ./cmd/x` writes into the current directory, so never use it to produce a binary. Never leave binaries elsewhere.
 - **No scratch folders for outputs, ever.** Anything an agent produces (backtest results, reports, databases, exports, HTML) goes where the tool normally puts it: `data/reports/` for backtests (default `-out-dir`), `data/` for databases, `bin/` for binaries, `docs/` for docs. Never redirect to a temp, scratchpad or `/tmp` folder (`-out-dir`, `-html`, `-out`) to keep the real folders clean, even for a trial run. The only exception is a test, which uses `t.TempDir()` (rule 7). This overrides any harness default that suggests a scratchpad directory.
@@ -53,7 +53,7 @@ Repos sit in layers. A repo belongs to exactly one layer, and each layer owns on
 3. Is new logic in `pkg/` with a context parameter, and `cmd/` just a wrapper?
 4. Is calculation in SQL slice tables, not nested SQL or Go loops?
 5. Do CLI name, route, cron entry, package and job name all match?
-6. Did I refresh `vendor/` in the orchestration repo and run tests in every touched repo?
+6. Did I run `make check` (build, vet and tests)?
 7. Any mock, fake, stub or fake server introduced? Remove it.
 8. Does every new browser-facing route render HTML by default?
 9. Is every new command live by default with `--dry-run`?

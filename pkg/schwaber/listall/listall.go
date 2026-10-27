@@ -27,7 +27,7 @@ type AccountNumberHash struct {
 }
 
 // store is the shared Schwab-state mirror using the default (schwaber) table names.
-var store = accountstore.New(accountstore.Default)
+var store = accountstore.New(accountstore.Mirror)
 
 func initDatabase() (*sql.DB, error) {
 	db, err := dbutil.Open("")
@@ -86,7 +86,7 @@ func Run(ctx context.Context, out io.Writer, cfg *config.Config) error {
 	if err := json.Unmarshal(body, &list); err == nil {
 		fmt.Fprintf(out, "  %s✓ Discovered %d authorized account(s)%s\n", clicolor.Green, len(list), clicolor.Reset)
 		for _, item := range list {
-			_, _ = db.Exec(`INSERT INTO accounts (account_number, hash_value, fetched_at)
+			_, _ = db.Exec(`INSERT INTO account_state_account (account_number, hash_value, fetched_at)
 				VALUES (?, ?, ?)
 				ON CONFLICT(account_number) DO UPDATE SET hash_value=excluded.hash_value, fetched_at=excluded.fetched_at`,
 				item.AccountNumber, item.HashValue, now)
@@ -108,7 +108,7 @@ func Run(ctx context.Context, out io.Writer, cfg *config.Config) error {
 	store.ParseAccounts(db, body, now)
 
 	// Load all known accounts from DB to query account-specific endpoints
-	rows, err := db.Query("SELECT account_number, hash_value FROM accounts WHERE hash_value IS NOT NULL AND hash_value != ''")
+	rows, err := db.Query("SELECT account_number, hash_value FROM account_state_account WHERE hash_value IS NOT NULL AND hash_value != ''")
 	var accounts []AccountNumberHash
 	if err == nil {
 		for rows.Next() {

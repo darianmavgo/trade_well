@@ -61,9 +61,6 @@ func ensureAllSchemas(db *sql.DB) error {
 }
 
 func ensureAllSchemasNow(db *sql.DB) error {
-	if err := EnsureSchema(db); err != nil {
-		return err
-	}
 	// Every job's tables, so a job that has not run yet shows 0 rows, not
 	// "no such table".
 	return schemas.EnsureAll(db)
@@ -203,9 +200,6 @@ func (s *Server) Start() error {
 	addr := fmt.Sprintf(":%d", s.port)
 	fmt.Printf("\nSchwab Trade Orchestrator Dashboard running on: http://localhost:%d\n", s.port)
 	fmt.Printf("   Connected Database: %s\n\n", dbLabel(s.dbPath))
-	if err := logServerStart(s.db, s.port); err != nil {
-		log.Printf("[dashboard] failed to log server start: %v", err)
-	}
 	return http.ListenAndServe(addr, h)
 }
 

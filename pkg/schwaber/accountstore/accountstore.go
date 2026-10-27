@@ -1,8 +1,8 @@
 // Package accountstore mirrors Schwab account, position, order, transaction
 // and user-preference API responses into SQLite. The parsing and upsert logic
-// is shared by `schwaber listall` (which uses Default table names) and
-// trade_orchestrator's account_state job (which uses its own account_state_*
-// names via Tables), so the two can never drift apart.
+// is shared by `schwaber listall` and trade_orchestrator's account_state job. Both write the
+// same tables (Mirror, the account_state_* names), so the two can never drift apart and the
+// database never holds a second copy of the broker's state.
 package accountstore
 
 import (
@@ -35,10 +35,13 @@ type Tables struct {
 	Raw, Account, Position, Order, OrderLeg, Transaction, Preference string
 }
 
-// Default is schwaber's own naming (the `schwaber listall` mirror).
-var Default = Tables{
-	Raw: "raw_responses", Account: "accounts", Position: "positions", Order: "orders",
-	OrderLeg: "order_legs", Transaction: "transactions", Preference: "user_preferences",
+// Mirror names the one set of tables the Schwab account mirror lives in: the account_state_* tables.
+// `orchestrator account_state` and `schwaber listall` both write them, so there is a single copy of
+// the broker's state in the database, never a second one under other names.
+var Mirror = Tables{
+	Raw: "account_state_raw_response", Account: "account_state_account", Position: "account_state_position",
+	Order: "account_state_order", OrderLeg: "account_state_order_leg", Transaction: "account_state_transaction",
+	Preference: "account_state_preference",
 }
 
 // RawMirror lists the tables that mirror upstream broker state and may be

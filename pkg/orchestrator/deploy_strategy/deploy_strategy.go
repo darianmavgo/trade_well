@@ -1,10 +1,10 @@
 // Package deploy_strategy puts one strategy row live: it adds the row to the strategy bundle,
 // ships a build that holds it, adds its id to STRATEGY_ALLOWLIST and restarts the service so the
-// new list is read. Every step is an existing tool (scripts/export_strategies.sh, go mod vendor,
+// new list is read. Every step is an existing tool (scripts/export_strategies.sh, go build,
 // deploy_gae/deploy.sh, strategy_allowlist), run in order, and each can be run again, so a
 // run that stops can be started again from the top.
 //
-// It needs the repository checkout, the sibling backtestgosqlite checkout, gcloud and the
+// It needs the repository checkout (the strategies database is its refdata/strategies.db), gcloud and the
 // project's credentials, so it runs from a developer machine and not on App Engine.
 package deploy_strategy
 
@@ -33,7 +33,7 @@ var rowTables = []string{"streak_strategy", "hold_strategy", "tree_strategy", "m
 type Options struct {
 	ID         string // the strategy row to deploy
 	Root       string // this repository (default: the current directory)
-	BacktestDB string // strategies.db the bundle is exported from (default: ../backtestgosqlite/refdata/strategies.db)
+	BacktestDB string // strategies.db the bundle is exported from (default: refdata/strategies.db in Root)
 	DryRun     bool   // check and print the plan, run no step
 	NoRestart  bool   // stop before the final restart deploy
 }
@@ -69,7 +69,6 @@ func Plan(root, id string, current, bundled []string, noRestart bool) (steps []S
 	checkEnv := []string{"APP_FOLDER=" + check, "STRATEGY_ALLOWLIST=" + strings.Join(liveList, ",")}
 	steps = []Step{
 		{Name: "export", Dir: root, Cmd: []string{"scripts/export_strategies.sh", strings.Join(exportList, ",")}, Note: "write the strategy bundle and models for the live list plus " + id},
-		{Name: "vendor", Dir: root, Cmd: []string{"go", "mod", "vendor"}, Note: "refresh vendor/ from the sibling checkouts"},
 		{Name: "build", Dir: root, Cmd: []string{"go", "build", "-o", "bin/orchestrator", "./cmd/orchestrator"}, Note: "build the binary that holds the new bundle"},
 		{Name: "check", Dir: root, Env: checkEnv, Cmd: []string{"bin/orchestrator", "ready", "--static"}, Note: "the new bundle must resolve every allowlist entry, " + id + " included"},
 		{Name: "deploy", Dir: root, Cmd: []string{"deploy_gae/deploy.sh"}, Note: "ship the bundle while the live list is unchanged, so no instance sees an entry it cannot resolve"},
@@ -82,6 +81,10 @@ func Plan(root, id string, current, bundled []string, noRestart bool) (steps []S
 	}
 	return steps, exportList, alreadyLive
 }
+
+// defaultRefPath is the strategies database the bundle is exported from: refdata/strategies.db in the
+// repository. (It used to be in a sibling backtestgosqlite checkout; that code is now pkg/backtest here.)
+func defaultRefPath(root string) string { return filepath.Join(root, "refdata", "strategies.db") }
 
 // flatten lists the strategy ids in allowlist entries, where a+b+c is a stack of three.
 func flatten(entries []string) []string {
@@ -109,7 +112,7 @@ func Run(ctx context.Context, out io.Writer, opts Options) error {
 	}
 	refPath := opts.BacktestDB
 	if refPath == "" {
-		refPath = filepath.Join(root, "..", "backtestgosqlite", "refdata", "strategies.db")
+		refPath = defaultRefPath(root)
 	}
 	fmt.Fprintf(out, "\n%s%s=== %s ===%s\n", jobenv.ColBold, jobenv.ColCyan, JobName, jobenv.ColReset)
 	jobenv.WriteMode(out, opts.DryRun)

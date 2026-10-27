@@ -40,7 +40,7 @@ Derived on 2026-10-26 from `cmd/orchestrator/main.go` (subcommands), `pkg/orches
 | **Configuration and strategy deployment** | | | |
 | Show or change `STRATEGY_ALLOWLIST` in the config object (`show`, `set`, `add`, `remove`) | `strategy_allowlist` | `GET /allowlist`, `POST /allowlist`; `GET /config` (config with secrets hidden, and a way to try a list before saving) | - |
 | What the process is running with (secrets masked), including `STRATEGY_ALLOWLIST` | - | `GET /env` | - |
-| Put one strategy row live: export the bundle, vendor, check, deploy, add it to the allowlist, restart | `deploy_strategy` (`--dry-run` prints the plan, `--no-restart` stops before the last deploy) | - | - |
+| Put one strategy row live: export the bundle, build, check, deploy, add it to the allowlist, restart | `deploy_strategy` (`--dry-run` prints the plan, `--no-restart` stops before the last deploy) | - | - |
 | **Operating the deployed service** | | | |
 | Board of every cron job: last run, duration, next slot. A Run button posts to `/ops/run`, which calls the same `/cron/<job>` handler a schedule uses | - | `GET /ops`, `POST /ops/run` | (calls the routes in the rows above) |
 | Trigger a job on the deployed service by hand with your Google ID token | `cron <job>` or `cron list` (`--url`, `--dry-run`) | - | calls `/cron/<job>` |

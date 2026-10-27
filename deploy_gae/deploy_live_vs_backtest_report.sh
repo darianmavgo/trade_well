@@ -15,10 +15,6 @@ fi
 PROJECT_ID="${GCP_PROJECT_ID:-trade-orchestrator-508722}"
 
 cd "$ROOT_DIR"
-export GOPRIVATE="github.com/darianmavgo/*"
-export GONOSUMDB="github.com/darianmavgo/*"
-export GONOPROXY="github.com/darianmavgo/*"
-go mod vendor
 
 gcloud app deploy \
   --appyaml="$SCRIPT_DIR/live_vs_backtest_report.yaml" \

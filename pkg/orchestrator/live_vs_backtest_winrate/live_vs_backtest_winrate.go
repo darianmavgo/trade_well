@@ -349,7 +349,7 @@ func Compare(ctx context.Context, db *sql.DB, opt Options) ([]Row, error) {
 	if err != nil {
 		return nil, err
 	}
-	cachePut(key, rows)
+	cachePut(key, db, rows)
 	return rows, nil
 }
 
@@ -525,7 +525,7 @@ func Recent(ctx context.Context, db *sql.DB, days int, maxAge time.Duration) ([]
 	if err != nil {
 		return nil, err
 	}
-	cachePut(key, trades)
+	cachePut(key, db, trades)
 	return trades, nil
 }
 
@@ -574,9 +574,13 @@ var results = struct {
 	m map[string]result
 }{m: map[string]result{}}
 
+// result is one remembered answer. It holds the database it was asked of: the key names a database by
+// its address, and an address can be reused once a database is freed, so keeping the database
+// reachable for as long as the answer is kept means no other database can ever get that address.
 type result struct {
 	at   time.Time
 	rows any
+	db   *sql.DB
 }
 
 // cacheKey scopes a question to the database it was asked of, so two databases in one process (as in
@@ -603,7 +607,7 @@ func cacheGet[T any](key string, maxAge time.Duration) ([]T, bool) {
 
 // cachePut stores rows under key and forgets anything older than an hour, so keys that are never
 // asked for again (a changed refdata file makes a new one) do not pile up.
-func cachePut[T any](key string, rows []T) {
+func cachePut[T any](key string, db *sql.DB, rows []T) {
 	results.Lock()
 	defer results.Unlock()
 	for k, r := range results.m {
@@ -611,7 +615,7 @@ func cachePut[T any](key string, rows []T) {
 			delete(results.m, k)
 		}
 	}
-	results.m[key] = result{at: time.Now(), rows: slices.Clone(rows)}
+	results.m[key] = result{at: time.Now(), rows: slices.Clone(rows), db: db}
 }
 
 // stageTables are the slice tables of the comparison, found in the embedded stage SQL plus the

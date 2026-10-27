@@ -32,10 +32,8 @@
 #   The report page reads the database and writes nothing to it. The trading
 #   service remains the writer.
 #
-# BUILD  deploy_live_local/build.sh vendors when needed, then
-#        GOFLAGS=-mod=vendor go build ./cmd/orchestrator (GAE's build).
-# RELOAD air rebuilds and restarts on changes under this repo, and (through a
-#        watcher) on changes in ../schwaber and ../backtestgosqlite.
+# BUILD  deploy_live_local/build.sh: go build ./cmd/orchestrator (GAE's build).
+# RELOAD air rebuilds and restarts on changes under this repo.
 #        --no-reload builds once and runs the binary.
 #
 # The report page does not call Schwab, so this script does not copy the
@@ -153,8 +151,8 @@ echo "  page     : http://localhost:$PORT  (DASHBOARD_USERNAME / DASHBOARD_PASSW
 
 if [ "$DRY" -eq 1 ]; then
   [ "$FRESH" -eq 1 ] && echo "[dry run] would delete $REPORT_FOLDER"
-  echo "[dry run] would: deploy_live_local/build.sh (go mod vendor if stale; GOFLAGS=-mod=vendor go build ./cmd/orchestrator)"
-  echo "[dry run] would write $RUN_APP and start $([ "$RELOAD" -eq 1 ] && echo "air -c deploy_report_local/air.toml + a sibling-repo watcher" || echo "it directly")"
+  echo "[dry run] would: deploy_live_local/build.sh (go build ./cmd/orchestrator)"
+  echo "[dry run] would write $RUN_APP and start $([ "$RELOAD" -eq 1 ] && echo "air -c deploy_report_local/air.toml" || echo "it directly")"
   echo "[dry run] the binary starts with no arguments"
   exit 0
 fi
@@ -185,7 +183,7 @@ if [ "$RELOAD" -eq 1 ]; then
   fi
 fi
 
-# --- 5. Build (vendors when needed) --------------------------------------------
+# --- 5. Build --------------------------------------------
 "$BUILD"
 BIN="$REPO_DIR/bin/orchestrator"
 
@@ -223,29 +221,14 @@ if [ "$RELOAD" -eq 0 ]; then
   exec "$RUN_APP"
 fi
 
-# --- 8. Hot reload: air for this repo, a watcher for the sibling repos --------
-STAMP="$HERE/.sibling-stamp"
-TRIGGER="$HERE/.sibling-changed"
-touch "$STAMP" "$TRIGGER"
-(
-  while sleep 2; do
-    if "$BUILD" --changed-since "$STAMP"; then
-      # air reacts to writes, not to touch (macOS reports that as an attribute change).
-      touch "$STAMP"
-      date +%s > "$TRIGGER"
-    fi
-  done
-) &
-WATCHER=$!
-
+# --- 8. Hot reload: air rebuilds and restarts on changes in this repo ---------
 cd "$REPO_DIR"
 # air runs in the background so a plain `kill` of this script reaches it too (a
 # terminal Ctrl-C already signals the whole process group). air stops the app
 # with SIGINT, which shuts it down cleanly.
 "$AIR_BIN" -c "$HERE/air.toml" &
 AIR=$!
-stop_all() { kill -INT "$AIR" 2>/dev/null || true; kill "$WATCHER" 2>/dev/null || true; }
+stop_all() { kill -INT "$AIR" 2>/dev/null || true; }
 trap stop_all INT TERM
-trap 'kill "$WATCHER" 2>/dev/null || true' EXIT
 wait "$AIR" || true
 wait "$AIR" 2>/dev/null || true

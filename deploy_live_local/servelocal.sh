@@ -23,10 +23,8 @@
 #   --fresh   delete that working folder first; the app places the bundled models again.
 #   --dry-run print the plan (variable names only, no values); run nothing.
 #
-# BUILD   deploy_live_local/build.sh: `go mod vendor` when stale, then
-#         `GOFLAGS=-mod=vendor go build ./cmd/orchestrator` (GAE's build).
-# RELOAD  air rebuilds on changes in this repo and (through a watcher) in ../schwaber and
-#         ../backtestgosqlite. --no-reload builds once and runs the binary.
+# BUILD   deploy_live_local/build.sh: `go build ./cmd/orchestrator` (GAE's build).
+# RELOAD  air rebuilds on changes in this repo. --no-reload builds once and runs the binary.
 #
 # NOT the same as GAE: no HTTPS in front; no scheduler (trigger a job with
 # ORCHESTRATOR_URL=http://localhost:8082 bin/orchestrator cron <job>); the Schwab OAuth
@@ -111,8 +109,8 @@ echo "  not passed: your shell environment (it would override live values)"
 
 if [ "$DRY" -eq 1 ]; then
   [ "$FRESH" -eq 1 ] && echo "[dry run] would delete $APP_FOLDER"
-  echo "[dry run] would: build.sh (go mod vendor if stale; GOFLAGS=-mod=vendor go build ./cmd/orchestrator)"
-  echo "[dry run] would write $RUN_APP and start $([ "$RELOAD" -eq 1 ] && echo "air -c deploy_live_local/air.toml + a sibling-repo watcher" || echo "it directly")"
+  echo "[dry run] would: build.sh (go build ./cmd/orchestrator)"
+  echo "[dry run] would write $RUN_APP and start $([ "$RELOAD" -eq 1 ] && echo "air -c deploy_live_local/air.toml" || echo "it directly")"
   exit 0
 fi
 
@@ -139,7 +137,7 @@ if [ "$RELOAD" -eq 1 ]; then
   fi
 fi
 
-# --- 4. Build (vendors when needed) --------------------------------------------
+# --- 4. Build --------------------------------------------
 "$BUILD"
 BIN="$REPO_DIR/bin/orchestrator"
 
@@ -184,25 +182,11 @@ if [ "$RELOAD" -eq 0 ]; then
   exec "$RUN_APP"
 fi
 
-# --- 7. Hot reload: air for this repo, a watcher for the sibling repos --------
-STAMP="$HERE/.sibling-stamp"
-TRIGGER="$HERE/.sibling-changed"
-touch "$STAMP" "$TRIGGER"
-(
-  while sleep 2; do
-    if "$BUILD" --changed-since "$STAMP"; then
-      touch "$STAMP"   # air reacts to writes, not touch, so also write the trigger
-      date +%s > "$TRIGGER"
-    fi
-  done
-) &
-WATCHER=$!
-
+# --- 7. Hot reload: air rebuilds and restarts on changes in this repo ---------
 cd "$REPO_DIR"
 "$AIR_BIN" -c "$HERE/air.toml" &
 AIR=$!
-stop_all() { kill -INT "$AIR" 2>/dev/null || true; kill "$WATCHER" 2>/dev/null || true; }
+stop_all() { kill -INT "$AIR" 2>/dev/null || true; }
 trap stop_all INT TERM
-trap 'kill "$WATCHER" 2>/dev/null || true' EXIT
 wait "$AIR" || true
 wait "$AIR" 2>/dev/null || true

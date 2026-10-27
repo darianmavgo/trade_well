@@ -41,7 +41,7 @@ Not a registry bug: `streak_strategy` is a `RowFamily`, so `strategy.Get` builds
 ```sh
 cd trade_orchestrator
 scripts/export_strategies.sh "streak-voo-buy-tecl+markov_model_amd+markov_model_lite+markov_model_mull,rotation-2x-sector-pairs-daily-limit95-tp3-sl5-hold2-pos20,streak-shpu-down3"
-go mod vendor                                   # BT is vendored; stale copies build silently
+# (historical: backtest was vendored then; it is now part of this module)
 go build ./... && go vet ./... && go test ./...
 deploy_gae/config.sh set STRATEGY_ALLOWLIST="<same value, tsll-daily-one-share included>"
 deploy_gae/deploy.sh

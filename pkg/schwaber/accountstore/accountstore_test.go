@@ -19,9 +19,9 @@ func openTest(t *testing.T) *sql.DB {
 	return db
 }
 
-func TestIngestWithCustomAndDefaultTables(t *testing.T) {
+func TestIngestWithMirrorAndCustomTables(t *testing.T) {
 	custom := Tables{Raw: "p_raw", Account: "p_acct", Position: "p_pos", Order: "p_ord", OrderLeg: "p_leg", Transaction: "p_tx", Preference: "p_pref"}
-	for name, tbl := range map[string]Tables{"default": Default, "custom": custom} {
+	for name, tbl := range map[string]Tables{"mirror": Mirror, "custom": custom} {
 		t.Run(name, func(t *testing.T) {
 			db := openTest(t)
 			s := New(tbl)
@@ -76,7 +76,7 @@ func TestIngestWithCustomAndDefaultTables(t *testing.T) {
 }
 
 func TestDiscardBuildsTablesWithoutDB(t *testing.T) {
-	s := New(Default)
+	s := New(Mirror)
 	tbl := s.ParseTransactions(Discard, "1", []byte(`[{"activityId":"a","netAmount":1.5}]`), time.Time{})
 	if len(tbl.Rows) != 1 {
 		t.Fatalf("rows = %v", tbl.Rows)

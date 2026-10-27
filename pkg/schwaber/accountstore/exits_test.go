@@ -9,7 +9,7 @@ import (
 func exitsDB(t *testing.T, positions string) (*Store, *sql.DB) {
 	t.Helper()
 	db := openTest(t)
-	s := New(Default)
+	s := New(Mirror)
 	if err := s.EnsureSchema(db); err != nil {
 		t.Fatal(err)
 	}
@@ -19,7 +19,7 @@ func exitsDB(t *testing.T, positions string) (*Store, *sql.DB) {
 
 func exitsOf(t *testing.T, db *sql.DB, acc, sym string) (pt, sl sql.NullFloat64) {
 	t.Helper()
-	if err := db.QueryRow(`SELECT profit_taker, stop_loss FROM positions WHERE account_number = ? AND symbol = ?`, acc, sym).Scan(&pt, &sl); err != nil {
+	if err := db.QueryRow(`SELECT profit_taker, stop_loss FROM account_state_position WHERE account_number = ? AND symbol = ?`, acc, sym).Scan(&pt, &sl); err != nil {
 		t.Fatalf("%s %s: %v", acc, sym, err)
 	}
 	return pt, sl
@@ -123,17 +123,17 @@ func TestACancelledExitDisappearsAndOtherAccountsAreLeftAlone(t *testing.T) {
 	want(t, "222 profit_taker is untouched", pt, 12.34)
 }
 
-// A positions table created before these columns existed keeps its rows and gains them.
+// An account_state_position table created before these columns existed keeps its rows and gains them.
 func TestEnsureSchemaUpgradesAnOldPositionsTable(t *testing.T) {
 	db := openTest(t)
-	if _, err := db.Exec(`CREATE TABLE positions (
+	if _, err := db.Exec(`CREATE TABLE account_state_position (
 		id INTEGER PRIMARY KEY AUTOINCREMENT, account_number TEXT NOT NULL, symbol TEXT NOT NULL, asset_type TEXT, cusip TEXT,
 		long_quantity REAL, short_quantity REAL, average_price REAL, market_value REAL, current_day_pl REAL, current_day_pl_pct REAL,
 		settled_long_qty REAL, settled_short_qty REAL, raw_json TEXT, fetched_at DATETIME NOT NULL, UNIQUE(account_number, symbol, asset_type));
-		INSERT INTO positions (account_number, symbol, asset_type, long_quantity, fetched_at) VALUES ('111','TSLL','EQUITY',1,'2026-09-23 00:00:00')`); err != nil {
+		INSERT INTO account_state_position (account_number, symbol, asset_type, long_quantity, fetched_at) VALUES ('111','TSLL','EQUITY',1,'2026-09-23 00:00:00')`); err != nil {
 		t.Fatal(err)
 	}
-	s := New(Default)
+	s := New(Mirror)
 	if err := s.EnsureSchema(db); err != nil {
 		t.Fatalf("upgrade: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestEnsureSchemaUpgradesAnOldPositionsTable(t *testing.T) {
 	none(t, "old row profit_taker", pt)
 	none(t, "old row stop_loss", sl)
 	var exit sql.NullString
-	if err := db.QueryRow(`SELECT exit_date FROM positions WHERE symbol = 'TSLL'`).Scan(&exit); err != nil || exit.Valid {
+	if err := db.QueryRow(`SELECT exit_date FROM account_state_position WHERE symbol = 'TSLL'`).Scan(&exit); err != nil || exit.Valid {
 		t.Errorf("an old row must gain a NULL exit_date column: %+v (err %v)", exit, err)
 	}
 	s.ParseOrders(db, "111", []byte(filledBracket), time.Now().UTC())
@@ -173,14 +173,14 @@ func TestPositionExitsTableShowsNoneWhereSchwabHoldsNoExit(t *testing.T) {
 	if tbl.Columns[8] != "profit_taker" || tbl.Columns[9] != "stop_loss" || tbl.Columns[10] != "exit_date" || tbl.Columns[0] != "account_number" || tbl.Columns[7] != "current_day_pl" {
 		t.Errorf("columns = %v: the exits go after the columns the page always showed", tbl.Columns)
 	}
-	if tbl.Name != Default.Position || tbl.Label != "Positions" {
+	if tbl.Name != Mirror.Position || tbl.Label != "Positions" {
 		t.Errorf("name/label = %q/%q", tbl.Name, tbl.Label)
 	}
 }
 
 // Building a display table must not need a database.
 func TestParseOrdersWithDiscardStillWorks(t *testing.T) {
-	s := New(Default)
+	s := New(Mirror)
 	tbl := s.ParseOrders(Discard, "111", []byte(filledBracket), time.Now().UTC())
 	if len(tbl.Rows) != 1 {
 		t.Errorf("rows = %v", tbl.Rows)
@@ -199,7 +199,7 @@ func TestPlannedExitDatesAreSuppliedAndClearedPerAccount(t *testing.T) {
 	s.SetPositionExitDates(db, []string{"111", "222"}, dates)
 	get := func(acc, sym string) sql.NullString {
 		var d sql.NullString
-		if err := db.QueryRow(`SELECT exit_date FROM positions WHERE account_number = ? AND symbol = ?`, acc, sym).Scan(&d); err != nil {
+		if err := db.QueryRow(`SELECT exit_date FROM account_state_position WHERE account_number = ? AND symbol = ?`, acc, sym).Scan(&d); err != nil {
 			t.Fatal(err)
 		}
 		return d

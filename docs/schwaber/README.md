@@ -11,7 +11,7 @@ A robust, safety-first Go trading toolkit and data engine for the **Charles Schw
 - ⚡ **Go Native**: Blazing fast, statically typed, single-binary CLI.
 - 🌐 **Direct Official Schwab API**: No third-party wrapper dependencies; direct HTTPS REST calls to official Charles Schwab endpoints (`trader/v1`, `marketdata/v1`, `oauth`).
 - 💾 **Turso Data Ingestion (`listall`)**: Reads complete data across all linked accounts and persists accounts, positions, 60-day order histories, transaction logs, and user preferences into the Turso database.
-- 🗄️ **Auditable Raw Data**: Captures exact HTTP payloads and response codes in `raw_responses` table for full trade auditing.
+- 🗄️ **Auditable Raw Data**: Captures exact HTTP payloads and response codes in the `account_state_raw_response` table for full trade auditing.
 - 🔐 **Automated Token Management**: Native OAuth2 lifecycle management with token persistence and automated refresh via HTTP Basic Auth against `api.schwabapi.com/v1/oauth/token`.
 - 🛡️ **Roth IRA Safety Guardrails**:
   - Pre-trade cash & buying power verification (prevents overdrafts).
@@ -57,17 +57,17 @@ Fetches all linked account numbers, hashes, balances, open positions, 60-day ord
 ```
 
 #### Schema Overview (Turso, SQLite dialect)
-- `accounts`: Account numbers, hashes, cash balances, buying power, liquidation values, day trader status.
-- `positions`: Long/short quantities, average execution price, market value, current-day P/L ($ and %), settled shares.
-- `orders`: Order ID, session, duration, strategy types (Single, OCO, Trigger), prices, quantities, statuses.
-- `order_legs`: Individual order legs, instructions (BUY/SELL), symbols, and asset types.
-- `transactions`: Activity IDs, trade and settlement dates, net amounts, and transaction descriptions.
-- `user_preferences`: Streamer WebSocket configurations, correlation IDs, channels, and function IDs.
-- `raw_responses`: Raw JSON payloads and HTTP status codes for complete auditing.
+- `account_state_account`: Account numbers, hashes, cash balances, buying power, liquidation values, day trader status.
+- `account_state_position`: Long/short quantities, average execution price, market value, current-day P/L ($ and %), settled shares.
+- `account_state_order`: Order ID, session, duration, strategy types (Single, OCO, Trigger), prices, quantities, statuses.
+- `account_state_order_leg`: Individual order legs, instructions (BUY/SELL), symbols, and asset types.
+- `account_state_transaction`: Activity IDs, trade and settlement dates, net amounts, and transaction descriptions.
+- `account_state_preference`: Streamer WebSocket configurations, correlation IDs, channels, and function IDs.
+- `account_state_raw_response`: Raw JSON payloads and HTTP status codes for complete auditing.
 
 Query your local database anytime:
 ```bash
-turso db shell <db> "SELECT symbol, long_quantity, average_price, market_value, current_day_pl FROM positions;"
+turso db shell <db> "SELECT symbol, long_quantity, average_price, market_value, current_day_pl FROM account_state_position;"
 ```
 
 ### 2. Authenticate (One-time Setup)
@@ -117,7 +117,7 @@ Everything reusable lives in `pkg/`. `cmd/schwaber` and `trade_orchestrator` are
 | `schwab` | The official Charles Schwab API client (`trader/v1`, OAuth). Loads and refreshes the token under a file lock, retries once on 401, lists and reads accounts, orders and quotes, and places orders. `PlaceOrder` is idempotent (see `orderintent` below). Also holds the Schwab types (`Order`, `Quote`, `Account`, `FlexTime`), `ConfirmPlacedOrder` (polls the real order status after a 201), `IsReauthRequired` and `IsPermanentAuthError`. |
 | `trader` | Trading logic on top of `schwab`. `TraderClient` resolves configured accounts (`GetAccounts`, `FilterLinkedAccounts`), parses balances and positions, builds order specs (single order and 1st-triggers-OCO bracket, with the -20% crisis stop when a strategy has none), and runs the pre-trade `SafetyGuard` (buying power on buys, a buy with no reported buying power is refused, held quantity on sells, no short selling, and a price collar: a limit more than `PRICE_COLLAR_WARN_PCT` (default `0.5`) from the market warns, more than `PRICE_COLLAR_REJECT_PCT` (default `1.0`) is refused; `0` turns a step off). Also HTTP request/response logging. |
 | `orderintent` | Durable "about to place" records. A live order writes an `order_intents` row before the HTTP call, keyed by a deterministic client order id, and reconciles unresolved rows against the broker, so a crash or timeout cannot double-place an order. |
-| `accountstore` | Mirrors Schwab accounts, positions, orders, transactions and user preferences into the shared database. The table names are a parameter: `schwaber listall` uses the defaults (`accounts`, `positions`, ...) and `trade_orchestrator` uses its own `account_state_*` names. Also builds the display tables and the ingestion summary. |
+| `accountstore` | Mirrors Schwab accounts, positions, orders, transactions and user preferences into the shared database. The table names are a parameter (`Tables`); `schwaber listall` and the orchestrator both use `accountstore.Mirror`, the `account_state_*` names. Also builds the display tables and the ingestion summary. |
 | `tokensync` | The one place the Schwab token is synced to and from GCS (`gs://$GCS_BUCKET/schwab-token/<env>.json`). Pulls only when the remote token is strictly newer, pushes after every save, and exposes `Push` and `GCSAccessToken`. |
 | `oauthcli` | The interactive OAuth authorization-code flow for a terminal: prints the authorize URL, reads the pasted redirect, exchanges it for tokens, and lists the linked accounts. Used by `schwaber auth` and `orchestrator auth`. |
 | `oauthhttp` | The same OAuth flow as HTTP routes (`/auth/schwab`, `/auth/schwab/callback`) for a server such as App Engine. The start route needs the dashboard Basic Auth. |

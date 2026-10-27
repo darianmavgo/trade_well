@@ -14,14 +14,10 @@ runtime: go126
 # Buildpack compiles GOOGLE_BUILDABLE to a binary named `main`.
 entrypoint: main
 
-# Private Go modules (schwaber). Deploy script vendors; build uses -mod=vendor.
+# Every Go dependency is a public module, so Cloud Build downloads them itself; there is no vendor/.
 build_env_variables:
   # Main is cmd/orchestrator (same binary as the CLI; detects GAE and serves HTTP).
   GOOGLE_BUILDABLE: "./cmd/orchestrator"
-  GOFLAGS: "-mod=vendor"
-  GOPRIVATE: "github.com/darianmavgo/*"
-  GONOSUMDB: "github.com/darianmavgo/*"
-  GONOPROXY: "github.com/darianmavgo/*"
 
 # No env_variables: the app's whole configuration (secrets and settings alike, including
 # STRATEGY_ALLOWLIST and the Turso URL/token) lives in ONE object, gs://<bucket>/config/env.
