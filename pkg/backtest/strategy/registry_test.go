@@ -5,12 +5,9 @@ import (
 )
 
 func TestAllStrategiesHaveAllocationPct(t *testing.T) {
-	strats := List()
-	if len(strats) == 0 {
-		t.Fatalf("No strategies registered")
-	}
-
-	for _, s := range strats {
+	// Every strategy is a row of a family now, so this package registers none of its own; a
+	// strategy registered here must still be sized sensibly.
+	for _, s := range List() {
 		cfg := s.DefaultConfig()
 		maxAlloc := 1.0
 		if cfg.UseMargin && cfg.MarginLeverage > 1.0 {

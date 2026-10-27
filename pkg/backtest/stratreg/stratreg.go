@@ -6,6 +6,7 @@ import (
 	"github.com/darianmavgo/trade_well/pkg/backtest/hmm_strategy"
 	"github.com/darianmavgo/trade_well/pkg/backtest/hold_strategy"
 	"github.com/darianmavgo/trade_well/pkg/backtest/markov_strategy"
+	"github.com/darianmavgo/trade_well/pkg/backtest/price_action_reclaim_strategy"
 	"github.com/darianmavgo/trade_well/pkg/backtest/rotation_strategy"
 	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
 	"github.com/darianmavgo/trade_well/pkg/backtest/streak_strategy"
@@ -31,10 +32,11 @@ func RegisterFamiliesAt(path string) {
 	markov_strategy.RegisterFrom(path)
 	hmm_strategy.RegisterFrom(path)
 	rotation_strategy.RegisterFrom(path)
+	price_action_reclaim_strategy.RegisterFrom(path)
 }
 
 // RegisterFamilies registers the row-backed families (streak, tree, hold,
-// markov, hmm, rotation). It reads no rows: a member is built when strategy.Get asks.
+// markov, hmm, rotation, price_action_reclaim). It reads no rows: a member is built when strategy.Get asks.
 func RegisterFamilies() {
 	streak_strategy.Register()
 	tree_strategy.Register()
@@ -42,4 +44,5 @@ func RegisterFamilies() {
 	markov_strategy.Register()
 	hmm_strategy.Register()
 	rotation_strategy.Register()
+	price_action_reclaim_strategy.Register()
 }

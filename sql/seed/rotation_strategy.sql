@@ -1,12 +1,11 @@
 -- Rotation rows for refdata/strategies.db. Re-runnable: it replaces these ids only.
 --
---   sqlite3 refdata/strategies.db \
---     -cmd "attach 'rotation_candidates.db' as cand" < sql/seed/rotation_strategy.sql
+--   sqlite3 refdata/strategies.db < sql/seed/rotation_strategy.sql
 --
--- cand.rotation_candidates comes from sql/studies/omnifunds_reverse/06_candidates.sql
--- (every symbol that was ever one of the 1,000 most liquid at a close). Each row
--- carries that list in `symbols`, because the runner loads bars only for the
--- symbols a strategy names. The ranking inside the strategy is point in time.
+-- Needs the symbol list rotation-candidates, which `strategy rotation_universe` writes (the
+-- stage sql/stages/rotation_universe): every symbol that was ever one of the 1000 most liquid at
+-- a close. A row names the list in `symbols`, and the runner loads bars for the symbols a
+-- strategy names. The ranking inside the strategy is point in time.
 --
 -- Columns: universe_size = names ranked each session (most liquid first),
 -- top_k = names held, exit_buffer = a held name is sold once ranked worse than
@@ -29,6 +28,6 @@ WITH spec(id, name, top_k, exit_buffer, max_weight_pct, regime_sma) AS (VALUES
 )
 INSERT OR REPLACE INTO rotation_strategy
     (id, name, symbols, universe_size, top_k, exit_buffer, max_weight_pct, regime_symbol, regime_sma, allocation_pct, cash_yield, slippage_pct)
-SELECT id, name, (SELECT group_concat(symbol, ',') FROM (SELECT symbol FROM cand.rotation_candidates ORDER BY symbol)),
+SELECT id, name, 'rotation-candidates',
        1000, top_k, exit_buffer, max_weight_pct, 'QQQ', regime_sma, 1.0, 0, 0.0005
 FROM spec;

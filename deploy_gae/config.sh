@@ -82,7 +82,7 @@ case "$cmd" in
     # `strategy export -models-out` in backtestgosqlite (which also bundles its trained markov/tree models). mara_tree and pdd_tree are not bundled yet.
     # This line only seeds a NEW config object. The live value is in the object itself:
     #   deploy_gae/config.sh set STRATEGY_ALLOWLIST="<same value>"
-    set_kv "$WORK" STRATEGY_ALLOWLIST "streak-voo-buy-tecl+markov_model_amd+markov_model_lite+markov_model_mull,tsll-daily-one-share,rotation-2x-sector-pairs-daily-limit95-tp3-sl5-hold2-pos20"
+    set_kv "$WORK" STRATEGY_ALLOWLIST "streak-voo-buy-tecl+markov_model_amd+markov_model_lite+markov_model_mull,rotation-2x-sector-pairs-daily-limit95-tp3-sl5-hold2-pos20"
     upload "$WORK"
     echo "wrote $OBJ: $(key_names <"$WORK" | wc -l | tr -d ' ') variable(s):"
     key_names <"$WORK" | sed 's/^/  /'

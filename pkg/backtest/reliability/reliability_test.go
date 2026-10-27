@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/darianmavgo/trade_well/pkg/backtest/hold_strategy"
 	"github.com/darianmavgo/trade_well/pkg/backtest/models"
 	"github.com/darianmavgo/trade_well/pkg/backtest/storage"
 	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
@@ -62,7 +63,7 @@ func market(t *testing.T, hourly bool) string {
 
 func input(db string, trades []models.Trade) Input {
 	return Input{
-		MarketDB: db, Table: "backtest_start", Strategy: strategy.NewPark("AAA"),
+		MarketDB: db, Table: "backtest_start", Strategy: hold_strategy.NewPark("AAA"),
 		Config:        strategy.StrategyConfig{EntryLimitPct: 0.95},
 		Trades:        trades,
 		Report:        models.PerformanceReport{StartDate: "2021-03-01", EndDate: "2021-03-03", TotalTrades: len(trades)},

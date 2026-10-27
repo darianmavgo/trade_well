@@ -60,11 +60,6 @@ func Get(id string) (Strategy, bool) {
 		return s, true
 	}
 
-	// 4. Park members (park-<symbol>) exist for every symbol, unregistered.
-	if s, ok := parkFromID(id); ok {
-		return s, true
-	}
-
 	return nil, false
 }
 

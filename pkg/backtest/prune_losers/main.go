@@ -32,6 +32,7 @@ const MaxWorkers = lastbacktest.MaxWorkers
 var familyTables = []string{
 	"streak_strategy", "hold_strategy",
 	"tree_strategy", "markov_strategy", "hmm_strategy", "rotation_strategy",
+	"price_action_reclaim_strategy",
 }
 
 // Config holds the settings of a run.

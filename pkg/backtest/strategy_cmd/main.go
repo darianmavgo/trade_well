@@ -8,6 +8,7 @@
 //	strategy derive          copy a rotation row with a sweep's parameter set and/or a position size
 //	strategy seed            write a table's schema and rows as a seed SQL file
 //	strategy defaults        make one gridsearch row's hold, take-profit and stop-loss the strategy row's defaults
+//	strategy rotation_universe  rank the liquid universe point in time and store the rotation candidate symbols as a symbol list
 package strategy_cmd
 
 import (
@@ -31,7 +32,7 @@ import (
 
 // Main is the CLI entry point of cmd/strategy.
 func Main() {
-	switch cliutils.PopSubcommand(map[string]string{"export": "export", "derive": "derive", "coverage": "coverage", "defaults": "defaults", "seed": "seed"}) {
+	switch cliutils.PopSubcommand(map[string]string{"export": "export", "derive": "derive", "coverage": "coverage", "defaults": "defaults", "seed": "seed", "rotation_universe": "rotation_universe"}) {
 	case "export":
 		export()
 	case "derive":
@@ -42,6 +43,8 @@ func Main() {
 		defaultsMain()
 	case "seed":
 		seedMain()
+	case "rotation_universe":
+		rotationUniverseMain()
 	default:
 		list()
 	}

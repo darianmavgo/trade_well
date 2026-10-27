@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/darianmavgo/trade_well/pkg/backtest/hold_strategy"
 	"github.com/darianmavgo/trade_well/pkg/backtest/storage"
 	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
 )
@@ -24,7 +25,7 @@ func TestSplitByDataSeparatesStrategiesWithoutBars(t *testing.T) {
 	}
 	db.Close()
 
-	strats := []strategy.Strategy{strategy.NewPark("TECL"), strategy.NewPark("ZZZ-PA"), strategy.NewPark("SPY")}
+	strats := []strategy.Strategy{hold_strategy.NewPark("TECL"), hold_strategy.NewPark("ZZZ-PA"), hold_strategy.NewPark("SPY")}
 	have, lacking, missing, err := SplitByData(path, "backtest_start", strats, "")
 	if err != nil {
 		t.Fatal(err)

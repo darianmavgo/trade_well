@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/darianmavgo/trade_well/pkg/backtest/hold_strategy"
 	"github.com/darianmavgo/trade_well/pkg/backtest/runner"
 	"github.com/darianmavgo/trade_well/pkg/backtest/storage"
 	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
@@ -50,7 +51,7 @@ func TestDetectAndDownloadMissingData_Disabled(t *testing.T) {
 	}
 	db.Close()
 
-	comboStrat := strategy.NewPark("TECL")
+	comboStrat := hold_strategy.NewPark("TECL")
 	err = runner.DetectAndDownloadMissingData(dbPath, tableName, []strategy.Strategy{comboStrat}, "", false, 5)
 	if err == nil {
 		t.Fatalf("expected error when autoDownload=false and data missing, got nil")

@@ -160,33 +160,3 @@ func TestSizingHonorsFixedSharesAndFixedDollar(t *testing.T) {
 		t.Errorf("percent-of-equity strategy should still size by allocation, got %v", qty["pct"])
 	}
 }
-
-func TestRunJobSizesTSLLSmokeTestToOneShare(t *testing.T) {
-	e := newJobEnv(t, "2026-09-24")
-	tsll, ok := strategy.Get("tsll-daily-one-share")
-	if !ok {
-		t.Fatal("tsll-daily-one-share not registered")
-	}
-	if _, err := e.db.Exec(`DELETE FROM scan_market_buy_signal`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := scan_market.InsertBuySignal(e.db, &scan_market.BuySignal{
-		ScanRunID: "20260923T220000Z", StackID: "tsll-daily-one-share", StrategyID: "tsll-daily-one-share", Symbol: "TSLL",
-		Direction: "LONG", AsOfDate: "2026-09-23", NextSession: "2026-09-24", Price: 10.30, Close: 10.30, BuyLimit: 10.30,
-		TakeProfit: 10.815, StopLoss: 8.24, AllocationPct: 1.0, HoldDays: 1,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	res, err := RunJob(context.Background(), e.db, []*trader.ResolvedAccount{e.acc},
-		JobOptions{Members: map[string]strategy.Strategy{"tsll-daily-one-share": tsll}, Now: time.Date(2026, 9, 23, 23, 0, 0, 0, time.UTC)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if res.Staged != 1 {
-		t.Fatalf("staged=%d (%v)", res.Staged, res.Details)
-	}
-	var qty float64
-	if err := e.db.QueryRow(`SELECT quantity FROM stage_order WHERE symbol='TSLL'`).Scan(&qty); err != nil || qty != 1 {
-		t.Fatalf("TSLL stage_order quantity = %v (err %v), want exactly 1", qty, err)
-	}
-}

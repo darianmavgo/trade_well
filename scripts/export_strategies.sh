@@ -17,14 +17,14 @@ bt=""                          # code that runs `strategy export`
 data_root="$bt"                            # and the strategies.db and trained models it reads
 allow="${1:-$(sed -n 's/.*set_kv "\$WORK" STRATEGY_ALLOWLIST "\(.*\)"$/\1/p' "$here/deploy_gae/config.sh")}"
 [ -n "$allow" ] || { echo "no allowlist given and none found in deploy_gae/config.sh" >&2; exit 1; }
-# Strategies with their own Go/SQL pipeline (tsll-daily-one-share) are not rows and ship in
-# the binary, and `strategy export` rejects them, so keep only the entries made of rows.
+# `strategy export` rejects an id that is not a row of a strategy table, so keep only the
+# entries made of rows.
 ref="$data_root/refdata/strategies.db"
 rows=()
 for entry in ${allow//,/ }; do
   ok=1
   for id in ${entry//+/ }; do
-    n=$(sqlite3 "$ref" "SELECT (SELECT count(*) FROM streak_strategy WHERE id='$id')+(SELECT count(*) FROM markov_strategy WHERE id='$id')+(SELECT count(*) FROM hmm_strategy WHERE id='$id')+(SELECT count(*) FROM tree_strategy WHERE id='$id')+(SELECT count(*) FROM hold_strategy WHERE id='$id')+(SELECT count(*) FROM rotation_strategy WHERE id='$id')")
+    n=$(sqlite3 "$ref" "SELECT (SELECT count(*) FROM streak_strategy WHERE id='$id')+(SELECT count(*) FROM markov_strategy WHERE id='$id')+(SELECT count(*) FROM hmm_strategy WHERE id='$id')+(SELECT count(*) FROM tree_strategy WHERE id='$id')+(SELECT count(*) FROM hold_strategy WHERE id='$id')+(SELECT count(*) FROM rotation_strategy WHERE id='$id')+(SELECT count(*) FROM price_action_reclaim_strategy WHERE id='$id')")
     [ "$n" -gt 0 ] || ok=0
   done
   if [ "$ok" = 1 ]; then rows+=("$entry"); else echo "not a row, left out of the bundle: $entry"; fi

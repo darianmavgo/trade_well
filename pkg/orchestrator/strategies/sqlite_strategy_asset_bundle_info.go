@@ -48,7 +48,7 @@ func ReadBundledStrategyAssetInfo() (BundledAssetInfo, error) {
 		return info, err
 	}
 	defer db.Close()
-	for _, table := range []string{"streak_strategy", "tree_strategy", "hold_strategy", "markov_strategy", "hmm_strategy", "rotation_strategy"} {
+	for _, table := range []string{"streak_strategy", "tree_strategy", "hold_strategy", "markov_strategy", "hmm_strategy", "rotation_strategy", "price_action_reclaim_strategy"} {
 		// A bundle exported before a family existed has no table for it, and so no rows.
 		var have int
 		if err := db.QueryRow(orchestratorsql.Q("strategies/read_bundled_strategy_asset_info"), table).Scan(&have); err != nil {

@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/darianmavgo/trade_well/pkg/backtest/hold_strategy"
 	"github.com/darianmavgo/trade_well/pkg/backtest/models"
+	"github.com/darianmavgo/trade_well/pkg/backtest/refdb"
 	"github.com/darianmavgo/trade_well/pkg/backtest/storage"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/account_state"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/manage_exits"
@@ -43,8 +45,8 @@ func TestRunReconcilesAFilledTradeAndADismissedSignal(t *testing.T) {
 			{Symbol: "TSLL", Date: "2026-09-25", Open: 10.05, High: 10.3, Low: 9.9, Close: 10.2, Volume: 1000},
 		},
 	}
-	// tsll-daily-one-share calculates its signals in SQL from a market database, so write the
-	// same bars into a real one.
+	// hold-tsll calculates its signals in SQL from a market database, so write the same bars into a
+	// real one, and register the family that reads the row below.
 	marketDB := filepath.Join(t.TempDir(), "market.db")
 	market, err := storage.OpenSQLite(marketDB)
 	if err != nil {
@@ -57,6 +59,27 @@ func TestRunReconcilesAFilledTradeAndADismissedSignal(t *testing.T) {
 	if err := storage.UpsertBars(market, "backtest_start", bars["TSLL"]); err != nil {
 		t.Fatal(err)
 	}
+	// A one-day hold of TSLL that enters on the first bar, as the live book did.
+	refPath := filepath.Join(t.TempDir(), "strategies.db")
+	ref, err := refdb.Open(refPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ref.Exec(`CREATE TABLE hold_strategy (
+		id TEXT PRIMARY KEY, name TEXT NOT NULL, symbol TEXT NOT NULL, total_return INTEGER NOT NULL DEFAULT 0,
+		allocation_pct REAL NOT NULL, cash_yield REAL NOT NULL, slippage_pct REAL NOT NULL,
+		trailing_stop_pct REAL NOT NULL DEFAULT 0, sma_reentry_period INTEGER NOT NULL DEFAULT 0,
+		regime_symbol TEXT NOT NULL DEFAULT '', hold_days INTEGER NOT NULL DEFAULT 99999,
+		take_profit_pct REAL NOT NULL DEFAULT 0, stop_loss_pct REAL NOT NULL DEFAULT 0,
+		covered_call_otm_pct REAL NOT NULL DEFAULT 0)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ref.Exec(`INSERT INTO hold_strategy (id, name, symbol, allocation_pct, cash_yield, slippage_pct, take_profit_pct, stop_loss_pct, hold_days)
+		VALUES ('hold-tsll', 'Hold TSLL one day', 'TSLL', 1, 0, 0, 0.05, 0.2, 1)`); err != nil {
+		t.Fatal(err)
+	}
+	ref.Close()
+	hold_strategy.RegisterFrom(refPath)
 	res, err := Run(context.Background(), db, "", marketDB, bars)
 	if err != nil {
 		t.Fatal(err)
@@ -114,7 +137,7 @@ func seedLiveBook(t *testing.T, db *sql.DB) {
 	res, err := db.Exec(`INSERT INTO stage_order (
 		account_number, strategy_name, symbol, quantity, entry_price, take_profit_price, stop_loss_price,
 		max_trading_days, status, order_id, staged_at
-	) VALUES ('1', 'tsll-daily-one-share', 'TSLL', 1, 10, 10.5, 8, 1, 'SUBMITTED', '55', '2026-09-24')`)
+	) VALUES ('1', 'hold-tsll', 'TSLL', 1, 10, 10.5, 8, 1, 'SUBMITTED', '55', '2026-09-24')`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,19 +148,19 @@ func seedLiveBook(t *testing.T, db *sql.DB) {
 	if _, err := db.Exec(`INSERT INTO scan_market_buy_signal (
 		scan_run_id, strategy_id, symbol, as_of_date, next_session, close, buy_limit,
 		take_profit, stop_loss, hold_days, status, staged_order_id, notes, created_at
-	) VALUES ('t', 'tsll-daily-one-share', 'TSLL', '2026-09-24', '2026-09-25', 10, 10, 10.5, 8, 1, 'STAGED', ?, '', '2026-09-24')`, stageID); err != nil {
+	) VALUES ('t', 'hold-tsll', 'TSLL', '2026-09-24', '2026-09-25', 10, 10, 10.5, 8, 1, 'STAGED', ?, '', '2026-09-24')`, stageID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO scan_market_buy_signal (
 		scan_run_id, strategy_id, symbol, as_of_date, next_session, close, buy_limit,
 		take_profit, stop_loss, hold_days, status, notes, created_at
-	) VALUES ('t', 'tsll-daily-one-share', 'TSLL', '2026-09-23', '2026-09-24', 10, 10, 10.5, 8, 1, 'DISMISSED', 'no cash', '2026-09-23')`); err != nil {
+	) VALUES ('t', 'hold-tsll', 'TSLL', '2026-09-23', '2026-09-24', 10, 10, 10.5, 8, 1, 'DISMISSED', 'no cash', '2026-09-23')`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO manage_exit (
 		account_number, symbol, strategy_name, entry_order_id, entry_price, target_profit_price,
 		quantity, entry_time, max_trading_days, status, exit_reason_code, entry_filled_at, exit_date
-	) VALUES ('1', 'TSLL', 'tsll-daily-one-share', '55', 10, 10.5, 1, '2026-09-25T14:30:00Z', 1, 'CLOSED_TIME_EXPIRATION', 'TIME_UP', '2026-09-25T14:30:00Z', '2026-09-25')`); err != nil {
+	) VALUES ('1', 'TSLL', 'hold-tsll', '55', 10, 10.5, 1, '2026-09-25T14:30:00Z', 1, 'CLOSED_TIME_EXPIRATION', 'TIME_UP', '2026-09-25T14:30:00Z', '2026-09-25')`); err != nil {
 		t.Fatal(err)
 	}
 	raw := `{

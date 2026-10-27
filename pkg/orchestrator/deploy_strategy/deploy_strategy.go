@@ -27,7 +27,7 @@ import (
 const JobName = "deploy_strategy"
 
 // rowTables are the strategy tables a row can be in.
-var rowTables = []string{"streak_strategy", "hold_strategy", "tree_strategy", "markov_strategy", "hmm_strategy", "rotation_strategy"}
+var rowTables = []string{"streak_strategy", "hold_strategy", "tree_strategy", "markov_strategy", "hmm_strategy", "rotation_strategy", "price_action_reclaim_strategy"}
 
 // Options are the inputs to the job.
 type Options struct {

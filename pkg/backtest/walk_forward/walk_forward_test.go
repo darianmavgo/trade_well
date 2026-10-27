@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/darianmavgo/trade_well/pkg/backtest/hold_strategy"
 	"github.com/darianmavgo/trade_well/pkg/backtest/models"
-	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
+	"github.com/darianmavgo/trade_well/pkg/backtest/refdb"
 	_ "modernc.org/sqlite"
 )
 
@@ -38,10 +39,7 @@ func TestFoldsRollMonthly(t *testing.T) {
 }
 
 func TestRunStrategyWritesSummary(t *testing.T) {
-	strat, ok := strategy.Get("tsll-daily-one-share")
-	if !ok {
-		t.Fatal("tsll-daily-one-share is not registered")
-	}
+	strat := &hold_strategy.Strategy{Row: refdb.HoldStrategy{ID: "hold-tsll", Name: "Hold TSLL", Symbol: "TSLL", AllocationPct: 1}}
 	var bars []models.Bar
 	d := time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)
 	px := 20.0
@@ -59,7 +57,7 @@ func TestRunStrategyWritesSummary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) == 0 || rows[0].StrategyID != "tsll-daily-one-share" {
+	if len(rows) == 0 || rows[0].StrategyID != "hold-tsll" {
 		t.Fatalf("rows = %+v", rows)
 	}
 	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "wf.db"))

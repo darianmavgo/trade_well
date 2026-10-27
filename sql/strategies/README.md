@@ -4,11 +4,11 @@ Every strategy is calculated here in SQL and run by Go. A folder under `sql/stra
 
 ## Directory Structure
 
-1. Register the strategy config in `pkg/backtest/strategy`.
-2. Add `sql/strategies/<id>/` with `.sql` files that run in name order (`01_schema.sql`, `02_calc_signals.sql`, …).
+1. Add a family table (see `price_action_reclaim_strategy` for the newest) and a `pkg/backtest/<family>_strategy` package that builds a row's config and calls `strategy.RunPipeline`.
+2. Add `sql/strategies/<family>_strategy/` with `.sql` files that run in name order (`01_schema.sql`, `02_calc_signals.sql`, …).
 3. `GenerateSignals` runs that pipeline when the market and calc databases are set.
 
-A folder with no registered strategy is not run. `AutoRegisterSQLStrategies` still inserts a `<dir>-sql` lookup for a folder that already has an owner. That id is the same pipeline; run the owner id.
+A folder that no family runs is not run.
 
 ```
 sql/strategies/
@@ -17,7 +17,8 @@ sql/strategies/
 ├── markov_model/      reads the persisted Markov model (see train)
 ├── hmm_strategy/      reads the persisted hidden Markov model (see train hmm)
 ├── markov_hmm/        reads hmm_regime.db from study hmm_regime
-└── voo_up3/           owned by the voo-up3 strategy
+├── hold_strategy/     one pipeline for every hold_strategy row
+└── price_action_reclaim_strategy/  one pipeline for every price_action_reclaim_strategy row (one symbol each)
 ```
 
 ## Contract & Signal Extraction

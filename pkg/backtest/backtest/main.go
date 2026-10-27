@@ -210,7 +210,7 @@ func Main() {
 	flag.StringVar(&conf.Table, "table", d.Table, "Table name containing historical bars")
 	flag.StringVar(&conf.Strategy, "strategy", d.Strategy, "Strategy ID to run, comma-separated list, 'all', or 'strat1+strat2' for shared account")
 	var family string
-	flag.StringVar(&family, "family", "", "Run every strategy of one row-backed family (streak, hold, tree, markov, hmm, rotation); same as -strategy <family>")
+	flag.StringVar(&family, "family", "", "Run every strategy of one row-backed family (streak, hold, tree, markov, hmm, rotation, price_action_reclaim); same as -strategy <family>")
 	flag.BoolVar(&conf.SharedAccount, "shared-account", d.SharedAccount, "Run strategies in a single shared cash account with priority preemption")
 	flag.StringVar(&conf.Primary, "primary", d.Primary, "Primary strategy ID for shared-account execution (has capital priority)")
 	flag.StringVar(&conf.Secondary, "secondary", d.Secondary, "Secondary strategy ID(s) for shared-account execution (comma-separated)")

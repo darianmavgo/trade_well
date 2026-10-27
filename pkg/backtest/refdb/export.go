@@ -52,7 +52,7 @@ func Export(srcPath, dstPath string, ids []string) (map[string][]string, error) 
 	}
 	found := map[string][]string{}
 	have := map[string]bool{}
-	for _, table := range []string{"streak_strategy", "tree_strategy", "hold_strategy", "markov_strategy", "hmm_strategy", "rotation_strategy"} {
+	for _, table := range []string{"streak_strategy", "tree_strategy", "hold_strategy", "markov_strategy", "hmm_strategy", "rotation_strategy", "price_action_reclaim_strategy"} {
 		var got []string
 		if err := db.Select(&got, `SELECT id FROM `+table+` ORDER BY id`); err != nil {
 			return nil, err
@@ -78,8 +78,8 @@ func Export(srcPath, dstPath string, ids []string) (map[string][]string, error) 
 // bundleMeta records how a bundle was made, so the program that trades it can check it.
 const bundleMeta = `CREATE TABLE IF NOT EXISTS bundle_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`
 
-// rowTables are the six strategy row tables, each with an allocation_pct column.
-var rowTables = []string{"streak_strategy", "tree_strategy", "hold_strategy", "markov_strategy", "hmm_strategy", "rotation_strategy"}
+// rowTables are the strategy row tables, each with an allocation_pct column.
+var rowTables = []string{"streak_strategy", "tree_strategy", "hold_strategy", "markov_strategy", "hmm_strategy", "rotation_strategy", "price_action_reclaim_strategy"}
 
 // SetAllocation sizes every row of the bundle at dstPath at alloc (a fraction of equity per
 // position, 0.20 = 20%) and records it in bundle_meta as alloc_pct. It is how the allocation a

@@ -1,5 +1,5 @@
 // Package refdb is the reference database (refdata/strategies.db): strategy
-// configs live in SQLite tables (streak, tree, markov, hold, rotation).
+// configs live in SQLite tables (streak, tree, markov, hold, rotation, price action reclaim).
 package refdb
 
 import (
@@ -150,6 +150,29 @@ CREATE TABLE IF NOT EXISTS rotation_strategy (
 	cooldown         TEXT NOT NULL DEFAULT ''
 );
 
+-- One price action reclaim strategy per row (pkg/price_action_reclaim_strategy): trade one
+-- symbol when a close falls under its support and a later close reclaims it, in an uptrend.
+-- Support is the lowest low from support_bars bars back to reclaim_gap bars back, so the
+-- breakdown bar does not lower the level. The uptrend is a close at or over its sma_period
+-- bar average. The stop sits stop_cushion_pct under support, and a trade whose stop is more
+-- than max_stop_pct under the close is skipped. take_profit_pct is a fractional offset over
+-- the entry; hold_days are sessions.
+CREATE TABLE IF NOT EXISTS price_action_reclaim_strategy (
+	id               TEXT PRIMARY KEY,
+	name             TEXT NOT NULL,
+	symbol           TEXT NOT NULL,
+	sma_period       INTEGER NOT NULL DEFAULT 200,
+	support_bars     INTEGER NOT NULL DEFAULT 25,
+	reclaim_gap      INTEGER NOT NULL DEFAULT 5,
+	stop_cushion_pct REAL NOT NULL DEFAULT 0.005,
+	max_stop_pct     REAL NOT NULL DEFAULT 0.15,
+	take_profit_pct  REAL NOT NULL DEFAULT 0.10,
+	hold_days        INTEGER NOT NULL DEFAULT 20,
+	allocation_pct   REAL NOT NULL DEFAULT 0.10,
+	cash_yield       REAL NOT NULL DEFAULT 0,
+	slippage_pct     REAL NOT NULL DEFAULT 0.0005
+);
+
 -- Named symbol lists a strategy or a command can take as its basket. list is the
 -- tickers, upper case, comma separated, sorted. sql/seed/symbol_lists.sql fills it.
 CREATE TABLE IF NOT EXISTS symbol_lists (
@@ -289,6 +312,11 @@ func upgradeHold(db *sqlx.DB) error {
 	}
 	if !have["sma_reentry_period"] {
 		if _, err := db.Exec(`ALTER TABLE hold_strategy ADD COLUMN sma_reentry_period INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return err
+		}
+	}
+	if !have["covered_call_otm_pct"] {
+		if _, err := db.Exec(`ALTER TABLE hold_strategy ADD COLUMN covered_call_otm_pct REAL NOT NULL DEFAULT 0`); err != nil {
 			return err
 		}
 	}
@@ -751,6 +779,10 @@ type HoldStrategy struct {
 	TakeProfitPct float64 `db:"take_profit_pct"`
 	StopLossPct   float64 `db:"stop_loss_pct"`
 	HoldDays      int     `db:"hold_days"`
+	// CoveredCallOTMPct, when above 0, makes the row a covered call: hold the symbol and sell a
+	// monthly call that many percent out of the money (10 = 10%). The row is simulated on option
+	// history, not on entry signals, and its take-profit, stop-loss and hold are not used.
+	CoveredCallOTMPct float64 `db:"covered_call_otm_pct"`
 }
 
 // HoldStrategies returns every hold_strategy row, ordered by id.
@@ -770,8 +802,48 @@ func holdStrategiesWhere(db *sqlx.DB, where string, args ...any) ([]HoldStrategy
 	err := db.Select(&out, `
 		SELECT id, name, symbol, total_return, allocation_pct, cash_yield, slippage_pct,
 		       trailing_stop_pct, sma_reentry_period, regime_symbol,
-		       take_profit_pct, stop_loss_pct, hold_days
+		       take_profit_pct, stop_loss_pct, hold_days, covered_call_otm_pct
 		FROM hold_strategy`+where+` ORDER BY id`, args...)
+	return out, err
+}
+
+// PriceActionReclaimStrategy is one row of price_action_reclaim_strategy.
+type PriceActionReclaimStrategy struct {
+	ID             string  `db:"id"`
+	Name           string  `db:"name"`
+	Symbol         string  `db:"symbol"`
+	SMAPeriod      int     `db:"sma_period"`
+	SupportBars    int     `db:"support_bars"`
+	ReclaimGap     int     `db:"reclaim_gap"`
+	StopCushionPct float64 `db:"stop_cushion_pct"`
+	MaxStopPct     float64 `db:"max_stop_pct"`
+	TakeProfitPct  float64 `db:"take_profit_pct"`
+	HoldDays       int     `db:"hold_days"`
+	AllocationPct  float64 `db:"allocation_pct"`
+	CashYield      float64 `db:"cash_yield"`
+	SlippagePct    float64 `db:"slippage_pct"`
+}
+
+// PriceActionReclaimStrategies returns every price_action_reclaim_strategy row, ordered by id.
+func PriceActionReclaimStrategies(db *sqlx.DB) ([]PriceActionReclaimStrategy, error) {
+	return priceActionReclaimWhere(db, "")
+}
+
+// PriceActionReclaimStrategyByID returns the row whose id is exactly id.
+func PriceActionReclaimStrategyByID(db *sqlx.DB, id string) (PriceActionReclaimStrategy, bool, error) {
+	rows, err := priceActionReclaimWhere(db, " WHERE id = ?", id)
+	if err != nil || len(rows) == 0 {
+		return PriceActionReclaimStrategy{}, false, err
+	}
+	return rows[0], true, nil
+}
+
+func priceActionReclaimWhere(db *sqlx.DB, where string, args ...any) ([]PriceActionReclaimStrategy, error) {
+	var out []PriceActionReclaimStrategy
+	err := db.Select(&out, `
+		SELECT id, name, symbol, sma_period, support_bars, reclaim_gap, stop_cushion_pct, max_stop_pct,
+		       take_profit_pct, hold_days, allocation_pct, cash_yield, slippage_pct
+		FROM price_action_reclaim_strategy`+where+` ORDER BY id`, args...)
 	return out, err
 }
 
@@ -860,8 +932,9 @@ func resolveSymbolLists(db Selector, rows []RotationStrategy) {
 var strategyTables = map[string]bool{
 	"streak_strategy": true, "hold_strategy": true,
 	"tree_strategy": true, "markov_strategy": true,
-	"hmm_strategy":      true,
-	"rotation_strategy": true,
+	"hmm_strategy":                  true,
+	"rotation_strategy":             true,
+	"price_action_reclaim_strategy": true,
 }
 
 // ExactID returns the stored id equal to id in table. It is an indexed lookup.

@@ -235,8 +235,8 @@ func (s *Strategy) ParameterSpace() strategy.ParameterSpace {
 // NewFamily returns the hold_strategy family reading the reference DB at path().
 // Rows are not registered one by one: a row is read and built when
 // strategy.Get asks for its id.
-func NewFamily(path func() string) *strategy.RowFamily {
-	return &strategy.RowFamily{
+func NewFamily(path func() string) strategy.Family {
+	return parkFamily{&strategy.RowFamily{
 		FamilyName: "hold",
 		Table:      "hold_strategy",
 		Path:       path,
@@ -245,12 +245,16 @@ func NewFamily(path func() string) *strategy.RowFamily {
 			if err != nil || !ok {
 				return nil, false, err
 			}
-			if err := (&Strategy{Row: row}).Validate(); err != nil {
+			var built strategy.Strategy = &Strategy{Row: row}
+			if row.CoveredCallOTMPct > 0 {
+				built = &CoveredCall{Strategy: &Strategy{Row: row}}
+			}
+			if err := built.Validate(); err != nil {
 				return nil, false, err
 			}
-			return &Strategy{Row: row}, true, nil
+			return built, true, nil
 		},
-	}
+	}}
 }
 
 // Register adds the hold family, reading refdb.DefaultPath. It reads no rows.

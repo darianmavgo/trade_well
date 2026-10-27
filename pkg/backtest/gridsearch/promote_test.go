@@ -6,15 +6,16 @@ import (
 
 	"github.com/darianmavgo/trade_well/pkg/backtest/refdb"
 	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
+	"github.com/darianmavgo/trade_well/pkg/backtest/streak_strategy"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
 
 func TestPromoteWritesQualifyingRowsOnce(t *testing.T) {
-	parent, ok := strategy.Get("voo-up3")
-	if !ok {
-		t.Fatal("voo-up3 is not registered")
-	}
+	parent := &streak_strategy.Strategy{Row: refdb.StreakStrategy{
+		ID: "streak-voo-up3-parent", Name: "VOO up 3", SignalSymbol: "VOO", TradeSymbol: "VOO", Direction: "rally",
+		SignalDays: 3, HoldDays: 8, TakeProfitPct: 0.05, StopLossPct: 0.06, Regime: "All Regimes", AllocationPct: 0.65,
+	}}
 	gridPath := filepath.Join(t.TempDir(), "grid.db")
 	gdb, err := sqlx.Open("sqlite", gridPath)
 	if err != nil {

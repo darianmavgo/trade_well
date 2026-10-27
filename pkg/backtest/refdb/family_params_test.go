@@ -29,6 +29,7 @@ func TestEveryFamilyColumnIsDescribed(t *testing.T) {
 	for family, table := range map[string]string{
 		"streak": "streak_strategy", "hold": "hold_strategy",
 		"tree": "tree_strategy", "markov": "markov_strategy",
+		"price_action_reclaim": "price_action_reclaim_strategy",
 	} {
 		var cols []string
 		if err := real.Select(&cols, "SELECT name FROM pragma_table_info('"+table+"')"); err != nil || len(cols) == 0 {

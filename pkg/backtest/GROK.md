@@ -40,7 +40,7 @@ go test ./pkg/backtest/strategy -run TestName              # one test
 
 ## Adding or changing a strategy
 
-1. Implement `strategy.Strategy` in `pkg/backtest/strategy/<id>.go` and register it (see `price_action_reclaim.go` for the newest example).
+1. Add a row family: a table in `pkg/backtest/refdb`, a `pkg/backtest/<family>_strategy` package implementing `strategy.Strategy` and a `strategy.RowFamily`, registered in `pkg/backtest/stratreg` (see `price_action_reclaim_strategy` for the newest example). A strategy defined in Go with no table is not added.
 2. Put the signal math in `sql/strategies/<id>/` as ordered files (`01_schema.sql`, `02_calc_....sql`, ...), one stage per file, each writing a slice table. `GenerateSignals` runs them in name order.
 3. The output table needs `idx, symbol, date, open, high, low, close, volume, buylimit, entry`; rows with `entry = 1` become entries. See `sql/strategies/README.md`.
 4. Add a test using a real temp SQLite DB with literal bars. No mocks or fakes.
