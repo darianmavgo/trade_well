@@ -1,0 +1,4 @@
+# Optional multi-service routing. Single default service for now.
+dispatch:
+  - url: "*/*"
+    service: default

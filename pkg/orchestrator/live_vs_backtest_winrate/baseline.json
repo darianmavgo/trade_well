@@ -1,0 +1,1771 @@
+[
+  {
+    "strategy_id": "markov_model_amuu",
+    "is_trades": 27,
+    "is_win_rate": 0.8518518518518519,
+    "oos_trades": 40,
+    "oos_win_rate": 0.85,
+    "all_trades": 62,
+    "all_win_rate": 0.8709677419354839,
+    "is_start": "2025-02-12",
+    "is_end": "2025-10-10",
+    "oos_start": "2025-10-13",
+    "oos_end": "2026-10-09",
+    "evaluated_at": "2026-10-15 15:30:00",
+    "all_evaluated_at": "2026-10-09 17:44:42",
+    "trades": [
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-04-15",
+        "win": false,
+        "return_pct": -0.367644202757817
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-05-07",
+        "win": true,
+        "return_pct": 0.05000000000000003
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-05-08",
+        "win": true,
+        "return_pct": 0.05000000000000006
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-05-12",
+        "win": true,
+        "return_pct": 0.1764576951949894
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-05-13",
+        "win": true,
+        "return_pct": 0.05000000000000009
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-05-14",
+        "win": true,
+        "return_pct": 0.09977426636568854
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-06-05",
+        "win": false,
+        "return_pct": -0.04830718414533436
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-06-09",
+        "win": true,
+        "return_pct": 0.08069414316702818
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-06-16",
+        "win": true,
+        "return_pct": 0.04999999999999999
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-06-17",
+        "win": true,
+        "return_pct": 0.050000000000000065
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-06-20",
+        "win": true,
+        "return_pct": 0.050000000000000086
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-06-23",
+        "win": true,
+        "return_pct": 0.05000000000000007
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-06-24",
+        "win": true,
+        "return_pct": 0.061338941465124426
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-06-25",
+        "win": true,
+        "return_pct": 0.050000000000000135
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-06-27",
+        "win": true,
+        "return_pct": 0.04999999999999998
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-07-15",
+        "win": true,
+        "return_pct": 0.13678160919540247
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-07-16",
+        "win": true,
+        "return_pct": 0.050000000000000065
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-07-25",
+        "win": true,
+        "return_pct": 0.05000000000000013
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-07-28",
+        "win": true,
+        "return_pct": 0.049999999999999975
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-07-29",
+        "win": true,
+        "return_pct": 0.04999999999999999
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-07-31",
+        "win": true,
+        "return_pct": 0.0667957405614715
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-08-13",
+        "win": true,
+        "return_pct": 0.050000000000000086
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-09-04",
+        "win": false,
+        "return_pct": -0.2432580174927114
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-10-06",
+        "win": true,
+        "return_pct": 0.615604373953305
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-10-07",
+        "win": true,
+        "return_pct": 0.099574722680379
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-10-08",
+        "win": true,
+        "return_pct": 0.05000000000000001
+      },
+      {
+        "pass": "is",
+        "symbol": "AMUU",
+        "exit_date": "2025-10-10",
+        "win": false,
+        "return_pct": -0.17458374142997066
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2025-10-14",
+        "win": true,
+        "return_pct": 0.04999999999999995
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2025-10-15",
+        "win": true,
+        "return_pct": 0.052783386212864096
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2025-10-24",
+        "win": true,
+        "return_pct": 0.050000000000000024
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2025-10-27",
+        "win": true,
+        "return_pct": 0.05000000000000011
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2025-10-29",
+        "win": true,
+        "return_pct": 0.049999999999999996
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2025-11-19",
+        "win": false,
+        "return_pct": -0.3066292809933908
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-01-15",
+        "win": true,
+        "return_pct": 0.0822322670375521
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-01-16",
+        "win": true,
+        "return_pct": 0.05387260520713934
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-01-20",
+        "win": true,
+        "return_pct": 0.05000000000000009
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-01-21",
+        "win": true,
+        "return_pct": 0.04999999999999994
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-01-23",
+        "win": true,
+        "return_pct": 0.0887118923372701
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-02-13",
+        "win": false,
+        "return_pct": -0.4049649904519414
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-04-08",
+        "win": true,
+        "return_pct": 0.08767069067880466
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-04-10",
+        "win": true,
+        "return_pct": 0.06113537117903929
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-04-14",
+        "win": true,
+        "return_pct": 0.0500000000000001
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-04-16",
+        "win": true,
+        "return_pct": 0.04999999999999999
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-04-20",
+        "win": true,
+        "return_pct": 0.05000000000000005
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-04-21",
+        "win": true,
+        "return_pct": 0.05000000000000004
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-04-22",
+        "win": true,
+        "return_pct": 0.05173046349516943
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-04-24",
+        "win": true,
+        "return_pct": 0.23323269355186554
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-05-01",
+        "win": true,
+        "return_pct": 0.05000000000000008
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-05-06",
+        "win": true,
+        "return_pct": 0.2601165666561723
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-05-08",
+        "win": true,
+        "return_pct": 0.05000000000000007
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-05-11",
+        "win": true,
+        "return_pct": 0.05
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-05-22",
+        "win": true,
+        "return_pct": 0.05000000000000001
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-05-26",
+        "win": true,
+        "return_pct": 0.06419485257864121
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-05-28",
+        "win": true,
+        "return_pct": 0.049999999999999996
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-06-03",
+        "win": true,
+        "return_pct": 0.07801418439716312
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-06-25",
+        "win": false,
+        "return_pct": -0.0886568159093433
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-06-30",
+        "win": true,
+        "return_pct": 0.04999999999999996
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-07-22",
+        "win": false,
+        "return_pct": -0.13081285444234406
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-08-12",
+        "win": false,
+        "return_pct": -0.2711455573569536
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-09-08",
+        "win": true,
+        "return_pct": 0.050000000000000024
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-09-09",
+        "win": true,
+        "return_pct": 0.05000000000000004
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-09-17",
+        "win": true,
+        "return_pct": 0.05000000000000002
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-09-18",
+        "win": true,
+        "return_pct": 0.05000000000000001
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-09-21",
+        "win": true,
+        "return_pct": 0.07610492728593841
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-09-25",
+        "win": true,
+        "return_pct": 0.05933302942104695
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-10-06",
+        "win": true,
+        "return_pct": 0.050000000000000086
+      },
+      {
+        "pass": "oos",
+        "symbol": "AMUU",
+        "exit_date": "2026-10-09",
+        "win": false,
+        "return_pct": -0.12850779510022267
+      }
+    ]
+  },
+  {
+    "strategy_id": "markov_model_mull",
+    "is_trades": 33,
+    "is_win_rate": 0.8484848484848485,
+    "oos_trades": 56,
+    "oos_win_rate": 0.8928571428571429,
+    "all_trades": 86,
+    "all_win_rate": 0.8837209302325582,
+    "is_start": "2024-11-12",
+    "is_end": "2025-10-10",
+    "oos_start": "2025-10-13",
+    "oos_end": "2026-10-09",
+    "evaluated_at": "2026-10-15 15:29:06",
+    "all_evaluated_at": "2026-10-09 17:49:05",
+    "trades": [
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2024-12-18",
+        "win": true,
+        "return_pct": 0.04999999999999996
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-01-13",
+        "win": false,
+        "return_pct": -0.21314102564102566
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-02-12",
+        "win": false,
+        "return_pct": -0.32174688057040995
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-03-14",
+        "win": true,
+        "return_pct": 0.05000000000000003
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-03-17",
+        "win": true,
+        "return_pct": 0.06271477663230234
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-05-08",
+        "win": true,
+        "return_pct": 0.10227272727272733
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-05-12",
+        "win": true,
+        "return_pct": 0.18401486988847596
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-05-13",
+        "win": true,
+        "return_pct": 0.050000000000000044
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-06-03",
+        "win": true,
+        "return_pct": 0.050000000000000024
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-06-05",
+        "win": true,
+        "return_pct": 0.06543291473892941
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-06-06",
+        "win": true,
+        "return_pct": 0.049999999999999975
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-06-09",
+        "win": true,
+        "return_pct": 0.05
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-06-10",
+        "win": true,
+        "return_pct": 0.05000000000000011
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-06-11",
+        "win": true,
+        "return_pct": 0.05000000000000011
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-06-16",
+        "win": true,
+        "return_pct": 0.05000000000000004
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-06-17",
+        "win": true,
+        "return_pct": 0.05000000000000005
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-06-20",
+        "win": true,
+        "return_pct": 0.0500000000000001
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-06-24",
+        "win": true,
+        "return_pct": 0.05000000000000005
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-07-16",
+        "win": false,
+        "return_pct": -0.1835415769065058
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-08-12",
+        "win": true,
+        "return_pct": 0.05000000000000006
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-09-03",
+        "win": false,
+        "return_pct": -0.15076507650765078
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-09-04",
+        "win": true,
+        "return_pct": 0.049999999999999996
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-09-05",
+        "win": true,
+        "return_pct": 0.05000000000000008
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-09-09",
+        "win": true,
+        "return_pct": 0.050000000000000065
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-09-10",
+        "win": true,
+        "return_pct": 0.06347897774113766
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-09-11",
+        "win": true,
+        "return_pct": 0.10779595765158817
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-09-12",
+        "win": true,
+        "return_pct": 0.050209205020920356
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-09-18",
+        "win": true,
+        "return_pct": 0.06543494996150882
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-10-01",
+        "win": true,
+        "return_pct": 0.050000000000000065
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-10-03",
+        "win": true,
+        "return_pct": 0.05000000000000003
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-10-06",
+        "win": true,
+        "return_pct": 0.10325786858089457
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-10-08",
+        "win": true,
+        "return_pct": 0.05000000000000008
+      },
+      {
+        "pass": "is",
+        "symbol": "MULL",
+        "exit_date": "2025-10-10",
+        "win": false,
+        "return_pct": -0.15423642820903097
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2025-10-16",
+        "win": true,
+        "return_pct": 0.06076759061833695
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2025-10-20",
+        "win": true,
+        "return_pct": 0.06744298884036887
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2025-10-24",
+        "win": true,
+        "return_pct": 0.05083955223880596
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2025-10-27",
+        "win": true,
+        "return_pct": 0.05746644295302014
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2025-10-29",
+        "win": true,
+        "return_pct": 0.08111480865224638
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2025-11-03",
+        "win": true,
+        "return_pct": 0.05000000000000007
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2025-11-06",
+        "win": true,
+        "return_pct": 0.050000000000000024
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2025-11-10",
+        "win": true,
+        "return_pct": 0.07545126353790617
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2025-12-02",
+        "win": false,
+        "return_pct": -0.14096774193548395
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2025-12-08",
+        "win": true,
+        "return_pct": 0.07649842271293374
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2025-12-22",
+        "win": true,
+        "return_pct": 0.06672932330827056
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2025-12-24",
+        "win": true,
+        "return_pct": 0.05000000000000005
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2025-12-29",
+        "win": true,
+        "return_pct": 0.05000000000000011
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-01-02",
+        "win": true,
+        "return_pct": 0.050000000000000024
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-01-05",
+        "win": true,
+        "return_pct": 0.05876930168241527
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-01-06",
+        "win": true,
+        "return_pct": 0.050000000000000086
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-01-16",
+        "win": true,
+        "return_pct": 0.05000000000000009
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-01-20",
+        "win": true,
+        "return_pct": 0.050000000000000065
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-01-21",
+        "win": true,
+        "return_pct": 0.05000000000000011
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-01-23",
+        "win": true,
+        "return_pct": 0.050000000000000024
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-01-27",
+        "win": true,
+        "return_pct": 0.05000000000000003
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-01-28",
+        "win": true,
+        "return_pct": 0.06034968979131415
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-01-30",
+        "win": true,
+        "return_pct": 0.07997473152242578
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-02-02",
+        "win": true,
+        "return_pct": 0.050000000000000086
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-02-24",
+        "win": false,
+        "return_pct": -0.12124248496993988
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-02-25",
+        "win": true,
+        "return_pct": 0.050000000000000065
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-03-10",
+        "win": true,
+        "return_pct": 0.050000000000000044
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-03-11",
+        "win": true,
+        "return_pct": 0.05000000000000004
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-03-16",
+        "win": true,
+        "return_pct": 0.11957796014067994
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-03-17",
+        "win": true,
+        "return_pct": 0.050000000000000086
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-04-08",
+        "win": false,
+        "return_pct": -0.26327944572748274
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-04-22",
+        "win": true,
+        "return_pct": 0.05000000000000006
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-04-24",
+        "win": true,
+        "return_pct": 0.04999999999999995
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-04-27",
+        "win": true,
+        "return_pct": 0.06220150102342493
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-05-01",
+        "win": true,
+        "return_pct": 0.05000000000000011
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-05-04",
+        "win": true,
+        "return_pct": 0.05000000000000013
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-05-05",
+        "win": true,
+        "return_pct": 0.08788395904436855
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-05-06",
+        "win": true,
+        "return_pct": 0.07654836464857352
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-05-07",
+        "win": true,
+        "return_pct": 0.049999999999999975
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-05-08",
+        "win": true,
+        "return_pct": 0.07862068965517245
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-05-11",
+        "win": true,
+        "return_pct": 0.10410094637223977
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-05-26",
+        "win": true,
+        "return_pct": 0.05000000000000007
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-05-27",
+        "win": true,
+        "return_pct": 0.1414766138384229
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-05-29",
+        "win": true,
+        "return_pct": 0.050000000000000024
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-06-01",
+        "win": true,
+        "return_pct": 0.07610853739245547
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-06-02",
+        "win": true,
+        "return_pct": 0.050000000000000024
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-06-18",
+        "win": true,
+        "return_pct": 0.04999999999999999
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-06-22",
+        "win": true,
+        "return_pct": 0.09009009009009004
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-07-14",
+        "win": false,
+        "return_pct": -0.3970553867726104
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-08-14",
+        "win": true,
+        "return_pct": 0.06407587323617865
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-08-17",
+        "win": true,
+        "return_pct": 0.05219123505976089
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-09-08",
+        "win": false,
+        "return_pct": -0.04956984842277758
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-09-09",
+        "win": true,
+        "return_pct": 0.05000000000000001
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-09-21",
+        "win": true,
+        "return_pct": 0.05
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-09-22",
+        "win": true,
+        "return_pct": 0.049999999999999975
+      },
+      {
+        "pass": "oos",
+        "symbol": "MULL",
+        "exit_date": "2026-10-09",
+        "win": false,
+        "return_pct": -0.13402061855670105
+      }
+    ]
+  },
+  {
+    "strategy_id": "markov_model_vrtl",
+    "is_trades": 25,
+    "is_win_rate": 0.96,
+    "oos_trades": 39,
+    "oos_win_rate": 0.8974358974358975,
+    "all_trades": 66,
+    "all_win_rate": 0.9242424242424242,
+    "is_start": "2025-03-25",
+    "is_end": "2025-10-10",
+    "oos_start": "2025-10-13",
+    "oos_end": "2026-10-09",
+    "evaluated_at": "2026-10-15 15:30:00",
+    "all_evaluated_at": "2026-10-09 17:50:48",
+    "trades": [
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-05-01",
+        "win": true,
+        "return_pct": 0.11816720257234732
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-05-02",
+        "win": true,
+        "return_pct": 0.05
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-05-12",
+        "win": true,
+        "return_pct": 0.11174670746308353
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-05-13",
+        "win": true,
+        "return_pct": 0.05000000000000007
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-05-14",
+        "win": true,
+        "return_pct": 0.054054054054054036
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-05-29",
+        "win": true,
+        "return_pct": 0.07585218548469645
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-06-03",
+        "win": true,
+        "return_pct": 0.05913410770855319
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-06-06",
+        "win": true,
+        "return_pct": 0.049999999999999975
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-06-17",
+        "win": true,
+        "return_pct": 0.05000000000000006
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-06-18",
+        "win": true,
+        "return_pct": 0.049999999999999975
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-06-24",
+        "win": true,
+        "return_pct": 0.05000000000000009
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-06-27",
+        "win": true,
+        "return_pct": 0.0790816326530612
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-07-17",
+        "win": true,
+        "return_pct": 0.05000000000000002
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-07-25",
+        "win": true,
+        "return_pct": 0.05000000000000005
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-07-28",
+        "win": true,
+        "return_pct": 0.05000000000000008
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-07-30",
+        "win": true,
+        "return_pct": 0.10200129115558425
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-07-31",
+        "win": true,
+        "return_pct": 0.06087507926442618
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-08-21",
+        "win": false,
+        "return_pct": -0.2587281795511221
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-09-18",
+        "win": true,
+        "return_pct": 0.05000000000000002
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-09-22",
+        "win": true,
+        "return_pct": 0.05000000000000006
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-10-01",
+        "win": true,
+        "return_pct": 0.050000000000000044
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-10-02",
+        "win": true,
+        "return_pct": 0.05000000000000009
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-10-06",
+        "win": true,
+        "return_pct": 0.07154471544715449
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-10-08",
+        "win": true,
+        "return_pct": 0.05000000000000006
+      },
+      {
+        "pass": "is",
+        "symbol": "VRTL",
+        "exit_date": "2025-10-10",
+        "win": true,
+        "return_pct": 0.12034676185619579
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2025-10-22",
+        "win": true,
+        "return_pct": 0.09062776304155618
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2025-10-23",
+        "win": true,
+        "return_pct": 0.050000000000000044
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2025-10-24",
+        "win": true,
+        "return_pct": 0.05000000000000005
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2025-10-27",
+        "win": true,
+        "return_pct": 0.06082214765100668
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2025-10-29",
+        "win": true,
+        "return_pct": 0.05
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2025-11-19",
+        "win": false,
+        "return_pct": -0.28728471967753755
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-01-15",
+        "win": true,
+        "return_pct": 0.05000000000000003
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-01-16",
+        "win": true,
+        "return_pct": 0.05000000000000003
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-01-21",
+        "win": true,
+        "return_pct": 0.05000000000000012
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-01-22",
+        "win": true,
+        "return_pct": 0.058562992125984314
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-01-27",
+        "win": true,
+        "return_pct": 0.050000000000000135
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-01-29",
+        "win": true,
+        "return_pct": 0.08000000000000007
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-01-30",
+        "win": true,
+        "return_pct": 0.05000000000000002
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-02-02",
+        "win": true,
+        "return_pct": 0.05000000000000006
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-02-09",
+        "win": true,
+        "return_pct": 0.05000000000000002
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-02-11",
+        "win": true,
+        "return_pct": 0.30850630850630845
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-02-12",
+        "win": true,
+        "return_pct": 0.05000000000000004
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-02-17",
+        "win": true,
+        "return_pct": 0.050000000000000135
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-02-18",
+        "win": true,
+        "return_pct": 0.04999999999999995
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-02-24",
+        "win": true,
+        "return_pct": 0.054534676941315835
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-02-25",
+        "win": true,
+        "return_pct": 0.050000000000000086
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-03-10",
+        "win": true,
+        "return_pct": 0.05000000000000008
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-03-25",
+        "win": true,
+        "return_pct": 0.04999999999999998
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-04-09",
+        "win": true,
+        "return_pct": 0.050000000000000086
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-04-10",
+        "win": true,
+        "return_pct": 0.05000000000000001
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-04-14",
+        "win": true,
+        "return_pct": 0.07986186056550837
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-04-21",
+        "win": true,
+        "return_pct": 0.05
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-04-23",
+        "win": true,
+        "return_pct": 0.05000000000000001
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-04-24",
+        "win": true,
+        "return_pct": 0.05000000000000006
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-05-05",
+        "win": true,
+        "return_pct": 0.05019234291994861
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-05-06",
+        "win": true,
+        "return_pct": 0.06581139620126616
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-05-11",
+        "win": true,
+        "return_pct": 0.05218702865761701
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-05-14",
+        "win": true,
+        "return_pct": 0.04999999999999997
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-06-05",
+        "win": false,
+        "return_pct": -0.37891061452513963
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-06-22",
+        "win": true,
+        "return_pct": 0.07928531546622009
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-07-14",
+        "win": false,
+        "return_pct": -0.31896551724137934
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-08-27",
+        "win": true,
+        "return_pct": 0.06799163179916315
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-09-04",
+        "win": true,
+        "return_pct": 0.04999999999999999
+      },
+      {
+        "pass": "oos",
+        "symbol": "VRTL",
+        "exit_date": "2026-09-29",
+        "win": false,
+        "return_pct": -0.29485680888369376
+      }
+    ]
+  },
+  {
+    "strategy_id": "streak-shpu-down3",
+    "is_trades": 5,
+    "is_win_rate": 1,
+    "oos_trades": 18,
+    "oos_win_rate": 1,
+    "all_trades": 23,
+    "all_win_rate": 0.9565217391304348,
+    "is_start": "2025-08-06",
+    "is_end": "2025-10-10",
+    "oos_start": "2025-10-13",
+    "oos_end": "2026-10-09",
+    "evaluated_at": "2026-10-15 15:30:00",
+    "all_evaluated_at": "2026-10-09 17:57:35",
+    "trades": [
+      {
+        "pass": "is",
+        "symbol": "SHPU",
+        "exit_date": "2025-08-13",
+        "win": true,
+        "return_pct": 0.050000000000000155
+      },
+      {
+        "pass": "is",
+        "symbol": "SHPU",
+        "exit_date": "2025-08-22",
+        "win": true,
+        "return_pct": 0.06400282885431395
+      },
+      {
+        "pass": "is",
+        "symbol": "SHPU",
+        "exit_date": "2025-09-04",
+        "win": true,
+        "return_pct": 0.050000000000000044
+      },
+      {
+        "pass": "is",
+        "symbol": "SHPU",
+        "exit_date": "2025-09-11",
+        "win": true,
+        "return_pct": 0.050000000000000044
+      },
+      {
+        "pass": "is",
+        "symbol": "SHPU",
+        "exit_date": "2025-09-29",
+        "win": true,
+        "return_pct": 0.05000000000000009
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2025-11-14",
+        "win": true,
+        "return_pct": 0.05
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2025-11-20",
+        "win": true,
+        "return_pct": 0.14964539007092206
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2025-12-18",
+        "win": true,
+        "return_pct": 0.04999999999999998
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-01-06",
+        "win": true,
+        "return_pct": 0.0500000000000001
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-01-29",
+        "win": true,
+        "return_pct": 0.01625282167042903
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-02-09",
+        "win": true,
+        "return_pct": 0.05000000000000009
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-03-23",
+        "win": true,
+        "return_pct": 0.05000000000000009
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-03-31",
+        "win": true,
+        "return_pct": 0.05
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-05-01",
+        "win": true,
+        "return_pct": 0.0500000000000001
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-05-07",
+        "win": true,
+        "return_pct": 0.05000000000000006
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-05-18",
+        "win": true,
+        "return_pct": 0.05000000000000011
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-07-27",
+        "win": true,
+        "return_pct": 0.08184383819379108
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-08-05",
+        "win": true,
+        "return_pct": 0.47750000000000004
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-08-24",
+        "win": true,
+        "return_pct": 0.05000000000000001
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-09-03",
+        "win": true,
+        "return_pct": 0.06411263916175503
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-09-10",
+        "win": true,
+        "return_pct": 0.049999999999999975
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-09-14",
+        "win": true,
+        "return_pct": 0.05000000000000011
+      },
+      {
+        "pass": "oos",
+        "symbol": "SHPU",
+        "exit_date": "2026-09-21",
+        "win": true,
+        "return_pct": 0.050000000000000044
+      }
+    ]
+  }
+]

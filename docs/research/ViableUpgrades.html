@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viable Upgrades</title>
+<style>
+:root{--bg:#f7f6f2;--fg:#1d2127;--muted:#5f6670;--line:#d9d6cc;--card:#fff;--accent:#1f6f54;--base:#eef0f4;--warn:#8a5a00}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14171b;--fg:#e6e8eb;--muted:#9aa2ad;--line:#2d333b;--card:#1b1f25;--accent:#5fcf9f;--base:#232830;--warn:#e0b04a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#14171b;--fg:#e6e8eb;--muted:#9aa2ad;--line:#2d333b;--card:#1b1f25;--accent:#5fcf9f;--base:#232830;--warn:#e0b04a;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;margin:0;padding-block:32px;padding-inline:16px}
+main{max-width:1000px;margin:0 auto}
+h1{font-size:1.7rem;margin:0 0 4px;text-wrap:balance}
+h2{font-size:1.05rem;margin:28px 0 8px}
+p,li{max-width:70ch}
+.sub{color:var(--muted);margin:0 0 20px}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:760px;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);font-weight:600}
+th:nth-child(1),td:nth-child(1){text-align:center;width:2.5rem}
+th:nth-child(2),td:nth-child(2){text-align:left}
+td:nth-child(2){font-family:ui-monospace,Menlo,monospace;font-size:.82rem;word-break:break-word}
+tr:last-child td{border-bottom:0}
+tr.base td{background:var(--base);font-weight:600}
+tr.base td:nth-child(2){font-weight:500}
+.win{color:var(--accent)}
+.note{border-left:3px solid var(--warn);padding:2px 12px;color:var(--fg)}
+.grp td{text-align:center;font-size:.72rem;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+code{font-family:ui-monospace,Menlo,monospace;font-size:.9em}
+</style>
+</head>
+<body>
+<main>
+<h1>Viable Upgrades</h1>
+<p class="sub">Stacks that beat the deployed stack on CAGR and max drawdown in both windows. Shared $100k account, 65% allocation, every member trading at least $25M a day. Generated 2026-10-03.</p>
+
+<div class="tw">
+<table>
+<thead>
+<tr class="grp"><td></td><td></td><td colspan="3">In-sample 2021 to 2025-10-01</td><td colspan="3">Held-out 2025-10-02 to 2026-10-01</td></tr>
+<tr><th>#</th><th>Stack</th><th>CAGR</th><th>Max DD</th><th>Trades</th><th>CAGR</th><th>Max DD</th><th>Trades</th></tr>
+</thead>
+<tbody>
+<tr class="base"><td>0</td><td>streak-voo-buy-tecl + pdd_tree + mara_tree <em>(deployed)</em></td><td>80.3%</td><td>24.1%</td><td>174</td><td>18.7%</td><td>19.7%</td><td>57</td></tr>
+<tr><td>1</td><td>streak-voo-buy-tecl + pdd_tree + mara_tree + streak-urbn-down3</td><td class="win">99%</td><td class="win">22.0%</td><td>239</td><td class="win">27%</td><td class="win">18.5%</td><td>74</td></tr>
+<tr><td>2</td><td>roiv_tree + cls_tree + streak-nxt-down3 + streak-ttd-up3-ttd</td><td class="win">96%</td><td class="win">15.3%</td><td>214</td><td class="win">31%</td><td class="win">19.5%</td><td>85</td></tr>
+<tr><td>3</td><td>mdgl_tree + cls_tree + streak-nxt-down3 + streak-avgo-down4-avgo</td><td class="win">86%</td><td class="win">11.1%</td><td>196</td><td class="win">51%</td><td class="win">19.0%</td><td>76</td></tr>
+<tr><td>4</td><td>streak-ttd-up3-ttd + cls_tree + streak-avgo-down4-avgo</td><td class="win">86%</td><td class="win">12.7%</td><td>204</td><td class="win">28%</td><td class="win">16.6%</td><td>79</td></tr>
+<tr><td>5</td><td>ftai_tree + cls_tree + streak-nxt-down3 + streak-roku-up3-roku</td><td class="win">86%</td><td class="win">11.8%</td><td>226</td><td class="win">42%</td><td class="win">19.6%</td><td>94</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>How to read it</h2>
+<ul>
+<li>Row 0 is the live stack, scored with the old coil/bounce tree rules (git commit 6d6b1b9), because the repo's <code>pdd_tree</code> and <code>mara_tree</code> rows now run the retrained 5-bucket tree.</li>
+<li>Row 1 is the smallest change: the live stack plus one <code>urbn</code> streak. The edge is modest, about 8 points of held-out CAGR and 1.2 points of drawdown.</li>
+<li>Rows 2 to 5 share a core (<code>cls_tree</code>, <code>nxt</code>, <code>ttd</code>, <code>avgo</code>, <code>roku</code>). They are variations on one idea, not five independent bets.</li>
+<li>Held-out drawdowns of rows 2 to 5 (16.6% to 19.6%) are only slightly better than the deployed 19.7%. Their in-sample drawdown margin is much larger.</li>
+</ul>
+
+<h2>Caveats</h2>
+<p class="note">The held-out year helped choose these stacks, so their held-out numbers are optimistic. They came from a search of about 4,000 stacks; 541 beat the deployed stack on all four numbers and 17 passed the liquidity filter. The simulator has no volume limit, so size matters in practice. Stacks with 400%+ in-sample CAGR leaned on small caps (<code>dec</code>, <code>umac</code>, <code>esta</code>, <code>dsgn</code>, <code>ehgo</code>) and were excluded. The trees <code>cls</code>, <code>roiv</code>, <code>mdgl</code> and <code>ftai</code> use the retrained models trained on the in-sample window only; trading them live needs one more <code>train tree</code> over all history.</p>
+</main>
+</body>
+</html>

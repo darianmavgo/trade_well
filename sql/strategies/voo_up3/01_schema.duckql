@@ -1,0 +1,27 @@
+-- Schema for the VOO N-day up-streak -> trade-symbol strategy pipeline.
+DROP TABLE IF EXISTS voo_up3_streaks_slice;
+CREATE TABLE voo_up3_streaks_slice (
+    date TEXT,
+    up_streak INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_voo_up3_streaks_date ON voo_up3_streaks_slice(date);
+
+DROP TABLE IF EXISTS voo_up3_signals;
+CREATE TABLE voo_up3_signals (
+    idx INTEGER,
+    symbol TEXT,
+    date TEXT,
+    open DOUBLE,
+    high DOUBLE,
+    low DOUBLE,
+    close DOUBLE,
+    volume INTEGER,
+    buylimit DOUBLE,
+    entry INTEGER DEFAULT 0,
+    direction TEXT,
+    regime TEXT,
+    hold_days_override INTEGER,
+    take_profit DOUBLE,
+    stop_loss DOUBLE
+);
+CREATE INDEX IF NOT EXISTS idx_voo_up3_signals ON voo_up3_signals(symbol, date);

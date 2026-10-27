@@ -1,0 +1,6 @@
+-- The state the next bar moved to.
+INSERT INTO markov_transition (symbol, date, from_state, to_state)
+SELECT
+    symbol, date, state,
+    LEAD(state) OVER (PARTITION BY symbol ORDER BY date)
+FROM markov_state;

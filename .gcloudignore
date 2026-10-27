@@ -1,0 +1,25 @@
+# Files NOT uploaded by `gcloud app deploy`. Allowlist: ignore everything, then
+# re-include only what the App Engine Go build needs (the source, and the vendored
+# modules the build uses with -mod=vendor). Nothing else belongs in the upload:
+# .env, token.json, databases, logs and binaries were being uploaded before, which
+# both slowed every deploy (a 31 MB binary changes on each build) and copied
+# credentials into the staging bucket. Runtime config comes from the GCS config object
+# (config/env), not from a file in the upload.
+*
+
+!cmd/
+!cmd/**
+!pkg/
+!pkg/**
+!sql/
+!sql/**
+!vendor/
+!vendor/**
+!go.mod
+!go.sum
+
+# .env is deliberately not re-included: the app is configured from gs://<bucket>/config/env.
+# TestGAEUploadNeverIncludesDotEnv fails if a rule here would upload a .env or token file.
+# tests are not built into the service
+*_test.go
+**/testdata/

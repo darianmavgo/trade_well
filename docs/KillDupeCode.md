@@ -1,263 +1,74 @@
 # KillDupeCode
 
-Opportunities to delete code from `trade_orchestrator` (TO) by using packages that
-already exist in `schwaber` (SW) and `backtestgosqlite` (BT), or by moving the
-TO code *into* SW/BT once and importing it back.
+Opportunities to delete duplicated code across `trade_orchestrator` (TO), `schwaber` (SW) and `backtestgosqlite` (BT), by calling a package that already exists or by moving the code once into the lower layer and importing it back.
 
-Scope: read-only scan of `cmd/` + `pkg/` in all three repos. Nothing was changed.
-Line counts are approximate (from the function boundaries). Items are ranked by
-payoff/risk, not by size. Each item is tagged:
+**Re-scanned 2026-10-27** against the working trees; the repos were merged into one module the same day (paths below use the old repo names; see `docs/FlattenAssessment.md`). The first version (2026-10-13, commit 8b504d6) listed 16 items. Most are now done, so this file now records status and only the work that is left.
 
-- **DELETE** – SW/BT already has it; TO just needs to call it.
-- **PROMOTE** – TO owns it, but it is generic; move it to SW/BT and import it.
-- **DEDUPE-IN-PLACE** – duplicate lives inside TO itself.
+Size now: TO about 40.4k lines of Go (incl. tests), SW about 7.9k, BT about 58.4k. (The 2026-10-13 baseline of 12.1k / 5.9k / 30k was smaller or counted differently; do not compare totals.)
 
-Baseline: TO is ~12.1k lines of Go (incl. tests), SW ~5.9k, BT ~30k.
-TO already imports only `schwaber/pkg/{trader,schwab,config,oauthhttp,orderintent}`
-and `backtestgosqlite/pkg/{strategy,runner,models}`. It does **not** yet use
-`schwaber/pkg/tokensync`, `backtestgosqlite/pkg/{appenv,storage,refdb}`, or
-`schwaber/pkg/trader.SafetyGuard`.
+Tags: **DELETE** (a lower repo already has it), **PROMOTE** (generic code in TO, move it down), **DEDUPE-IN-PLACE** (both copies in one repo).
 
-> **Caveat before any of this:** `go.mod` has `replace … => ../schwaber` and
-> `../backtestgosqlite`, *and* TO has a `vendor/` dir containing copies of both.
-> Check that `vendor/modules.txt` is in sync with the sibling repos before
-> starting (`go mod vendor` after every SW/BT change), or drop vendoring while
-> the three repos live in one workspace (a `go.work` file is the cleaner fit).
+## 1. Status of the original 16 items
 
----
+| # | Item | Status | Evidence |
+|---|---|---|---|
+| 1.1 | `gcsAccessToken` | **Done** | SW exports `tokensync.GCSAccessToken` (`tokensync.go:207`); TO's copy and `dbsync` are gone |
+| 1.2 | `.env` line parser | **Partly done** | SW exports `config.ParseEnv` (`gcsenv.go:48`). BT `appenv.load()` still has its own parse loop (about 25 lines). TO's `loadDotEnv` now survives only in a test helper (`send_email_test.go:18`) |
+| 1.3 | Secret Manager fetch | **Done** | No `secretmanager` import or `LoadSecretsIfCloud` anywhere |
+| 1.4 | `orderNumericID` = `locationOrderID` | **Done 2026-10-27** | One exported `schwab.LocationOrderID` (`pkg/schwaber/schwab/place_idempotent.go`); the orchestrator copy is deleted and its test moved next to it |
+| 1.5 | `flattenOrders` and helpers | **Done** | SW exports `schwab.FlattenOrders` (`order_tree.go:24`); TO's copies and `orderSymbol`, `orderIsSell` etc. are gone |
+| 1.6 | `windowForSignal` | **Open** | Same function in `stage_orders/window.go` (44 lines) and `manage_exits/window.go` (69 lines, plus `windowForTrade`). Comments say it was duplicated on purpose to avoid a dependency; BT has no `strategy.WindowFor` |
+| 2.1 | Token sync | **Done** | TO `auth/token_sync.go` is 43 lines and calls `tokensync.SyncBeforeUse` / `Push`; no sync script left in `deploy_gae/` |
+| 2.2 | Interactive OAuth | **Done** | SW `oauthcli.Run`; TO `auth/command.go` imports it; `IsPermanentAuthError` lives in SW `schwab/client.go:294` |
+| 2.3 | Account / order / transaction ingest | **Mostly done** | SW `pkg/accountstore` (625 + 177 + 42 lines) and `listall` uses it; TO `account_state` no longer has `parseAndSave*` and delegates `Summary` to it. TO still keeps 386 lines of sync, progress events and table builders: probably orchestration, not verified line by line |
+| 2.4 | Linked-account resolution | **Partly done** | `filterLinkedAccounts` is gone. `account_allowlist.ResolveFromDB` still maps stored rows to `trader.ResolvedAccount` in TO; no `ResolveFromLinked` exists in SW. That DB-row mapper may be legitimately TO's |
+| 2.5 | Litestream `dbsync` | **Done (removed)** | `pkg/dbsync` is gone; the deploy is Turso only (commit 83ab70a) |
+| 2.6 | Stack and allowlist parsing | **Done 2026-10-27** (see below) | BT exports `strategy.IsStack` / `ParseStack` and TO uses them (16 call sites). Left: TO `strategies.Contains` is a one-line `slices.Contains` wrapper; `strategies.Parse` and `account_allowlist.Parse` are the same split, trim and dedupe function |
+| 2.7 | Market-DB path resolution | **Done** | `resolveMarketDB` is gone; TO calls `appenv.MarketDB()`. `BACKTEST_ROOT` only appears in a comment (`appconfig/schema.go:36`) |
+| 2.8 | Signal scan wrapper | **Done** | BT has `runner.RunLiveScan` (`livescan.go:21`); TO's `livescan.go` is gone and `SignalScanResult` exists only in BT. TO's `scan_market.RunSignalScan` (285 lines) is a different function: it calls `runner.RunLiveScan` and adds bar sync and persistence. It shares a name, not logic |
+| 2.9 | Trading calendar | **Done** | BT `pkg/calendar` (`LastCompletedSession`); `CalculateTradingDays` and the 3-holiday list are gone |
+| 2.10 | SQLite open and pragmas | **Mostly done** | SW `dbutil.Open` holds the pragmas (WAL, synchronous, temp_store); TO `appconfig.OpenDB` is a one-line call to it. Left: BT `storage.OpenSQLite` has its own pragma block, and `park_sweep/db.go:117` adds a `busy_timeout` of its own. Both use the pure-Go `"sqlite"` driver, so the driver question in the old file is answered; the one exception is `cmd/markov_test`, which imports the cgo `mattn/go-sqlite3` |
 
-## 1. Byte-for-byte / near-identical duplicates (easiest wins)
+Also closed since the first version: `SafetyGuard` is now used. `submit_orders.go:381` calls `tc.Safety.ValidateOrder` before placing an order (the old file listed it as a gap).
 
-### 1.1 `gcsAccessToken` — DEDUPE (PROMOTE)  ~15 lines
-- TO: `pkg/dbsync/gcs.go:110`
-- SW: `pkg/tokensync/tokensync.go:167`
-- Same ADC lookup with scope `devstorage.read_write`; TO's version carries a
-  dead `_ = oauth2.TokenSource(ts)` line to keep an import alive.
-- **Action:** export one `GCSAccessToken(ctx)` from SW (`tokensync`, or a new
-  tiny `pkg/gcsutil`) and use it from `dbsync`. Also lets TO drop its direct
-  `golang.org/x/oauth2` import.
+Counts: **9 done** (1.1, 1.3, 1.5, 2.1, 2.2, 2.5, 2.7, 2.8, 2.9), **4 mostly or partly done** (1.2, 2.3, 2.4, 2.6, 2.10 with small leftovers), **2 open** (1.4, 1.6).
 
-### 1.2 `.env` line parser — PROMOTE  ~25 lines ×3
-- TO: `pkg/appserve/secrets.go:74` `loadDotEnv`
-- SW: `pkg/config/config.go:105` `loadDotEnv`
-- SW: `pkg/config/secretmanager.go:19` (same key=value loop, inline)
-- BT: `pkg/appenv/appenv.go:28` `load()` (same idea, third copy)
-- All: skip blanks/`#`, split on `=`, `Trim(…, "\"'")`, set only if env empty.
-- **Action:** one exported `config.ParseDotEnv([]byte)` / `config.LoadDotEnv(path)`
-  in SW (BT can import it or keep its own; TO must not have one).
+## 2. What is left to remove
 
-### 1.3 Secret Manager fetch — DELETE  ~40 lines
-- TO: `pkg/appserve/secrets.go:20-72` (`LoadSecretsIfCloud`, `writeSecret`)
-- SW: `pkg/config/secretmanager.go` (`loadSecretManagerEnv`, unexported)
-- Both open a `secretmanager.Client`, `AccessSecretVersion(.../versions/latest)`.
-  TO writes to a file then re-reads it; SW parses straight into env.
-- **Action:** export SW's loader (e.g. `config.LoadSecretManagerEnv(ctx, project, name)`)
-  and have `appserve` call it. Deletes `writeSecret`, `loadDotEnv`, `envOr`,
-  `firstNonEmpty`, and TO's direct dependency on
-  `cloud.google.com/go/secretmanager` (plus a chunk of `vendor/`).
-  Check first whether SW's `config.Load()` already triggers this when
-  `SECRET_MANAGER_*` is set — if so, `LoadSecretsIfCloud` may reduce to a
-  runtime-detect guard.
+**Update after the merge (2026-10-27):** items 1.4, 1.6 and 2.6 are done in the merged tree. 2.6: the orchestrator's `strategies.Parse` and `account_allowlist.Parse` now share `pkg/orchestrator/csvlist.Unique`, `strategies.Contains` is gone in favour of `slices.Contains`, and backtest's two identical `splitList` copies (`strateval`, `pipeline`) became `cliutils.SplitList`. Still open: 1.2 (`.env` parsing) and 2.10 (pragma lists), which need a layer decision, plus the reviews of 2.3 and 2.4. The table below is the list as it stood before the merge.
 
-### 1.4 `orderNumericID` == `locationOrderID` — PROMOTE  ~8 lines
-- TO: `pkg/submit_orders/submit_orders.go:44`
-- SW: `pkg/schwab/place_idempotent.go:116` (unexported, identical body)
-- **Action:** export `schwab.LocationOrderID`; delete the TO copy.
 
-### 1.5 `flattenOrders` — PROMOTE  ~25 lines ×2 (inside TO)
-- TO: `pkg/submit_orders/submit_orders.go:52`
-- TO: `pkg/manage_exits/manage_exits.go:286`
-- Both recurse into `Order.ChildOrderStrategies`. The submit_orders comment
-  says it is deliberately duplicated to avoid a package dependency.
-- **Action:** `func (o Order) Flatten() []Order` / `schwab.FlattenOrders` in SW
-  next to the `Order` type. Related helpers `orderSymbol`, `orderIsSell`,
-  `findWorkingSellLimitID`, `sellFillOnSymbol` (`manage_exits.go:302-350`) are
-  also pure functions of `schwab.Order` and belong there too (~50 lines),
-  and SW already has `trader.ParseOrderLegs` doing similar leg extraction.
+Small items; the large ones (ingest, `dbsync`, secrets, token sync) are gone. Rough sizes are from reading the bodies, not a tool.
 
-### 1.6 `windowForSignal` — DEDUPE-IN-PLACE (then PROMOTE)  ~35 lines
-- TO: `pkg/manage_exits/window.go:14` and `pkg/stage_orders/window.go:15` are
-  the same function (diff shows only `windowForTrade` extra in manage_exits).
-- **Action:** BT owns `strategy.Strategy`, `StrategyConfig`, and `models.Signal`;
-  the "hold days / take-profit / stop-loss for this signal, falling back to
-  DefaultConfig" logic is a strategy concept. Add `strategy.WindowFor(strat, sig)`
-  in BT, delete both TO copies. `windowForTrade` then becomes a 5-line wrapper.
+| Item | Where | Action | Size |
+|---|---|---|---|
+| 1.6 `windowForSignal` x2 | TO `stage_orders/window.go`, `manage_exits/window.go` | Add `strategy.WindowFor(strat, sig)` in BT (the logic is a strategy concept); both TO copies call it; `windowForTrade` stays as a short wrapper | about 40 lines |
+| 1.4 order id from Location | TO `submit_orders.go:47` | Export `schwab.LocationOrderID` and delete the TO copy | 6 lines |
+| 1.2 `.env` parse | BT `appenv.load()` | Call SW `config.ParseEnv`, or keep BT's and say why (BT is Calculation and must not import SW, see below) | 25 lines |
+| 2.6 CSV parse | TO `strategies.Parse`, `account_allowlist.Parse` | One shared "split, trim, dedupe, error if empty" helper, and delete `strategies.Contains` (use `slices.Contains`) | about 25 lines |
+| 2.10 pragma lists | SW `dbutil.Open`, BT `storage.OpenSQLite`, `park_sweep` | Decide one owner of the pragma list (see the layer note) | about 20 lines |
+| 2.4 `ResolveFromDB` | TO `account_allowlist/resolve_db.go` | Review only; likely stays in TO | n/a |
+| 2.3 `account_state` | TO | Review the remaining 386 lines for overlap with `accountstore` | unknown |
 
----
+Realistic total: **about 120 to 150 lines of non-test code**, plus the tests that move with them. The earlier estimate (900 lines, 1,700 with `dbsync`) is spent.
 
-## 2. Reimplementations of things SW/BT already provide
+**Layer note (cross-repo rule: Foundation and Calculation never import each other).** Items 1.2 and 2.10 pair a schwaber helper (Foundation) with a backtestgosqlite one (Calculation), so neither repo can import the other today. The rule says shared helpers go to the lowest layer that needs them, and if two peer layers need one it goes in Foundation. That is a reason to settle these two in the flattening (one `pkg/` tree with a shared foundation package) and not by adding a cross-repo import.
 
-### 2.1 Token sync — DELETE  ~95 lines + a shell script
-- TO: `pkg/auth/token_sync.go` (`SyncToken`, `ResolveSyncSchwabTokenScript`) and
-  `deploy_gae/sync_schwab_token.sh`; CLI `runTokenSync` in `cmd/orchestrator/main.go:1124`.
-- SW: `pkg/tokensync` (`SyncBeforeUse`, `SyncAfterSave`) — already invoked
-  inside `schwab.Client`. `appserve/secrets.go:47` even says so:
-  *"schwab-token itself now lives in GCS, synced entirely inside schwaber."*
-- So TO shells out to a script to do a job the library already does on every
-  token load/save. **Action:** delete `SyncToken` + script search logic; make
-  `token-sync pull|push` call `tokensync.SyncBeforeUse` / `SyncAfterSave`
-  directly (or drop the subcommand if nobody uses it). Keep only the `auth`
-  audit-log table writer if wanted.
+## 3. Same name, not a duplicate (leave alone)
 
-### 2.2 Interactive OAuth — PROMOTE/DELETE  ~65 lines
-- TO: `pkg/auth/oauth.go` `RunInteractiveAuth`
-- SW: `cmd/schwaber/main.go:122` `runAuth` (same steps: print `AuthorizeURL`,
-  read pasted URL, `ExtractCodeFromURL`, `ExchangeAuthCode`, `ListLinkedAccounts`)
-  — but it is in `package main`, so TO cannot import it.
-- **Action:** move the flow to `schwaber/pkg/oauthcli` (or into `pkg/oauthhttp`)
-  taking an optional `func(event, detail string)` hook; SW's `runAuth` and TO
-  both call it, TO passes `logEvent` as the hook. `IsPermanentAuthError`
-  (`auth/auth.go:22`) is a superset of `schwab.IsReauthRequired`; fold the extra
-  string matches into SW's function and delete TO's.
+- `scan_market.RunSignalScan` (TO) vs `runner.RunSignalScan` (BT): TO's wraps `runner.RunLiveScan` and adds persistence. Earlier drafts, including `FlattenAssessment.md`, called this a real overlap; it is not.
+- `killswitch` and `orders` packages in TO and SW: SW's are CLI commands, TO's are state and display.
+- `recordRun`, `Assess`: different jobs.
+- `stage_orders`, `submit_orders`, `manage_exits`, `check_health`, `dashboard`, `send_email`, `appserve`, `runtimeenv`, `job_runs`: orchestration logic against TO's own tables.
 
-### 2.3 Account/order/transaction ingest — PROMOTE  ~500 lines (biggest single item)
-- TO: `pkg/account_state/account_state.go` `parseAndSaveAccounts/Orders/
-  Transactions/UserPreferences`, `saveRawResponse`, `boolToInt`, `Summary`
-  (`summary.go`), plus `schema.go`.
-- SW: `pkg/listall/listall.go` `initDatabase`, `Run` (was `cmd/schwaber/main.go` `runListAll`),
-  `parseAndSave*`, `saveRawResponse`, `boolToInt`, `printSummaryReport`.
-- Same function names, same endpoints, same JSON shapes; only table names
-  differ (`accounts` vs `account_state_account`, etc.) and TO's version adds
-  `execer` (tx/no-op for streaming) and progress events. SW's copy is stuck
-  in `package main`.
-- **Action:** create `schwaber/pkg/accountstore` with a configurable table
-  prefix, taking TO's more capable `execer` design; SW's `listall` and TO's
-  `account_state.Sync` both become thin callers. Removes ~450 lines from one
-  side and stops two schemas drifting. Biggest risk: existing `schwaber.db` /
-  `orchestrator.db` table names — keep prefix as a parameter and add no
-  migration.
+## 4. Leads from the first version that are not confirmed
 
-### 2.4 `filterLinkedAccounts` / account resolution — DELETE  ~30–60 lines
-- TO: `account_state.go:223` `filterLinkedAccounts`, `account_allowlist/resolve_db.go`
-  `ResolveFromDB` / `ResolveAllFromDB`, main.go `resolveAccounts*`.
-- SW: `trader.ResolveRothAccount`, `TraderClient.GetAccounts(ctx, targets)`
-  (`client.go:76`), `ResolvedAccount` type (`account.go:46`).
-- TO's DB variants reconstruct a `*trader.ResolvedAccount` from stored rows;
-  the live path duplicates `GetAccounts` filtering. **Action:** put a
-  `trader.ResolveFromLinked(linked, targets)` in SW used by both the live
-  and DB paths; keep only the DB-row → `ResolvedAccount` mapper in TO.
+- **Decision-tree study code in BT.** The first version said near-identical 1,100-line decision-tree files exist. Today `pkg/study/mu_decision_tree.go` (1,194 lines) and `mara_decision_tree.go` (1,145 lines) exist, but they share only 1 function name (12 and 11 functions), and `strategy/ARCHIVE` and `strategy/failed_training` no longer exist. So these are not name-level copies. They may still be structurally similar; only a clone detector (`dupl`, `jscpd`) can say.
+- **`heldTail`** in TO `modelstate/bars.go:109` and BT `dailybars/dailybars.go:143`: the same row-scan loop over different tables. A shared scan helper might remove about 15 lines; low value.
+- **`APP_FOLDER` handling** is read in TO (`appconfig.go`, `deploy_strategy.go`, a dashboard page), SW (`oauthhttp/handlers.go`) and BT (`appenv`, `market_history/main.go`). `appenv` is the intended owner (rule: paths come from one environment package per repo, and one spelling across repos); the others should be checked.
 
-### 2.5 Litestream `dbsync` — PROMOTE (optional)  ~870 lines
-- TO: `pkg/dbsync/*` (binary download, config gen, GCS freshness, restore,
-  replicate, meta table). Nothing in SW/BT does this today, but SW's
-  `orderintent.Store` (own SQLite file) and `schwaber.db` would benefit, and it
-  is not orchestrator-specific.
-- **Action (low priority):** promote to a shared `pkg/dbsync` in SW (SW already
-  owns the GCS + ADC code from 1.1). Not a deletion for TO overall, but it
-  removes the only reason TO needs its own GCS/HTTP plumbing.
+## 5. How this was checked, and what was not
 
-### 2.6 Strategy allowlist / stack parsing — PROMOTE  ~80 lines
-- TO: `pkg/strategies/stack.go` (`IsStack`, `ParseStack`, `MemberGreenlit`) and
-  `strategies.go` (`Parse`, `Contains`, `ResolveRequest`, `ResolveGreenlit`).
-- BT: `runner.ResolveStrategies` (`runner/resolve.go`) parses "all"/CSV; stack
-  handling exists in `runner/shared_account.go` (`SharedAccountID`,
-  `StackRequest`) and `runner/stack_eval.go`, but ids are joined with `+`
-  ad hoc — no shared parser. BT and TO therefore each know the `a+b+c` format.
-- **Action:** add `strategy.ParseStack/IsStack/ExpandStacks` to BT and have
-  BT's runner and TO both use them. `strategies.Contains` is `slices.Contains`
-  — delete it. `strategies.Parse` and `account_allowlist.Parse` are the same
-  "split CSV, trim, dedupe, error if empty" function: share one
-  (`cliutils`-style helper in BT, or stdlib + 4 lines).
-
-### 2.7 Market-DB path resolution — DELETE  ~25 lines
-- TO: `pkg/scan_market/scan.go:191` `resolveMarketDB` (+ `pathExists`),
-  `dbsync.marketDBPath`, `appconfig.MarketDB/BacktestRoot` fields.
-- BT: `pkg/appenv` — `appenv.MarketDB()`, `Data()`, `Folder()`, with
-  `APP_FOLDER` semantic already shared with TO.
-- **Action:** replace with `appenv.MarketDB()`. Removes `BACKTEST_ROOT`
-  guesswork. (TO's `appconfig.applySchwabPaths` also re-implements
-  `APP_FOLDER` handling that both SW and BT have separately; when unifying,
-  SW's `config` should call `appenv.Folder()` or vice-versa.)
-
-### 2.8 Signal scan wrapper — TRIM  ~50 lines
-- TO: `pkg/scan_market/livescan.go` `RunLivescan` is a thin wrapper around
-  `runner.RunSignalScan` and a hard-coded `defaultBarsTable = "backtest_start"`.
-- BT: `runner.SignalScanOptions` could default `Table` and `Concurrency`
-  itself (BT's own `pkg/livescan/main.go` repeats the same defaults).
-- **Action:** BT adds `runner.RunLiveScan(strats, marketDB, outDir)` with those
-  defaults + the `as_of == ""` check; TO deletes `livescan.go`. Also
-  `SignalScanResult` in TO (`signal_scan.go:20`) shadows BT's type of the same
-  name — rename or embed; don't keep both.
-
-### 2.9 Trading calendar — DELETE  ~40 lines
-- TO: `manage_exits/trade.go:174-210` `CalculateTradingDays` + hard-coded 3
-  holidays (New Year, Jul 4, Christmas; no Good Friday, MLK, Thanksgiving,
-  weekend-observed rules).
-- BT: `runner/asof.go` `LastCompletedEquitySession`, `NextEquitySession`,
-  which own the session logic for as-of resolution.
-- **Action:** one calendar package in BT (`pkg/calendar`), used by both. This
-  is also a **correctness** fix — TO's holiday list under-counts holidays, so
-  `trading_days_held` will be too high around Good Friday/Thanksgiving, causing
-  early time-stop exits.
-
-### 2.10 SQLite open + pragmas — DELETE  ~35 lines
-- TO: `pkg/appconfig/opendb.go` `OpenDB` (WAL, synchronous, busy_timeout,
-  `SQLITE_FUSE_SAFE`).
-- BT: `storage.OpenSQLite` (`storage/sqlite.go:31`) and `refdb.Open` each set
-  their own pragmas; SW: `orderintent.Open`, `initDatabase`.
-- **Action:** four places set nearly the same pragma list. Add one
-  `dbutil.Open(path, opts)` (in SW, since it is the base dependency) and use it
-  everywhere. Note BT uses `sqlx` + `mattn/go-sqlite3`?? vs TO `modernc.org/sqlite`
-  — verify driver names before unifying; they register different names.
-
----
-
-## 3. Bar-chart of what could move (TO lines)
-
-| Item | TO lines removable | Destination |
-|---|---:|---|
-| 2.3 account ingest | ~450 | SW `pkg/accountstore` |
-| 2.5 dbsync (optional) | ~870 | SW `pkg/dbsync` |
-| 2.1 token sync | ~95 | SW `tokensync` (already there) |
-| 1.3 secrets loader | ~40 | SW `config` |
-| 2.2 interactive auth | ~65 | SW `pkg/oauthcli` |
-| 2.6 stack/allowlist | ~80 | BT `strategy` |
-| 1.5 flattenOrders + helpers | ~75 | SW `schwab` |
-| 2.9 calendar | ~40 | BT `pkg/calendar` |
-| 1.6 windowForSignal (×2) | ~35 | BT `strategy` |
-| 2.8 livescan wrapper | ~50 | BT `runner` |
-| 2.7 market DB path | ~25 | BT `appenv` |
-| 2.10 open db | ~35 | SW `dbutil` |
-| 1.1/1.2/1.4 small helpers | ~60 | SW |
-
-Realistic total: **~900 lines of non-test code** without dbsync, **~1,700** with it,
-plus matching test code.
-
-## 4. Leave in TO (looks similar, isn't a duplicate)
-
-- `stage_orders`, `submit_orders`, `manage_exits`, `check_health`: orchestration
-  logic against TO's own tables. SW's `trader.SafetyGuard` is *not* used by TO —
-  worth checking whether `submit_orders` should call `SafetyGuard.ValidateOrder`
-  (a gap, not a duplicate).
-- `dashboard`, `send_email`, `appserve/cron.go`, `runtimeenv`: GAE/deployment-specific.
-- `job_runs`, `scan_market/buy_signals.go`: TO-only tables.
-
-## 5. Duplication *between* SW and BT (not TO, but blocks the above)
-
-- `.env` loading (3 copies, §1.2) and `APP_FOLDER` resolution (`appenv` vs `config` vs `appconfig`).
-- `gcsAccessToken` only in SW+TO today; if BT adds GCS it will become 3.
-- `backtestgosqlite/pkg/strategy/failed_training/` and `strategy/ARCHIVE/`,
-  `cmd/*` dirs contain a lot of near-identical decision-tree files
-  (`mu_decision_tree.go`, `mara_decision_tree.go`, `etf_decision_trees`,
-  `strategy/decisiontree.go`, `mara_tree.go`): 1,100+ line study files each.
-  Outside TO's scope but the biggest raw duplication in the tree; separate
-  audit recommended.
-
-## 6. Suggested order
-
-1. Housekeeping: `go.work` or refresh `vendor/`; run all three test suites for a green baseline.
-2. Tiny exports in SW (1.1, 1.3, 1.4, 1.5) → delete TO copies. Low risk, mechanical.
-3. BT: `strategy.WindowFor`, `strategy.ParseStack`, `calendar` (1.6, 2.6, 2.9). Do the calendar first — it fixes a real bug.
-4. SW `oauthcli` + token sync cleanup (2.1, 2.2).
-5. `accountstore` extraction (2.3) — the largest, needs schema-compat test.
-6. Optional: shared `dbsync`, shared DB opener.
-
-## 7. Not verified
-
-- I did not compile/run anything and did not diff every function body — items
-  marked "identical" (1.1, 1.4, 1.6) were diffed; the rest are judged by
-  signature, comments and skim of the code.
-- I did not check `deploy_gae/`, `ARCHIVE/`, `scripts/*.go`, or TO `tmp/` for
-  additional dead code; `ARCHIVE/` alone is likely deletable outright.
-- I did not audit TO tests for what would need to move with each item.
-- 2.10: a claim about which SQLite drivers each repo registers needs checking.
+- Checked: each item's named symbols were searched in all three repos (non-vendor Go files). The bodies of 1.4, 1.6, 2.6 (`Parse`), 2.10 and the `.env` loop in BT were read.
+- Not done: no clone detector was run; nothing was compiled for this scan (the three repos did build and test clean earlier today); test files were not audited; `scripts/` and `deploy_gae/` were not searched for duplicate logic; function bodies of TO `account_state.go` were not compared with `accountstore`.
+- Numbers of lines are estimates from file and function boundaries.

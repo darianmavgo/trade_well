@@ -1,0 +1,161 @@
+-- Persistent schema for SEC EDGAR BDC 10-Q and 10-K Schedule of Investments data.
+CREATE TABLE IF NOT EXISTS bdc_filings (
+    accession_number TEXT PRIMARY KEY,
+    bdc_ticker       TEXT NOT NULL,
+    bdc_name         TEXT NOT NULL,
+    manager          TEXT NOT NULL,
+    cik              TEXT NOT NULL,
+    form             TEXT NOT NULL,
+    filing_date      TEXT NOT NULL,
+    report_date      TEXT NOT NULL,
+    primary_document TEXT NOT NULL DEFAULT '',
+    source_url       TEXT NOT NULL DEFAULT '',
+    row_count        INTEGER NOT NULL DEFAULT 0,
+    ingested_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_bdc_filings_ticker_date ON bdc_filings(bdc_ticker, report_date);
+
+CREATE TABLE IF NOT EXISTS bdc_soi_raw (
+    accession_number  TEXT NOT NULL,
+    bdc_ticker        TEXT NOT NULL,
+    cik               TEXT NOT NULL,
+    form              TEXT NOT NULL,
+    filing_date       TEXT NOT NULL,
+    report_date       TEXT NOT NULL,
+    period_date       TEXT NOT NULL,
+    row_num           INTEGER NOT NULL,
+    raw_context_id    TEXT NOT NULL DEFAULT '',
+    borrower_name     TEXT NOT NULL,
+    industry          TEXT NOT NULL DEFAULT '',
+    investment_type   TEXT NOT NULL DEFAULT '',
+    reference_rate    TEXT NOT NULL DEFAULT '',
+    spread_bps        REAL NOT NULL DEFAULT 0,
+    interest_rate_pct REAL NOT NULL DEFAULT 0,
+    pik_rate_pct      REAL NOT NULL DEFAULT 0,
+    floor_rate_pct    REAL NOT NULL DEFAULT 0,
+    rate_text         TEXT NOT NULL DEFAULT '',
+    acquisition_date  TEXT NOT NULL DEFAULT '',
+    maturity_date     TEXT NOT NULL DEFAULT '',
+    principal_amount  REAL NOT NULL DEFAULT 0,
+    amortized_cost    REAL NOT NULL DEFAULT 0,
+    fair_value        REAL NOT NULL DEFAULT 0,
+    pct_net_assets    REAL NOT NULL DEFAULT 0,
+    non_accrual       INTEGER NOT NULL DEFAULT 0,
+    footnotes         TEXT NOT NULL DEFAULT '',
+    source_format     TEXT NOT NULL DEFAULT 'xbrl',
+    PRIMARY KEY (accession_number, row_num)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bdc_soi_raw_ticker_report ON bdc_soi_raw(bdc_ticker, report_date);
+CREATE INDEX IF NOT EXISTS idx_bdc_soi_raw_borrower ON bdc_soi_raw(borrower_name);
+
+CREATE TABLE IF NOT EXISTS bdc_tech_investments (
+    accession_number   TEXT NOT NULL,
+    bdc_ticker         TEXT NOT NULL,
+    manager            TEXT NOT NULL,
+    form               TEXT NOT NULL,
+    filing_date        TEXT NOT NULL,
+    report_date        TEXT NOT NULL,
+    row_num            INTEGER NOT NULL,
+    canonical_borrower TEXT NOT NULL,
+    borrower_name      TEXT NOT NULL,
+    is_spv             INTEGER NOT NULL DEFAULT 0,
+    match_tier         TEXT NOT NULL,
+    matched_keyword    TEXT NOT NULL,
+    industry           TEXT NOT NULL,
+    investment_type    TEXT NOT NULL,
+    reference_rate     TEXT NOT NULL,
+    spread_bps         REAL NOT NULL DEFAULT 0,
+    interest_rate_pct  REAL NOT NULL DEFAULT 0,
+    pik_rate_pct       REAL NOT NULL DEFAULT 0,
+    floor_rate_pct     REAL NOT NULL DEFAULT 0,
+    rate_text          TEXT NOT NULL DEFAULT '',
+    acquisition_date   TEXT NOT NULL DEFAULT '',
+    maturity_date      TEXT NOT NULL DEFAULT '',
+    principal_amount   REAL NOT NULL DEFAULT 0,
+    amortized_cost     REAL NOT NULL DEFAULT 0,
+    fair_value         REAL NOT NULL DEFAULT 0,
+    fv_to_cost_ratio   REAL,
+    fv_to_par_ratio    REAL,
+    markdown_usd       REAL NOT NULL DEFAULT 0,
+    markdown_pct       REAL NOT NULL DEFAULT 0,
+    non_accrual        INTEGER NOT NULL DEFAULT 0,
+    footnotes          TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (accession_number, row_num)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bdc_tech_tier_date ON bdc_tech_investments(match_tier, report_date);
+CREATE INDEX IF NOT EXISTS idx_bdc_tech_borrower ON bdc_tech_investments(canonical_borrower, report_date);
+
+CREATE TABLE IF NOT EXISTS bdc_facility_timeseries (
+    bdc_ticker             TEXT NOT NULL,
+    manager                TEXT NOT NULL,
+    canonical_borrower     TEXT NOT NULL,
+    borrower_name          TEXT NOT NULL,
+    investment_type        TEXT NOT NULL,
+    maturity_date          TEXT NOT NULL,
+    report_date            TEXT NOT NULL,
+    filing_date            TEXT NOT NULL,
+    form                   TEXT NOT NULL,
+    accession_number       TEXT NOT NULL,
+    row_num                INTEGER NOT NULL,
+    is_spv                 INTEGER NOT NULL DEFAULT 0,
+    match_tier             TEXT NOT NULL,
+    matched_keyword        TEXT NOT NULL,
+    industry               TEXT NOT NULL,
+    reference_rate         TEXT NOT NULL,
+    spread_bps             REAL NOT NULL DEFAULT 0,
+    prev_spread_bps        REAL,
+    spread_change_bps      REAL,
+    interest_rate_pct      REAL NOT NULL DEFAULT 0,
+    prev_interest_rate_pct REAL,
+    rate_change_pct        REAL,
+    pik_rate_pct           REAL NOT NULL DEFAULT 0,
+    principal_amount       REAL NOT NULL DEFAULT 0,
+    amortized_cost         REAL NOT NULL DEFAULT 0,
+    fair_value             REAL NOT NULL DEFAULT 0,
+    fv_to_cost_ratio       REAL,
+    prev_fv_to_cost_ratio  REAL,
+    fv_to_cost_change      REAL,
+    fv_to_par_ratio        REAL,
+    markdown_usd           REAL NOT NULL DEFAULT 0,
+    markdown_pct           REAL NOT NULL DEFAULT 0,
+    prev_markdown_pct      REAL,
+    markdown_change_pct    REAL,
+    non_accrual            INTEGER NOT NULL DEFAULT 0,
+    prev_non_accrual       INTEGER,
+    non_accrual_transition TEXT NOT NULL,
+    distress_flag          INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (accession_number, row_num)
+);
+
+CREATE INDEX IF NOT EXISTS idx_bdc_ts_borrower_date ON bdc_facility_timeseries(canonical_borrower, report_date);
+CREATE INDEX IF NOT EXISTS idx_bdc_ts_distress ON bdc_facility_timeseries(distress_flag, report_date);
+
+CREATE TABLE IF NOT EXISTS bdc_credit_alerts (
+    report_date            TEXT NOT NULL,
+    filing_date            TEXT NOT NULL,
+    bdc_ticker             TEXT NOT NULL,
+    manager                TEXT NOT NULL,
+    canonical_borrower     TEXT NOT NULL,
+    borrower_name          TEXT NOT NULL,
+    is_spv                 INTEGER NOT NULL,
+    match_tier             TEXT NOT NULL,
+    investment_type        TEXT NOT NULL,
+    maturity_date          TEXT NOT NULL,
+    alert_reason           TEXT NOT NULL,
+    spread_bps             REAL NOT NULL,
+    spread_change_bps      REAL,
+    interest_rate_pct      REAL NOT NULL,
+    amortized_cost         REAL NOT NULL,
+    fair_value             REAL NOT NULL,
+    fv_to_cost_ratio       REAL,
+    markdown_pct           REAL NOT NULL,
+    markdown_change_pct    REAL,
+    non_accrual            INTEGER NOT NULL,
+    non_accrual_transition TEXT NOT NULL,
+    accession_number       TEXT NOT NULL,
+    row_num                INTEGER NOT NULL,
+    PRIMARY KEY (accession_number, row_num)
+);

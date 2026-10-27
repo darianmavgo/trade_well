@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run Viewer</title>
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--panel2:#f0f2f5;--line:#e2e5ea;--text:#1b1f27;--mute:#6b7280;--accent:#2563eb;--accent-bg:#e8effd;--good:#0f9d58;--bad:#d93025;--warn:#b7791f;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1115;--panel:#171a21;--panel2:#1d212a;--line:#2a2f3a;--text:#e6e8ec;--mute:#8b93a1;--accent:#6ea0ff;--accent-bg:#1c2a47;--good:#4ade80;--bad:#f87171;--warn:#fbbf24}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;display:grid;grid-template-columns:300px 1fr;grid-template-rows:48px 1fr}
+header{grid-column:1/3;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:15px;margin:0;font-weight:600}
+select,input,textarea,button{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 9px}
+button{cursor:pointer}button:hover{background:var(--panel2)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.badge{font-size:11px;padding:1px 7px;border-radius:99px;background:var(--panel2);color:var(--mute)}
+.badge.live{background:var(--accent-bg);color:var(--accent)}
+.badge.fail{background:#fde8e6;color:var(--bad)}
+aside{overflow:auto;background:var(--panel);border-right:1px solid var(--line);padding:8px}
+aside h3{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:14px 8px 4px}
+.item{display:flex;justify-content:space-between;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;white-space:nowrap}
+.item:hover{background:var(--panel2)}
+.item.sel{background:var(--accent-bg);color:var(--accent);font-weight:600}
+.item span:first-child{overflow:hidden;text-overflow:ellipsis}
+.item .n{color:var(--mute);font-variant-numeric:tabular-nums;font-weight:400}
+.db{font-weight:600;display:flex;justify-content:space-between;padding:6px 8px;cursor:pointer;border-radius:6px}
+.db:hover{background:var(--panel2)}
+.tables{margin-left:10px;border-left:1px solid var(--line);padding-left:4px}
+main{overflow:auto;padding:16px;min-width:0;display:flex;flex-direction:column;gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.card h2{font-size:13px;margin:0 0 10px;color:var(--mute);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.stats{display:flex;gap:28px;flex-wrap:wrap}
+.stat b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+.stat span{color:var(--mute);font-size:12px}
+.steps{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.step{border:1px solid var(--line);border-radius:8px;padding:8px 10px;border-left-width:4px}
+.step.done{border-left-color:var(--good)}.step.failed{border-left-color:var(--bad)}.step.running{border-left-color:var(--accent)}.step.skipped{border-left-color:var(--line);color:var(--mute)}
+.step small{display:block;color:var(--mute);margin-top:2px;white-space:normal}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.toolbar .grow{flex:1;min-width:160px}
+.title{font-size:16px;font-weight:600}
+.tabs{display:flex;gap:4px}
+.tabs button.on{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
+.gridwrap{overflow:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel);flex:1;min-height:200px}
+table{border-collapse:separate;border-spacing:0;font-size:13px;width:max-content;min-width:100%}
+th,td{padding:5px 11px;border-bottom:1px solid var(--line);white-space:nowrap;max-width:420px;overflow:hidden;text-overflow:ellipsis}
+th{position:sticky;top:0;background:var(--panel2);text-align:left;cursor:pointer;user-select:none;z-index:2;font-weight:600}
+th .t{color:var(--mute);font-weight:400;font-size:10px;margin-left:5px}
+th .ar{color:var(--accent)}
+tr.filters th{top:29px;padding:3px 6px;cursor:default;z-index:1}
+tr.filters input{width:100%;min-width:70px;padding:2px 6px;font-size:12px}
+tbody tr:hover td{background:var(--accent-bg)}
+td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:12px}
+td.neg{color:var(--bad)}td.null{color:var(--mute)}
+td.rn{color:var(--mute);text-align:right;font-family:var(--mono);font-size:11px;position:sticky;left:0;background:var(--panel)}
+.pager{display:flex;gap:8px;align-items:center;color:var(--mute)}
+textarea{width:100%;min-height:110px;font-family:var(--mono);font-size:13px;resize:vertical}
+.err{color:var(--bad);white-space:pre-wrap;font-family:var(--mono);font-size:12px}
+iframe{flex:1;border:1px solid var(--line);border-radius:10px;background:#fff;min-height:500px}
+.empty{color:var(--mute);padding:30px;text-align:center}
+.hl table{width:100%}
+.hint{color:var(--mute);font-size:12px}
+a{color:var(--accent);cursor:pointer;text-decoration:none}a:hover{text-decoration:underline}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.kv div{background:var(--panel2);border-radius:8px;padding:6px 10px}
+.kv small{display:block;color:var(--mute);font-size:11px}.kv b{font-variant-numeric:tabular-nums;word-break:break-all}
+table.cmp{width:100%}table.cmp td.chg{background:var(--accent-bg);font-weight:600}
+tr.pick td{background:var(--accent-bg)}tr.pick td:first-child{box-shadow:inset 3px 0 var(--accent)}
+tbody tr.click{cursor:pointer}
+details{border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:8px 14px}summary{cursor:pointer;font-weight:600}details[open] summary{margin-bottom:8px}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;background:var(--panel2);font-size:12px;margin:2px 3px 2px 0}
+@media(max-width:800px){body{grid-template-columns:1fr;grid-template-rows:48px auto 1fr}aside{max-height:35vh;border-right:0;border-bottom:1px solid var(--line)}header{grid-column:1}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Run Viewer</h1>
+  <select id="runSel" title="Run folder"></select>
+  <span id="runBadge"></span>
+  <input id="stratFind" list="stratList" placeholder="Find a strategy id…" style="width:240px" autocomplete="off">
+  <datalist id="stratList"></datalist>
+  <span style="flex:1"></span>
+  <span class="hint">press <kbd>/</kbd> to search</span>
+  <button id="refresh" title="Reload this run">↻ Refresh</button>
+</header>
+<aside id="side"></aside>
+<main id="main"></main>
+
+<script>
+const $=s=>document.querySelector(s);
+const el=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a)){if(x==='class')e.className=v;else if(x.startsWith('on'))e[x]=v;else if(v!==false&&v!=null)e.setAttribute(x,v)}for(const c of k.flat())e.append(c?.nodeType?c:document.createTextNode(c??''));return e};
+const api=async(p,params={},post=false)=>{
+  const q=new URLSearchParams(params);
+  const r=post?await fetch(p,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:q}):await fetch(p+'?'+q);
+  const j=await r.json();if(j.error)throw new Error(j.error);return j};
+const S={runs:[],run:null,info:null,dbs:{},open:new Set(),view:{kind:'overview'},timer:null};
+const fmtBytes=n=>n>1e9?(n/1e9).toFixed(1)+' GB':n>1e6?(n/1e6).toFixed(1)+' MB':n>1e3?(n/1e3).toFixed(0)+' KB':n+' B';
+const fmtN=n=>n<0?'…':n.toLocaleString();
+function fmtCell(v){
+  if(v===null)return{t:'NULL',c:'null'};
+  if(typeof v==='number'){
+    const t=Number.isInteger(v)?v.toLocaleString():(Math.abs(v)>=1000?v.toLocaleString(undefined,{maximumFractionDigits:2}):String(+v.toPrecision(5)));
+    return{t,c:'num'+(v<0?' neg':'')}}
+  return{t:String(v),c:''}}
+const fmtDur=s=>s<60?s.toFixed(0)+'s':s<3600?(s/60).toFixed(1)+'m':(s/3600).toFixed(1)+'h';
+function dur(a,b){if(!a||!b)return'';return fmtDur((new Date(b)-new Date(a))/1000)}
+
+// ---- routing: #run/file/table or #run/overview ----
+function setHash(){const v=S.view;let h='#'+S.run;if(v.kind==='table')h+='/'+encodeURIComponent(v.file)+'/'+encodeURIComponent(v.table);else if(v.kind==='sql')h+='/'+encodeURIComponent(v.file)+'/sql';else if(v.kind==='report')h+='/'+encodeURIComponent(v.file)+'/report';else if(v.kind==='strategy')h+='/~strategy/'+encodeURIComponent(v.id);else if(v.kind==='etfs')h+='/~etfs';else if(v.kind==='symbol')h+='/~symbol/'+encodeURIComponent(v.sym);history.replaceState(null,'',h)}
+function readHash(){const p=location.hash.slice(1).split('/').map(decodeURIComponent);return{run:p[0],file:p[1],what:p[2]}}
+
+async function loadRuns(){
+  S.runs=await api('/api/runs');
+  const sel=$('#runSel');sel.innerHTML='';
+  for(const r of S.runs)sel.append(el('option',{value:r.id},`#${r.id}${r.live?' ● live':''}${r.steps?`  (${r.done}/${r.steps} steps)`:''}`));
+}
+async function loadRun(id,keepView){
+  S.run=String(id);$('#runSel').value=S.run;
+  S.info=await api('/api/run',{run:S.run});S.dbs={};
+  const r=S.runs.find(x=>String(x.id)===S.run);
+  $('#runBadge').replaceChildren(S.info.live?el('span',{class:'badge live'},'● running'):'',S.info.steps.some(s=>s.status==='failed')?el('span',{class:'badge fail'},'failed steps'):'');
+  if(!keepView)S.view={kind:'overview'};
+  renderSide();render();
+  clearInterval(S.timer);
+  if(S.info.live)S.timer=setInterval(async()=>{try{S.info=await api('/api/run',{run:S.run});if(S.view.kind==='overview')render();renderSide()}catch{}},5000);
+}
+async function loadDB(file){
+  if(S.dbs[file])return S.dbs[file];
+  S.dbs[file]=await api('/api/db',{run:S.run,file});renderSide();return S.dbs[file]}
+
+// ---- sidebar ----
+function renderSide(){
+  const side=$('#side');side.replaceChildren();
+  side.append(el('div',{class:'item'+(S.view.kind==='overview'?' sel':''),onclick:()=>go({kind:'overview'})},el('span',{},'📋 Overview')));
+  side.append(el('div',{class:'item'+(['etfs','symbol'].includes(S.view.kind)?' sel':''),onclick:()=>go({kind:'etfs'})},el('span',{},'📈 Top ETFs')));
+  const dbs=S.info.files.filter(f=>f.kind==='db'&&!f.path.endsWith('-wal')&&!f.path.endsWith('-shm')), html=S.info.files.filter(f=>f.kind==='html');
+  side.append(el('h3',{},'Databases'));
+  for(const f of dbs){
+    const open=S.open.has(f.path);
+    side.append(el('div',{class:'db',onclick:async()=>{open?S.open.delete(f.path):S.open.add(f.path);if(!open)loadDB(f.path).catch(e=>alert(e.message));renderSide()}},el('span',{title:f.path},(open?'▾ ':'▸ ')+f.path),el('span',{class:'n hint'},fmtBytes(f.size))));
+    if(open){
+      const box=el('div',{class:'tables'});
+      const d=S.dbs[f.path];
+      if(!d)box.append(el('div',{class:'hint',style:'padding:4px 8px'},'loading…'));
+      else{
+        box.append(el('div',{class:'item'+(S.view.kind==='sql'&&S.view.file===f.path?' sel':''),onclick:()=>go({kind:'sql',file:f.path})},el('span',{},'⌨ SQL')));
+        for(const t of d)box.append(el('div',{class:'item'+(S.view.kind==='table'&&S.view.file===f.path&&S.view.table===t.name?' sel':''),onclick:()=>go({kind:'table',file:f.path,table:t.name}),title:t.kind},
+          el('span',{},(t.kind==='view'?'◇ ':'')+t.name),el('span',{class:'n'},t.rows<0?'':fmtN(t.rows)+(t.capped?'+':''))));
+      }
+      side.append(box)}
+  }
+  if(html.length){side.append(el('h3',{},`Reports (${html.length})`));
+    const main=html.filter(f=>!f.path.includes('_gridsearch.')),per=html.filter(f=>f.path.includes('_gridsearch.'));
+    const shown=S.allReports?html:main.concat(per.filter(f=>S.view.kind==='report'&&S.view.file===f.path));
+    if(per.length&&!S.allReports)side.append(el('div',{class:'item',onclick:()=>{S.allReports=true;renderSide()}},el('span',{class:'hint'},`+ ${per.length} per-strategy gridsearch reports`)));
+    for(const f of shown)side.append(el('div',{class:'item'+(S.view.kind==='report'&&S.view.file===f.path?' sel':''),onclick:()=>go({kind:'report',file:f.path})},el('span',{title:f.path},f.path),el('span',{class:'n'},fmtBytes(f.size))))}
+}
+function go(v){
+  S.view=v;if(v.file)S.open.add(v.file);
+  if(v.kind==='table'){S.view=Object.assign({sort:'',dir:'asc',q:'',f:{},offset:0,limit:100},v)}
+  setHash();renderSide();render();
+  if(v.file&&!S.dbs[v.file]&&v.kind!=='report')loadDB(v.file).then(renderSide)}
+
+// ---- main views ----
+function render(){const m=$('#main');m.replaceChildren();
+  ({overview:renderOverview,table:renderTable,sql:renderSQL,report:renderReport,strategy:renderStrategy,etfs:renderETFs,symbol:renderSymbol})[S.view.kind](m)}
+
+function renderOverview(m){
+  const i=S.info,steps=i.steps||[];
+  const done=steps.filter(s=>s.status==='done').length,skipped=steps.filter(s=>s.status==='skipped').length,failed=steps.filter(s=>s.status==='failed').length;
+  const total=steps.filter(s=>s.started&&s.ended&&s.status==='done').reduce((a,s)=>a+(new Date(s.ended)-new Date(s.started)),0)/1000;
+  m.append(el('div',{class:'card'},el('h2',{},`Run #${S.run}`),el('div',{class:'stats'},
+    stat(i.symbols,'symbols'),stat(i.strategies,'strategies'),stat(done,'steps done'),stat(skipped,'skipped'),stat(failed,'failed'),stat(total?fmtDur(total):'–','step time'),stat(i.files.filter(f=>f.kind==='db').length,'databases'))));
+  if(steps.length)m.append(el('div',{class:'card'},el('h2',{},'Pipeline steps'),
+    el('div',{class:'steps'},steps.map(s=>el('div',{class:'step '+s.status,title:s.error||''},el('b',{},`${s.seq}. ${s.name}`),el('small',{},s.status+(dur(s.started,s.ended)?' · '+dur(s.started,s.ended):'')),s.error?el('small',{},s.error.slice(0,140)):'')))));
+  const hl=el('div',{class:'card hl'},el('h2',{},'Highlights'),el('div',{class:'hint'},'loading…'));m.append(hl);highlights(hl);
+}
+const stat=(n,l)=>el('div',{class:'stat'},el('b',{},String(n??0)),el('span',{},l));
+
+// Known result tables, each with the column that ranks it.
+const HIGHLIGHTS=[
+  {table:'scoreboard',sort:'rank',dir:'asc',cols:['rank','strategy_id','cagr','sharpe','max_drawdown','win_rate','trades'],title:'Scoreboard'},
+  {table:'gridsearch_results',sort:'calmar_ratio',dir:'desc',cols:['strategy_id','label','cagr','max_drawdown_pct','calmar_ratio','total_trades','win_rate','signal_days','hold_days','take_profit_pct','stop_loss_pct'],title:'Gridsearch, best Calmar'},
+  {table:'strategy_evals',sort:'oos_cagr',dir:'desc',cols:['strategy_id','tier','is_cagr','oos_cagr','oos_max_dd','oos_trades','oos_win_rate'],title:'Strategy evals, best out-of-sample CAGR'},
+  {table:'performance_summary',sort:'cagr',dir:'desc',cols:['strategy_id','start_date','end_date','cagr','sharpe_ratio','max_drawdown_pct','total_trades','win_rate'],title:'Backtest, best CAGR'}];
+async function highlights(card){
+  const found=[];
+  for(const f of S.info.files.filter(f=>f.kind==='db')){
+    let tabs;try{tabs=await api('/api/db',{run:S.run,file:f.path,counts:'0'})}catch{continue}
+    if(/^(oos|strateval_runs)\//.test(f.path))continue;
+    for(const h of HIGHLIGHTS)if(tabs.some(t=>t.name===h.table)&&!found.some(x=>x.h===h))found.push({h,file:f.path})}
+  found.sort((a,b)=>HIGHLIGHTS.indexOf(a.h)-HIGHLIGHTS.indexOf(b.h));
+  card.replaceChildren(el('h2',{},'Highlights'));
+  if(!found.length)card.append(el('div',{class:'hint'},'No result tables in this run yet.'));
+  for(const{h,file}of found.slice(0,6)){
+    try{
+      const d=await api('/api/table',{run:S.run,file,table:h.table,sort:h.sort,dir:h.dir,limit:8});
+      const names=d.columns.map(c=>c.name),keep=h.cols.filter(c=>names.includes(c)),idx=keep.map(c=>names.indexOf(c));
+      if(d.total===0)continue;
+      card.append(el('div',{style:'display:flex;justify-content:space-between;margin:12px 0 6px'},el('b',{},`${h.title}  `),el('a',{href:'#',onclick:e=>{e.preventDefault();go({kind:'table',file,table:h.table,sort:h.sort,dir:h.dir})}},`open ${file} · ${h.table} (${fmtN(d.total)}${d.capped?'+':''} rows) →`)));
+      const t=el('table',{},el('thead',{},el('tr',{},keep.map(c=>el('th',{},c)))),el('tbody',{},d.rows.map(r=>el('tr',{},idx.map(i=>{const c=fmtCell(r[i]);return el('td',{class:c.c},keep[idx.indexOf(i)]==='strategy_id'&&r[i]?el('a',{onclick:()=>go({kind:'strategy',id:r[i]})},c.t):c.t)})))));
+      card.append(el('div',{class:'gridwrap',style:'min-height:0'},t));
+    }catch{}}
+}
+
+function renderTable(m){
+  const v=S.view;
+  const head=el('div',{class:'toolbar'},el('span',{class:'title'},v.table),el('span',{class:'hint'},v.file),el('span',{style:'flex:1'}));
+  const search=el('input',{class:'grow',id:'search',placeholder:'Search every column…  (/)',value:v.q,onkeydown:e=>{if(e.key==='Enter'){v.q=e.target.value;v.offset=0;load()}}});
+  const csv=el('button',{onclick:()=>exportCSV(v)},'⬇ CSV');
+  const lim=el('select',{onchange:e=>{v.limit=+e.target.value;v.offset=0;load()}},[50,100,250,500,1000].map(n=>el('option',{value:n,selected:n===v.limit},n+' rows')));
+  const tb=el('div',{class:'toolbar'},search,lim,csv);
+  const wrap=el('div',{class:'gridwrap'}),pager=el('div',{class:'pager'});
+  m.append(head,tb,wrap,pager);
+  async function load(){
+    const p={run:S.run,file:v.file,table:v.table,limit:v.limit,offset:v.offset,q:v.q,sort:v.sort,dir:v.dir};
+    for(const[k,x]of Object.entries(v.f))if(x)p['f.'+k]=x;
+    let d;try{d=await api('/api/table',p)}catch(e){wrap.replaceChildren(el('div',{class:'err',style:'padding:14px'},e.message));return}
+    v.last=d;drawGrid(wrap,d,v,load);
+    const from=d.total?v.offset+1:0,to=Math.min(v.offset+v.limit,d.total);
+    pager.replaceChildren(el('button',{disabled:v.offset===0||null,onclick:()=>{v.offset=Math.max(0,v.offset-v.limit);load()}},'‹ Prev'),
+      el('span',{},`${fmtN(from)}–${fmtN(to)} of ${fmtN(d.total)}${d.capped?'+':''}`),
+      el('button',{disabled:to>=d.total||null,onclick:()=>{v.offset+=v.limit;load()}},'Next ›'));
+  }
+  load();
+}
+function drawGrid(wrap,d,v,reload,onRow){
+  const head=el('tr',{},el('th',{style:'cursor:default'},'#'));
+  const filt=el('tr',{class:'filters'},el('th',{}));
+  for(const c of d.columns){
+    const on=v&&v.sort===c.name;
+    head.append(el('th',{title:c.type+(c.pk?' · primary key':''),onclick:()=>{if(!v)return;v.dir=on&&v.dir==='asc'?'desc':'asc';v.sort=c.name;v.offset=0;reload()}},c.name,c.type?el('span',{class:'t'},c.type):'',on?el('span',{class:'ar'},v.dir==='asc'?' ▲':' ▼'):''));
+    if(v&&v.f!==undefined)filt.append(el('th',{},el('input',{placeholder:'filter',value:v.f[c.name]||'',onkeydown:e=>{if(e.key==='Enter'){v.f[c.name]=e.target.value;v.offset=0;reload()}}})));}
+  const body=el('tbody',{});
+  const sidCol=d.columns.findIndex(c=>c.name==='strategy_id');
+  d.rows.forEach((r,i)=>body.append(el('tr',{class:onRow?'click':'',onclick:onRow?()=>onRow(r,i):null},el('td',{class:'rn'},(v?v.offset:0)+i+1),r.map((x,j)=>{const c=fmtCell(x);
+    const inner=j===sidCol&&x?el('a',{href:'#'+S.run+'/~strategy/'+encodeURIComponent(x),onclick:e=>{e.preventDefault();e.stopPropagation();go({kind:'strategy',id:x})},title:'All parameters and results for this strategy'},c.t):c.t;
+    return el('td',{class:c.c,title:typeof x==='string'&&x.length>40?x:null,ondblclick:()=>navigator.clipboard?.writeText(String(x??''))},inner)}))));
+  wrap.replaceChildren(el('table',{},el('thead',{},head,v&&v.f!==undefined?filt:''),body));
+  if(!d.rows.length)wrap.append(el('div',{class:'empty'},'No rows'));
+}
+function exportCSV(v){
+  const d=v.last;if(!d)return;
+  const esc=x=>{x=x==null?'':String(x);return /[",\n]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x};
+  const csv=[d.columns.map(c=>esc(c.name)).join(','),...d.rows.map(r=>r.map(esc).join(','))].join('\n');
+  const a=el('a',{href:URL.createObjectURL(new Blob([csv],{type:'text/csv'})),download:`${v.table||'query'}.csv`});document.body.append(a);a.click();a.remove()}
+
+function renderSQL(m){
+  const v=S.view;
+  const ta=el('textarea',{id:'sql',spellcheck:'false',placeholder:'SELECT …   (Ctrl/⌘+Enter to run — read-only)'},v.sql||'');
+  const out=el('div',{class:'gridwrap'}),info=el('span',{class:'hint'});
+  const run=async()=>{
+    v.sql=ta.value;info.textContent='running…';
+    try{const d=await api('/api/query',{run:S.run,file:v.file,sql:ta.value},true);v.last=d;
+      drawGrid(out,d,null,null);info.textContent=`${fmtN(d.total)} rows${d.truncated?' (first 1000)':''} · ${d.ms} ms`}
+    catch(e){out.replaceChildren(el('div',{class:'err',style:'padding:14px'},e.message));info.textContent=''}};
+  ta.onkeydown=e=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();run()}};
+  const tabs=S.dbs[v.file]||[];
+  m.append(el('div',{class:'toolbar'},el('span',{class:'title'},'SQL'),el('span',{class:'hint'},v.file),el('span',{style:'flex:1'}),
+    el('select',{onchange:e=>{if(e.target.value){ta.value=`SELECT * FROM "${e.target.value}" LIMIT 100`;e.target.value=''}}},el('option',{value:''},'Insert table…'),tabs.map(t=>el('option',{value:t.name},t.name))),
+    el('button',{class:'primary',onclick:run},'▶ Run'),el('button',{onclick:()=>exportCSV(v)},'⬇ CSV')),ta,info,out);
+  ta.focus();
+}
+const PARAMS=['symbol','signal_symbol','signal_days','hold_days','take_profit_pct','stop_loss_pct','regime','allocation_pct'];
+const METRICS=['net_profit','cagr','max_drawdown_pct','max_drawdown_days','calmar_ratio','resilience_score','total_trades','win_rate','idle_days'];
+const rowObj=(cols,r)=>Object.fromEntries(cols.map((c,i)=>[c.name,r[i]]));
+const kv=o=>el('div',{class:'kv'},Object.entries(o).filter(([k])=>k!=='id').map(([k,v])=>el('div',{},el('small',{},k),el('b',{},v===null?'NULL':typeof v==='number'?fmtCell(v).t:String(v)))));
+
+async function renderStrategy(m){
+  const v=S.view;
+  m.append(el('div',{class:'toolbar'},el('span',{class:'title'},v.id),el('span',{class:'hint'},`run #${S.run}`)),el('div',{class:'hint'},'loading…'));
+  let d;try{d=await api('/api/strategy',{run:S.run,id:v.id})}catch(e){m.replaceChildren(el('div',{class:'err'},e.message));return}
+  if(S.view!==v)return;
+  m.replaceChildren(el('div',{class:'toolbar'},el('span',{class:'title'},v.id),el('span',{class:'hint'},`run #${S.run}`),el('span',{style:'flex:1'}),el('button',{onclick:()=>go({kind:'overview'})},'← Overview')));
+  if(!d.definition.length&&!d.results.length){m.append(el('div',{class:'empty'},'Nothing found for this id in the reference database or this run.'));return}
+
+  // 1. definition
+  for(const t of d.definition){const o=rowObj(t.columns,t.rows[0]);
+    m.append(el('div',{class:'card'},el('h2',{},`Definition · refdata ${t.table}`),kv(o)))}
+
+  // 2. baseline vs chosen sweep config
+  const grid=d.results.find(r=>r.table==='gridsearch_results');
+  if(grid){
+    const rows=grid.rows.map(r=>rowObj(grid.columns,r));
+    let baseline=rows.find(r=>r.is_baseline===1)||null,baseName='Baseline';
+    if(!baseline&&d.definition.length){ // no baseline row: compare with the strategy's own definition
+      const def=rowObj(d.definition[0].columns,d.definition[0].rows[0]);
+      baseline={symbol:def.trade_symbol??def.symbol,signal_symbol:def.signal_symbol,signal_days:def.signal_days,hold_days:def.hold_days,take_profit_pct:def.take_profit_pct,stop_loss_pct:def.stop_loss_pct,regime:def.regime,allocation_pct:def.allocation_pct,total_trades:def.total_trades,win_rate:def.win_rate};
+      baseName='Current definition'}
+    let pick=rows.slice().sort((a,b)=>(b.calmar_ratio??-1e9)-(a.calmar_ratio??-1e9))[0];
+    const cmp=el('div',{class:'card'});m.append(cmp);
+    const sweep=el('div',{class:'card'});
+    const drawCmp=()=>{
+      const keys=[...PARAMS,...METRICS].filter(k=>k in pick);
+      cmp.replaceChildren(el('h2',{},'What produced the result: current vs selected sweep config'),
+        el('div',{class:'hint',style:'margin-bottom:8px'},`Selected: ${pick.label}  (click any row in the sweep table below to compare it)`),
+        el('table',{class:'cmp'},el('thead',{},el('tr',{},el('th',{style:'cursor:default'},''),el('th',{style:'cursor:default'},baseName),el('th',{style:'cursor:default'},'Selected'))),
+          el('tbody',{},keys.map(k=>{const a=baseline?baseline[k]:null,b=pick[k],ch=baseline&&a!==undefined&&a!==b;
+            return el('tr',{},el('td',{},el('b',{},k)),el('td',{class:fmtCell(a).c},a===undefined||!baseline?'–':fmtCell(a).t),el('td',{class:fmtCell(b).c+(ch?' chg':'')},fmtCell(b).t))}))));
+    };
+    drawCmp();
+    // 3. every sweep config
+    const wrap=el('div',{class:'gridwrap',style:'max-height:460px'});
+    const cols=grid.columns.filter(c=>!['id','strategy_id'].includes(c.name));
+    const ci=cols.map(c=>grid.columns.findIndex(x=>x.name===c.name));
+    let sortKey='calmar_ratio',dir='desc';
+    const draw=()=>{
+      const k=cols.findIndex(c=>c.name===sortKey);
+      const sorted=grid.rows.slice().sort((a,b)=>{const x=a[ci[k]],y=b[ci[k]];return(x>y?1:x<y?-1:0)*(dir==='asc'?1:-1)});
+      drawGrid(wrap,{columns:cols.map(c=>({...c})),rows:sorted.map(r=>ci.map(i=>r[i]))},{sort:sortKey,dir,offset:0},null,(r)=>{pick=rowObj(cols,r);drawCmp();draw()});
+      // sort by header click
+      wrap.querySelectorAll('thead tr:first-child th').forEach((th,i)=>{if(i===0)return;th.onclick=()=>{const n=cols[i-1].name;dir=sortKey===n&&dir==='desc'?'asc':'desc';sortKey=n;draw()}});
+      wrap.querySelectorAll('tbody tr').forEach((tr,i)=>{if(sorted[i]&&sorted[i][grid.columns.findIndex(c=>c.name==='label')]===pick.label)tr.classList.add('pick')});
+    };
+    sweep.append(el('h2',{},`Every parameter combination swept (${grid.total>grid.rows.length?`best ${grid.rows.length} of ${fmtN(grid.total)}`:grid.rows.length})`),wrap);m.append(sweep);draw();
+  }
+
+  // 4. optimizer evals
+  for(const t of d.results.filter(r=>r.table==='strategy_evals')){
+    const card=el('div',{class:'card'},el('h2',{},`Optimizer parameters and in/out-of-sample · ${t.file}`));
+    for(const r of t.rows){const o=rowObj(t.columns,r);let p={};try{p=JSON.parse(o.params_json||'{}')}catch{}
+      card.append(el('div',{style:'margin-bottom:12px'},el('div',{},el('span',{class:'pill'},'tier '+(o.tier||'?')),Object.entries(p).map(([k,x])=>el('span',{class:'pill'},`${k}=${typeof x==='number'?fmtCell(x).t:x}`))),
+        kv(Object.fromEntries(Object.entries(o).filter(([k])=>/^(is_|oos_)/.test(k)))),
+        o.reasons_json?el('div',{class:'hint',style:'margin-top:4px'},(()=>{try{return JSON.parse(o.reasons_json).join(' · ')}catch{return o.reasons_json}})()):''))}
+    m.append(card)}
+
+  // 5. every other table with this strategy
+  for(const t of d.results.filter(r=>!r.heavy&&r.table!=='gridsearch_results'&&r.table!=='strategy_evals')){
+    const det=el('details',{open:t.rows.length<=3},el('summary',{},`${t.table}  ·  ${t.file}  ·  ${t.rows.length} row${t.rows.length===1?'':'s'}`));
+    const w=el('div',{class:'gridwrap',style:'min-height:0'});det.append(w);drawGrid(w,{columns:t.columns,rows:t.rows},null,null);m.append(det)}
+  const heavy=d.results.filter(r=>r.heavy);
+  if(heavy.length)m.append(el('div',{class:'card'},el('h2',{},'Row-level data (opens filtered to this strategy)'),
+    heavy.map(t=>el('button',{style:'margin:3px',onclick:()=>go({kind:'table',file:t.file,table:t.table,f:{strategy_id:v.id}})},`${t.table} · ${t.file}`))));
+}
+const S_ETF={n:100,lev:false,withStrat:false,inRun:false,q:''};
+const fmtUSD=n=>n>=1e9?'$'+(n/1e9).toFixed(2)+'B':n>=1e6?'$'+(n/1e6).toFixed(0)+'M':'$'+n.toLocaleString();
+async function renderETFs(m){
+  const f=S_ETF;
+  const sel=el('select',{onchange:e=>{f.n=+e.target.value;load()}},[50,100,200,300].map(n=>el('option',{value:n,selected:n===f.n},'Top '+n)));
+  const chk=(label,key,reload)=>el('label',{style:'display:flex;gap:5px;align-items:center;cursor:pointer'},el('input',{type:'checkbox',checked:f[key]||null,onchange:e=>{f[key]=e.target.checked;reload?load():draw()}}),label);
+  const search=el('input',{class:'grow',placeholder:'Filter symbol, name or category…',value:f.q,oninput:e=>{f.q=e.target.value;draw()}});
+  const wrap=el('div',{class:'gridwrap'}),note=el('div',{class:'hint'});
+  m.append(el('div',{class:'toolbar'},el('span',{class:'title'},'Largest ETFs'),sel,chk('include leveraged','lev',true),chk('has strategies','withStrat'),chk('in this run','inRun'),search),note,wrap);
+  let rows=[];
+  async function load(){
+    wrap.replaceChildren(el('div',{class:'empty'},'ranking by dollar volume…'));
+    try{rows=await api('/api/etfs',{run:S.run,n:f.n,leveraged:f.lev?1:0})}catch(e){wrap.replaceChildren(el('div',{class:'err',style:'padding:14px'},e.message));return}
+    draw()}
+  function draw(){
+    const q=f.q.toLowerCase();
+    const list=rows.filter(r=>(!f.withStrat||r.strategies)&&(!f.inRun||r.in_run)&&(!q||(r.symbol+' '+r.name+' '+r.category).toLowerCase().includes(q)));
+    note.textContent=`${list.length} of ${rows.length} shown · ranked by average daily dollar volume over the last 90 days (a size proxy: the repo has no AUM data) · click a row for its strategies`;
+    const th=t=>el('th',{style:'cursor:default'},t);
+    wrap.replaceChildren(el('table',{},el('thead',{},el('tr',{},['#','Symbol','Name','Category','Lev','$ volume / day','Strategies','Streak','In run'].map(th))),
+      el('tbody',{},list.map(r=>el('tr',{class:'click',onclick:()=>go({kind:'symbol',sym:r.symbol})},
+        el('td',{class:'rn'},r.rank),el('td',{},el('a',{},r.symbol)),el('td',{},r.name),el('td',{},r.category),el('td',{},r.leverage==='none'?'':r.leverage),
+        el('td',{class:'num'},fmtUSD(r.dollar_volume)),el('td',{class:'num'+(r.strategies?'':' null')},r.strategies||'–'),el('td',{class:'num'+(r.streak?'':' null')},r.streak||'–'),el('td',{class:'num'+(r.in_run?'':' null')},r.in_run||'–'))))));
+    if(!list.length)wrap.append(el('div',{class:'empty'},'No ETFs match'));
+  }
+  load();
+}
+async function renderSymbol(m){
+  const v=S.view;
+  m.append(el('div',{class:'toolbar'},el('span',{class:'title'},v.sym),el('span',{class:'hint'},'strategies tied to this symbol'),el('span',{style:'flex:1'}),el('button',{onclick:()=>go({kind:'etfs'})},'← Top ETFs')),el('div',{class:'hint'},'loading…'));
+  let list;try{list=await api('/api/symbol',{run:S.run,sym:v.sym})}catch(e){m.replaceChildren(el('div',{class:'err'},e.message));return}
+  if(S.view!==v)return;
+  m.replaceChildren(el('div',{class:'toolbar'},el('span',{class:'title'},v.sym),el('span',{class:'hint'},`${list.length} strateg${list.length===1?'y':'ies'} · ${list.filter(x=>x.in_run).length} in run #${S.run}`),el('span',{style:'flex:1'}),el('button',{onclick:()=>go({kind:'etfs'})},'← Top ETFs')));
+  if(!list.length){m.append(el('div',{class:'empty'},'No strategy in the reference database reads or trades this symbol.'));return}
+  const pct=x=>x==null?'–':(x*100).toFixed(1)+'%',n=x=>x==null?'–':String(+(+x).toPrecision(4));
+  const th=t=>el('th',{style:'cursor:default'},t);
+  m.append(el('div',{class:'gridwrap'},el('table',{},el('thead',{},el('tr',{},['Strategy','Family','Name','In run','CAGR','Sharpe','Max DD','Trades','Win rate'].map(th))),
+    el('tbody',{},list.map(x=>{const p=x.perf||{};return el('tr',{class:'click',onclick:()=>go({kind:'strategy',id:x.id})},
+      el('td',{},el('a',{},x.id)),el('td',{},el('span',{class:'pill'},x.family)),el('td',{},x.name),el('td',{},x.in_run?'●':''),
+      el('td',{class:'num'+(p.cagr<0?' neg':'')},pct(p.cagr)),el('td',{class:'num'},n(p.sharpe)),el('td',{class:'num'},p.max_dd==null?'–':n(p.max_dd)),el('td',{class:'num'},n(p.trades)),el('td',{class:'num'},pct(p.win_rate)))})))));
+  m.append(el('div',{class:'hint'},'Results appear for strategies this run backtested. Others show only their definition when opened.'));
+}
+function renderReport(m){
+  const v=S.view;
+  m.append(el('div',{class:'toolbar'},el('span',{class:'title'},v.file),el('span',{style:'flex:1'}),el('a',{href:`/file/${S.run}/${v.file}`,target:'_blank'},'open in new tab ↗')),
+    el('iframe',{src:`/file/${S.run}/${v.file}`}));
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='/'&&!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){e.preventDefault();($('#search')||$('#sql'))?.focus()}});
+let findTimer;
+$('#stratFind').oninput=e=>{clearTimeout(findTimer);const q=e.target.value.trim();findTimer=setTimeout(async()=>{if(q.length<2)return;try{const ids=await api('/api/find',{q});$('#stratList').replaceChildren(...ids.map(i=>el('option',{value:i})))}catch{}},180)};
+$('#stratFind').onkeydown=e=>{if(e.key==='Enter'&&e.target.value.trim()){go({kind:'strategy',id:e.target.value.trim()});e.target.blur()}};
+$('#runSel').onchange=e=>{loadRun(e.target.value).then(setHash)};
+$('#refresh').onclick=async()=>{await loadRuns();await loadRun(S.run,true)};
+
+(async()=>{
+  try{
+    await loadRuns();
+    if(!S.runs.length){$('#main').append(el('div',{class:'empty'},'No numbered run folders found.'));return}
+    const h=readHash(),want=S.runs.find(r=>String(r.id)===h.run)?h.run:S.runs[0].id;
+    await loadRun(want);
+    if(h.file==='~strategy'&&h.what&&String(want)===h.run)go({kind:'strategy',id:h.what});
+    else if(h.file==='~etfs'&&String(want)===h.run)go({kind:'etfs'});
+    else if(h.file==='~symbol'&&h.what&&String(want)===h.run)go({kind:'symbol',sym:h.what});
+    else if(h.file&&String(want)===h.run){
+      if(h.what==='sql')go({kind:'sql',file:h.file});
+      else if(h.what==='report')go({kind:'report',file:h.file});
+      else if(h.what)go({kind:'table',file:h.file,table:h.what});
+    }
+  }catch(e){$('#main').append(el('div',{class:'err'},e.message))}
+})();
+</script>
+</body>
+</html>

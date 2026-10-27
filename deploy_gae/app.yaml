@@ -1,0 +1,43 @@
+# App Engine Standard — Go trade orchestrator, Turso (libSQL) backend
+# Deploy from repo root:
+#   ./deploy_gae/deploy.sh
+#
+# The operational database lives in Turso, not in a per-instance SQLite file. The Turso
+# URL and auth token are TURSO_DATABASE_URL / TURSO_AUTH_TOKEN in the config object.
+# The GCS bucket still holds that config object (config/env).
+#
+# The Turso driver must be pure Go (libsql-client-go over HTTP/WebSocket): the go126
+# runtime cannot build cgo, so the cgo go-libsql driver and embedded replicas are out.
+
+runtime: go126
+
+# Buildpack compiles GOOGLE_BUILDABLE to a binary named `main`.
+entrypoint: main
+
+# Private Go modules (schwaber). Deploy script vendors; build uses -mod=vendor.
+build_env_variables:
+  # Main is cmd/orchestrator (same binary as the CLI; detects GAE and serves HTTP).
+  GOOGLE_BUILDABLE: "./cmd/orchestrator"
+  GOFLAGS: "-mod=vendor"
+  GOPRIVATE: "github.com/darianmavgo/*"
+  GONOSUMDB: "github.com/darianmavgo/*"
+  GONOPROXY: "github.com/darianmavgo/*"
+
+# No env_variables: the app's whole configuration (secrets and settings alike, including
+# STRATEGY_ALLOWLIST and the Turso URL/token) lives in ONE object, gs://<bucket>/config/env.
+# Edit it with deploy_gae/config.sh. GAE supplies GAE_*, GOOGLE_CLOUD_PROJECT and
+# PORT. Do not add env_variables here: a test fails if you do.
+
+# Keep one instance until the jobs are proven safe to overlap; Turso itself would allow more.
+automatic_scaling:
+  min_instances: 0
+  max_instances: 1
+  target_cpu_utilization: 0.65
+
+inbound_services:
+  - warmup
+
+handlers:
+  - url: /.*
+    script: auto
+    secure: always

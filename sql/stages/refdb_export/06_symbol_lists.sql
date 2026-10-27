@@ -1,0 +1,1 @@
+CREATE TABLE symbol_lists AS SELECT * FROM src.symbol_lists WHERE lower(trim(symbol_list_id)) IN (SELECT lower(trim(symbols)) FROM rotation_strategy)

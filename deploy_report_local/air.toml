@@ -1,0 +1,27 @@
+# air config for deploy_report_local/servelocal.sh. The build is the same
+# GAE build as deploy_live_local (vendor if stale, then one binary). The
+# process is .run_app.sh, which servelocal.sh generates: no arguments, so
+# main routes on GAE_SERVICE=live-vs-backtest-report, from the report data folder,
+# with a scrubbed environment.
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "./deploy_live_local/build.sh"
+  entrypoint = ["./deploy_report_local/.run_app.sh"]
+  include_ext = ["go", "html", "js", "css", "sql"]
+  # vendor/ is excluded: `go mod vendor` rewrites it and would loop the rebuild.
+  exclude_dir = ["bin", "tmp", "data", "vendor", ".git", ".deploy_cache", "node_modules"]
+  # servelocal.sh writes this when ../schwaber or ../backtestgosqlite change.
+  include_file = ["deploy_report_local/.sibling-changed"]
+  delay = 500
+  # SIGINT lets the report server shut down cleanly.
+  send_interrupt = true
+  kill_delay = "3s"
+  stop_on_error = true
+
+[log]
+  time = true
+
+[misc]
+  clean_on_exit = false

@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>{{TITLE}} - Quantitative Strategy Benchmark</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-card: rgba(20, 27, 45, 0.7);
+            --bg-card-hover: rgba(30, 41, 69, 0.85);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-focus: #3b82f6;
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-purple: #8b5cf6;
+            --accent-amber: #f59e0b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+            padding: 2rem 1.5rem;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        .container {
+            max-width: 1440px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 2.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.5rem;
+        }
+
+        .header-title h1 {
+            font-size: 2.25rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            background: linear-gradient(135deg, #ffffff 0%, #93c5fd 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .header-title p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+        }
+
+        .badge-group {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .badge-green { border-color: rgba(16, 185, 129, 0.3); color: var(--accent-green); background: rgba(16, 185, 129, 0.1); }
+        .badge-blue { border-color: rgba(59, 130, 246, 0.3); color: var(--accent-blue); background: rgba(59, 130, 246, 0.1); }
+        .badge-red { border-color: rgba(239, 68, 68, 0.3); color: var(--accent-red); background: rgba(239, 68, 68, 0.1); }
+
+        /* KPI Banner Cards */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            backdrop-filter: blur(12px);
+            transition: transform 0.2s ease, border-color 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.2);
+            background: var(--bg-card-hover);
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
+        }
+
+        .kpi-card.mdd-card::before {
+            background: linear-gradient(90deg, #ef4444, #f59e0b);
+        }
+
+        .kpi-card.window-card::before {
+            background: linear-gradient(90deg, #10b981, #06b6d4);
+        }
+
+        .kpi-label {
+            font-size: 0.825rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .kpi-value {
+            font-size: 1.85rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 0.35rem;
+        }
+
+        .kpi-subtext {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* Charts Layout */
+        .chart-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 1.25rem;
+            padding: 1.75rem;
+            margin-bottom: 2.5rem;
+            backdrop-filter: blur(12px);
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .chart-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 380px;
+            width: 100%;
+        }
+
+        /* Tables */
+        .table-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 1.25rem;
+            padding: 1.75rem;
+            margin-bottom: 2.5rem;
+            backdrop-filter: blur(12px);
+            overflow-x: auto;
+        }
+
+        .table-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1.25rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+
+        th {
+            background: rgba(15, 23, 42, 0.6);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+        }
+
+        td {
+            padding: 1.1rem 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .text-green { color: var(--accent-green) !important; }
+        .text-red { color: var(--accent-red) !important; }
+        .text-blue { color: var(--accent-blue) !important; }
+        .text-amber { color: var(--accent-amber) !important; }
+
+        .font-sans { font-family: 'Outfit', sans-serif !important; }
+        .font-bold { font-weight: 600; }
+
+        /* Strategy Selector Tabs */
+        .tab-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.6rem 1.25rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn.active, .tab-btn:hover {
+            background: var(--accent-blue);
+            color: #ffffff;
+            border-color: var(--accent-blue);
+        }
+
+        .trade-badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-target { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-stop { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge-timeup { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge-end { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
+
+        footer {
+            margin-top: 3rem;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            border-top: 1px solid var(--border-color);
+            padding-top: 1.5rem;
+        }
+        .params-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px 18px; margin: 0 0 20px; }
+        .params-card > summary { cursor: pointer; font-weight: 700; }
+        .params-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 12px; }
+        .params-group h4 { margin: 0 0 6px; font-size: 0.85rem; color: #c4b5fd; }
+        .params-group table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        .params-group td { padding: 3px 0; vertical-align: top; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .params-group td:first-child { opacity: 0.7; padding-right: 12px; white-space: nowrap; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="header-title">
+                <h1>{{TITLE}}</h1>
+                <p>Quantitative Strategy & Portfolio Simulation Performance Report</p>
+            </div>
+            <div class="badge-group">
+                <div class="badge" style="border-color: rgba(139, 92, 246, 0.4); color: #c4b5fd; background: rgba(139, 92, 246, 0.15);">
+                    <span>🕒 Generated: {{GENERATED_AT}}</span>
+                </div>
+                <div class="badge badge-green">
+                    <span>📅 Window: {{START_DATE}} to {{END_DATE}}</span>
+                </div>
+                <div class="badge badge-blue">
+                    <span>⏱️ {{TOTAL_YEARS}} Years ({{TOTAL_DAYS}} Trading Days)</span>
+                </div>
+                <div class="badge">
+                    <span>💵 Starting Capital: ${{INITIAL_CAP}}</span>
+                </div>
+            </div>
+        </header>
+
+        <details class="params-card" id="run-params" open hidden><summary>⚙️ Run Parameters</summary><div class="params-grid" id="run-params-grid"></div></details>
+
+        <!-- KPI Banner -->
+        <div class="kpi-grid">
+            <div class="kpi-card window-card">
+                <div class="kpi-label">📅 Backtest Time Window <span>LIVE</span></div>
+                <div class="kpi-value" style="font-size: 1.35rem;">{{START_DATE}} ➔ {{END_DATE}}</div>
+                <div class="kpi-subtext">Total {{TOTAL_DAYS}} Sessions ({{TOTAL_YEARS}} Calendar Years)</div>
+            </div>
+
+            <div class="kpi-card mdd-card" id="kpi-mdd-card">
+                <div class="kpi-label">🔴 Max Drawdown (MDD) <span>PEAK-TO-TROUGH</span></div>
+                <div class="kpi-value text-red" id="kpi-mdd-val">--</div>
+                <div class="kpi-subtext" id="kpi-mdd-sub">--</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-label">📈 Top Net Realized Profit <span>RETURN</span></div>
+                <div class="kpi-value text-green" id="kpi-profit-val">--</div>
+                <div class="kpi-subtext" id="kpi-profit-sub">--</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-label">⚖️ Risk-Adjusted Return <span>SHARPE</span></div>
+                <div class="kpi-value text-blue" id="kpi-sharpe-val">--</div>
+                <div class="kpi-subtext" id="kpi-sharpe-sub">--</div>
+            </div>
+        </div>
+
+        <!-- Multi-Strategy Comparison Table -->
+        <div class="table-section">
+            <div class="table-title">🏆 Strategy Comparative Tear Sheet (Side-by-Side)</div>
+            <table id="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Strategy</th>
+                        <th>Type</th>
+                        <th>Completed Trades</th>
+                        <th>Win Rate</th>
+                        <th>Net Realized PnL</th>
+                        <th>Total Return</th>
+                        <th>Profit Factor</th>
+                        <th>🔴 Max Drawdown (%)</th>
+                        <th>🔴 Max Drawdown ($)</th>
+                        <th>DD Duration</th>
+                        <th>Sharpe</th>
+                        <th>Sortino</th>
+                        <th>Avg Hold</th>
+                        <th>Idle Days</th>
+                    </tr>
+                </thead>
+                <tbody id="comparison-tbody">
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Interactive Equity Curve Chart -->
+        <div class="chart-section">
+            <div class="chart-header">
+                <div class="chart-title">📊 Multi-Strategy Cumulative Portfolio Equity Curve ($)</div>
+            </div>
+            <div class="chart-container">
+                <canvas id="equityChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Underwater Drawdown Chart -->
+        <div class="chart-section">
+            <div class="chart-header">
+                <div class="chart-title">🌊 Portfolio Underwater Drawdown (% Decline From Peak)</div>
+            </div>
+            <div class="chart-container">
+                <canvas id="drawdownChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Cash Flow & Margin Ledger -->
+        <div class="table-section" id="cashflow-section" style="display: none; margin-bottom: 2.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <div>
+                    <div class="table-title" style="margin-bottom: 0.35rem;">💰 Cash Flow & Margin Ledger</div>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem;">
+                        Audit of dividend payments arriving into cash and margin borrow interest leaving cash.
+                    </p>
+                </div>
+                <div id="cashflow-summary-badge" style="display: flex; gap: 0.75rem;"></div>
+            </div>
+            <div style="max-height: 380px; overflow-y: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Cash Flow Event</th>
+                            <th>Dividend Arriving (+)</th>
+                            <th>Margin Interest Leaving (-)</th>
+                            <th>Margin Debt Balance</th>
+                            <th>Available Buying Power</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cashflow-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Trade Log Section with Strategy Selector -->
+        <div class="table-section">
+            <div class="table-title">📜 Individual Trade Execution Log</div>
+            <div class="tab-group" id="strategy-tabs">
+                <!-- Strategy Tabs populated by JS -->
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Symbol</th>
+                        <th>Entry Date</th>
+                        <th>Entry Price</th>
+                        <th>Exit Date</th>
+                        <th>Exit Price</th>
+                        <th>Hold Days</th>
+                        <th>Exit Trigger</th>
+                        <th>Net PnL ($)</th>
+                        <th>Return (%)</th>
+                    </tr>
+                </thead>
+                <tbody id="trades-tbody">
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <footer>
+            wc_2022 Algorithmic Trading & Backtesting Engine &bull; Report Generated: <strong>{{GENERATED_AT}}</strong> &bull; Backtest Data Horizon: {{START_DATE}} to {{END_DATE}}
+        </footer>
+    </div>
+
+    <script>
+        const reportData = {{JSON_DATA}};
+        (function renderRunParams() {
+            const groups = reportData.params || [];
+            if (!groups.length) return;
+            const esc = v => String(v).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+            document.getElementById('run-params-grid').innerHTML = groups.map(g =>
+                '<div class="params-group"><h4>' + esc(g.title) + '</h4><table>' +
+                (g.rows || []).map(r => '<tr><td>' + esc(r.name) + '</td><td>' + esc(r.value) + '</td></tr>').join('') +
+                '</table></div>').join('');
+            document.getElementById('run-params').hidden = false;
+        })();
+
+        // Initialize KPIs based on best performer
+        let bestProfit = -Infinity;
+        let bestSharpe = -Infinity;
+        let lowestMDD = Infinity;
+        let bestStrat = reportData.strategies[0];
+
+        reportData.strategies.forEach(s => {
+            if (s.report.net_profit > bestProfit) {
+                bestProfit = s.report.net_profit;
+                bestStrat = s;
+            }
+            if (s.report.sharpe_ratio > bestSharpe) bestSharpe = s.report.sharpe_ratio;
+            if (s.report.max_drawdown_pct < lowestMDD) lowestMDD = s.report.max_drawdown_pct;
+        });
+
+        if (bestStrat) {
+            document.getElementById('kpi-mdd-val').innerText = (bestStrat.report.max_drawdown_pct * 100).toFixed(2) + '%';
+            document.getElementById('kpi-mdd-sub').innerText = '-$' + bestStrat.report.max_drawdown_dollars.toLocaleString('en-US', {minimumFractionDigits: 2}) + ' (' + bestStrat.report.max_drawdown_days + 'd recovery)';
+
+            const profitEl = document.getElementById('kpi-profit-val');
+            const np = bestStrat.report.net_profit;
+            profitEl.innerText = (np < 0 ? '-$' : '+$') + Math.abs(np).toLocaleString('en-US', {minimumFractionDigits: 2});
+            profitEl.classList.toggle('text-green', np >= 0);
+            profitEl.classList.toggle('text-red', np < 0);
+            document.getElementById('kpi-profit-sub').innerText = (bestStrat.report.total_return_pct * 100).toFixed(2) + '% Return (' + bestStrat.name + ')';
+
+            document.getElementById('kpi-sharpe-val').innerText = bestStrat.report.sharpe_ratio.toFixed(2);
+            document.getElementById('kpi-sharpe-sub').innerText = 'Sortino: ' + bestStrat.report.sortino_ratio.toFixed(2) + ' | PF: ' + bestStrat.report.profit_factor.toFixed(2);
+        }
+
+        // Sessions with no open position, and their share of the window. A curve that
+        // never recorded positions (idle_known false) has no idle count to show.
+        function idleText(r) {
+            if (!r.idle_known) return '&mdash;';
+            const idle = r.idle_days || 0; // omitted from the JSON when zero
+            const pct = r.total_trading_days > 0 ? ' (' + (idle / r.total_trading_days * 100).toFixed(1) + '%)' : '';
+            return idle + pct;
+        }
+
+        // Populate Comparison Table
+        const compTbody = document.getElementById('comparison-tbody');
+        reportData.strategies.forEach(s => {
+            const tr = document.createElement('tr');
+            const pnlClass = s.report.net_profit >= 0 ? 'text-green font-bold' : 'text-red font-bold';
+            tr.innerHTML = 
+                '<td class="font-sans font-bold text-blue">' + s.name + '</td>' +
+                '<td><span class="badge ' + (s.type === 'Go' ? 'badge-blue' : 'badge-green') + '">' + s.type + '</span></td>' +
+                '<td>' + s.report.total_trades + '</td>' +
+                '<td>' + (s.report.win_rate * 100).toFixed(2) + '%</td>' +
+                '<td class="' + pnlClass + '">$' + s.report.net_profit.toLocaleString('en-US', {minimumFractionDigits: 2}) + '</td>' +
+                '<td class="' + pnlClass + '">' + (s.report.total_return_pct * 100).toFixed(2) + '%</td>' +
+                '<td>' + s.report.profit_factor.toFixed(2) + '</td>' +
+                '<td class="text-red font-bold">' + (s.report.max_drawdown_pct * 100).toFixed(2) + '%</td>' +
+                '<td class="text-red">-$' + s.report.max_drawdown_dollars.toLocaleString('en-US', {minimumFractionDigits: 2}) + '</td>' +
+                '<td>' + s.report.max_drawdown_days + 'd</td>' +
+                '<td>' + s.report.sharpe_ratio.toFixed(2) + '</td>' +
+                '<td>' + s.report.sortino_ratio.toFixed(2) + '</td>' +
+                '<td>' + s.report.avg_holding_days.toFixed(1) + 'd</td>' +
+                '<td>' + idleText(s.report) + '</td>';
+            compTbody.appendChild(tr);
+        });
+
+        // Charts Color Palette
+        const palette = [
+            { border: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' },
+            { border: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
+            { border: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)' },
+            { border: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
+            { border: '#06b6d4', bg: 'rgba(6, 182, 212, 0.1)' },
+            { border: '#ec4899', bg: 'rgba(236, 72, 153, 0.1)' }
+        ];
+
+        // 1. Equity Curve Chart
+        const equityDatasets = reportData.strategies.map((s, idx) => {
+            const color = palette[idx % palette.length];
+            return {
+                label: s.name,
+                data: reportData.equity_curves[s.id] || [],
+                borderColor: color.border,
+                backgroundColor: color.bg,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                tension: 0.1
+            };
+        });
+
+        new Chart(document.getElementById('equityChart'), {
+            type: 'line',
+            data: {
+                labels: reportData.all_dates,
+                datasets: equityDatasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: '#94a3b8', font: { family: 'Outfit' } } },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString('en-US', {minimumFractionDigits: 2})
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b', maxTicksLimit: 12 } },
+                    y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b', callback: v => '$' + v.toLocaleString() } }
+                }
+            }
+        });
+
+        // 2. Drawdown Chart
+        const ddDatasets = reportData.strategies.map((s, idx) => {
+            const color = palette[idx % palette.length];
+            return {
+                label: s.name,
+                data: (reportData.drawdown_curves[s.id] || []).map(v => -(v * 100)),
+                borderColor: color.border,
+                backgroundColor: color.bg,
+                borderWidth: 1.5,
+                pointRadius: 0,
+                fill: true,
+                tension: 0.1
+            };
+        });
+
+        new Chart(document.getElementById('drawdownChart'), {
+            type: 'line',
+            data: {
+                labels: reportData.all_dates,
+                datasets: ddDatasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: '#94a3b8', font: { family: 'Outfit' } } },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(2) + '%'
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b', maxTicksLimit: 12 } },
+                    y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#64748b', callback: v => v + '%' } }
+                }
+            }
+        });
+
+        // 3. Trade Log Tabs
+        const tabContainer = document.getElementById('strategy-tabs');
+        const tradesTbody = document.getElementById('trades-tbody');
+
+        function renderTrades(strat) {
+            tradesTbody.innerHTML = '';
+            strat.trades.forEach((t, i) => {
+                const tr = document.createElement('tr');
+                const pnlClass = t.net_pnl >= 0 ? 'text-green font-bold' : 'text-red font-bold';
+                let reasonBadge = 'badge-end';
+                if (t.exit_reason === 'PROFIT_TARGET') reasonBadge = 'badge-target';
+                else if (t.exit_reason === 'STOP_LOSS') reasonBadge = 'badge-stop';
+                else if (t.exit_reason === 'TIME_UP') reasonBadge = 'badge-timeup';
+
+                tr.innerHTML = 
+                    '<td>' + (i + 1) + '</td>' +
+                    '<td class="font-sans font-bold text-blue">' + t.symbol + '</td>' +
+                    '<td>' + t.entry_date + '</td>' +
+                    '<td>$' + t.entry_price.toFixed(2) + '</td>' +
+                    '<td>' + t.exit_date + '</td>' +
+                    '<td>$' + t.exit_price.toFixed(2) + '</td>' +
+                    '<td>' + t.hold_days + 'd</td>' +
+                    '<td><span class="trade-badge ' + reasonBadge + '">' + t.exit_reason + '</span></td>' +
+                    '<td class="' + pnlClass + '">$' + t.net_pnl.toFixed(2) + '</td>' +
+                    '<td class="' + pnlClass + '">' + (t.return_pct * 100).toFixed(2) + '%</td>';
+                tradesTbody.appendChild(tr);
+            });
+        }
+
+        reportData.strategies.forEach((s, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'tab-btn' + (idx === 0 ? ' active' : '');
+            btn.innerText = s.name + ' (' + s.trades.length + ' trades)';
+            btn.onclick = () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderTrades(s);
+            };
+            tabContainer.appendChild(btn);
+        });
+
+        function renderCashFlows(stratId) {
+            const section = document.getElementById('cashflow-section');
+            const tbody = document.getElementById('cashflow-tbody');
+            const badgeContainer = document.getElementById('cashflow-summary-badge');
+            if (!reportData.cash_flows || !reportData.cash_flows[stratId] || reportData.cash_flows[stratId].length === 0) {
+                section.style.display = 'none';
+                return;
+            }
+            section.style.display = 'block';
+            tbody.innerHTML = '';
+
+            const flows = reportData.cash_flows[stratId];
+            let totalDiv = 0;
+            let totalInterest = 0;
+
+            flows.forEach(cf => {
+                totalDiv += cf.dividend_income;
+                totalInterest += cf.margin_interest;
+
+                const tr = document.createElement('tr');
+                let eventType = '';
+                if (cf.dividend_income > 0 && cf.margin_interest > 0) {
+                    eventType = '<span class="trade-badge" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa;">DIVIDEND + INTEREST</span>';
+                } else if (cf.dividend_income > 0) {
+                    eventType = '<span class="trade-badge badge-target">DIVIDEND RECEIVED</span>';
+                } else {
+                    eventType = '<span class="trade-badge badge-stop">MARGIN INTEREST</span>';
+                }
+
+                const divText = cf.dividend_income > 0 ? '<span class="text-green font-bold">+$' + cf.dividend_income.toFixed(2) + '</span>' : '-';
+                const intText = cf.margin_interest > 0 ? '<span class="text-red font-bold">-$' + cf.margin_interest.toFixed(2) + '</span>' : '-';
+
+                tr.innerHTML = 
+                    '<td>' + cf.date + '</td>' +
+                    '<td>' + eventType + '</td>' +
+                    '<td>' + divText + '</td>' +
+                    '<td>' + intText + '</td>' +
+                    '<td>$' + cf.margin_debt.toLocaleString('en-US', {minimumFractionDigits: 2}) + '</td>' +
+                    '<td>$' + cf.buying_power.toLocaleString('en-US', {minimumFractionDigits: 2}) + '</td>';
+                tbody.appendChild(tr);
+            });
+
+            badgeContainer.innerHTML = 
+                '<div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.85rem; color: #34d399; font-weight: 600;">' +
+                'Dividends: +$' + totalDiv.toLocaleString('en-US', {minimumFractionDigits: 2}) + '</div>' +
+                '<div style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; padding: 0.35rem 0.75rem; font-size: 0.85rem; color: #f87171; font-weight: 600;">' +
+                'Margin Interest: -$' + totalInterest.toLocaleString('en-US', {minimumFractionDigits: 2}) + '</div>';
+        }
+
+        reportData.strategies.forEach((s, idx) => {
+            const origOnclick = tabContainer.children[idx].onclick;
+            tabContainer.children[idx].onclick = () => {
+                origOnclick();
+                renderCashFlows(s.id);
+            };
+        });
+
+        if (reportData.strategies.length > 0) {
+            renderTrades(reportData.strategies[0]);
+            renderCashFlows(reportData.strategies[0].id);
+        }
+    </script>
+</body>
+</html>

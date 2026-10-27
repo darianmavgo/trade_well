@@ -1,0 +1,2 @@
+# Datastore indexes unused (SQLite app). Placeholder keeps gcloud happy if referenced.
+indexes: []

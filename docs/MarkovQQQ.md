@@ -279,7 +279,7 @@ As of the close of 2026-10-22 the model says state 2 (98%), and 94% state 2 for 
 
 Each stretch of the line takes the color of the regime the model judged QQQ to be in at that session's close (the forward-filtered call, using only data up to that day). Regimes are ranked by fitted volatility (calm 0.67%, normal 1.09%, stressed 1.99% a day), not by state number, so the colors stay put if the model is refit. The dashed line is where the model stopped learning (2025-10-22); later sessions were scored with frozen parameters. The stressed stretches line up with 2018 Q4, early 2020, 2022 and 2025.
 
-An interactive version (hover for price, date and regime; All, 10Y, 5Y and 1Y ranges; table view; dark mode) is at [`backtestgosqlite/data/reports/qqq_hmm_regimes.html`](../backtestgosqlite/data/reports/qqq_hmm_regimes.html). Both charts were built once from `data/hmm_models.db` and `data/daily_bars.db` (read-only) with the data baked in, so they do not update themselves. After a retrain or a daily extend, rebuild them; there is no command for that yet.
+An interactive version (hover for price, date and regime; All, 10Y, 5Y and 1Y ranges; table view; dark mode) is at [`backtestgosqlite/data/reports/qqq_hmm_regimes.html`](../data/reports/qqq_hmm_regimes.html). Both charts were built once from `data/hmm_models.db` and `data/daily_bars.db` (read-only) with the data baked in, so they do not update themselves. After a retrain or a daily extend, rebuild them; there is no command for that yet.
 
 What this says:
 - **Check 1 passes**: OOS log-likelihood per bar (7.66) is close to in-sample (7.75).

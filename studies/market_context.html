@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Market context studies</title>
+<style>
+  :root {
+    --bg: #0e1420;
+    --card: #171f30;
+    --line: #2a3548;
+    --text: #e7edf5;
+    --muted: #93a0b5;
+    --green: #3dd68c;
+    --red: #f07178;
+    --accent: #7cb7ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 "Segoe UI", system-ui, sans-serif;
+  }
+  main { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+  h1 { font-size: 1.8rem; line-height: 1.2; margin: 0 0 0.4rem; }
+  h2 { font-size: 1.25rem; margin: 2.2rem 0 0.6rem; }
+  h3 { font-size: 1.02rem; margin: 1.4rem 0 0.4rem; color: var(--accent); }
+  p, li { color: var(--text); }
+  .lede, .note { color: var(--muted); }
+  section {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 1.1rem 1.2rem 1.3rem;
+    margin-top: 1rem;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 0.6rem 0 0.2rem; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 0.38rem 0.5rem; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child, th.left, td.left { text-align: left; }
+  th { color: var(--muted); font-weight: 600; font-size: 0.82rem; }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+  .pick { background: rgba(124, 183, 255, 0.12); }
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.86em; color: var(--accent); }
+  ul { margin: 0.4rem 0 0.2rem; padding-left: 1.2rem; }
+  .bars { margin: 0.8rem 0 0.2rem; }
+  .bar-row { display: grid; grid-template-columns: 2.4rem 1fr 4.2rem; gap: 0.5rem; align-items: center; margin: 0.22rem 0; font-size: 0.86rem; }
+  .track { background: #0e1420; border-radius: 4px; height: 0.7rem; }
+  .fill { height: 100%; border-radius: 4px; background: #5b8def; }
+  .fill.best { background: var(--green); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Market context studies</h1>
+  <p class="lede">20-session returns for VOO, IEF, GLD, USO, and HYG, three KMeans fits (k = 2 through 10), GOOGL measured against the five-asset regimes, and a check of whether the oil, gold, and bond clusters predict 5% days. Window for the clusters is 2022-10-24 through 2026-09-25. Written 2026-09-26.</p>
+
+  <section>
+    <h2>1. Twenty-session returns</h2>
+    <p>Each ticker's simple return is <code>(close − close 20 sessions ago) / close 20 sessions ago</code>. The log return is <code>ln(close / close 20 sessions ago)</code>. The first 20 sessions of each series are null. Daily bars only.</p>
+    <table>
+      <thead>
+        <tr><th class="left">Ticker</th><th>Bars</th><th>With a 20-session return</th><th>Start</th><th>End</th><th>Mean simple</th><th>Mean log</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="left">VOO</td><td>1,255</td><td>1,235</td><td>2021-09-27</td><td>2026-09-25</td><td class="pos">+0.99%</td><td class="pos">+0.90%</td></tr>
+        <tr><td class="left">IEF</td><td>1,004</td><td>984</td><td>2022-09-26</td><td>2026-09-25</td><td class="neg">−0.07%</td><td class="neg">−0.08%</td></tr>
+        <tr><td class="left">GLD</td><td>1,255</td><td>1,235</td><td>2021-09-27</td><td>2026-09-25</td><td class="pos">+1.56%</td><td class="pos">+1.43%</td></tr>
+        <tr><td class="left">USO</td><td>1,004</td><td>984</td><td>2022-09-26</td><td>2026-09-25</td><td class="pos">+2.03%</td><td class="pos">+1.53%</td></tr>
+        <tr><td class="left">HYG</td><td>1,004</td><td>984</td><td>2022-09-26</td><td>2026-09-25</td><td class="pos">+0.19%</td><td class="pos">+0.18%</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Source: <code>sql/studies/20dayreturn.sql</code>, table <code>return_20d</code> in <code>reports/market_context_20d.db</code>.</p>
+  </section>
+
+  <section>
+    <h2>2. Five-asset clusters</h2>
+    <p>One observation per day. Features are the five 20-session log returns, standardized. KMeans for k = 2 through 10, ten random starts, seed 0. The highest silhouette is k = 2 (0.250). No larger k scores higher.</p>
+    <div class="bars" aria-hidden="true">
+      <div class="bar-row"><span>2</span><div class="track"><div class="fill best" style="width:100%"></div></div><span>0.250</span></div>
+      <div class="bar-row"><span>3</span><div class="track"><div class="fill" style="width:89.1%"></div></div><span>0.222</span></div>
+      <div class="bar-row"><span>4</span><div class="track"><div class="fill" style="width:89.5%"></div></div><span>0.223</span></div>
+      <div class="bar-row"><span>5</span><div class="track"><div class="fill" style="width:84.9%"></div></div><span>0.212</span></div>
+      <div class="bar-row"><span>6</span><div class="track"><div class="fill" style="width:91.1%"></div></div><span>0.227</span></div>
+      <div class="bar-row"><span>7</span><div class="track"><div class="fill" style="width:93.5%"></div></div><span>0.234</span></div>
+      <div class="bar-row"><span>8</span><div class="track"><div class="fill" style="width:88.5%"></div></div><span>0.221</span></div>
+      <div class="bar-row"><span>9</span><div class="track"><div class="fill" style="width:86.5%"></div></div><span>0.216</span></div>
+      <div class="bar-row"><span>10</span><div class="track"><div class="fill" style="width:90.7%"></div></div><span>0.226</span></div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>k</th><th>Silhouette</th><th>Inertia</th><th class="left">Chosen</th></tr>
+      </thead>
+      <tbody>
+        <tr class="pick"><td>2</td><td>0.2496</td><td>3,615.9</td><td class="left">yes</td></tr>
+        <tr><td>3</td><td>0.2223</td><td>3,101.4</td><td class="left"></td></tr>
+        <tr><td>4</td><td>0.2234</td><td>2,679.3</td><td class="left"></td></tr>
+        <tr><td>5</td><td>0.2119</td><td>2,347.6</td><td class="left"></td></tr>
+        <tr><td>6</td><td>0.2274</td><td>2,083.9</td><td class="left"></td></tr>
+        <tr><td>7</td><td>0.2335</td><td>1,886.9</td><td class="left"></td></tr>
+        <tr><td>8</td><td>0.2210</td><td>1,758.4</td><td class="left"></td></tr>
+        <tr><td>9</td><td>0.2160</td><td>1,642.6</td><td class="left"></td></tr>
+        <tr><td>10</td><td>0.2264</td><td>1,539.6</td><td class="left"></td></tr>
+      </tbody>
+    </table>
+    <h3>Mean 20-session simple return</h3>
+    <p>984 days, 2022-10-24 through 2026-09-25. Cluster 0 is numbered as the higher-VOO group.</p>
+    <table>
+      <thead>
+        <tr><th>Cluster</th><th>Days</th><th>VOO</th><th>IEF</th><th>GLD</th><th>USO</th><th>HYG</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>0</td><td>592</td><td class="pos">+3.18%</td><td class="pos">+0.82%</td><td class="pos">+3.82%</td><td class="pos">+0.66%</td><td class="pos">+0.96%</td></tr>
+        <tr><td>1</td><td>392</td><td class="neg">−0.84%</td><td class="neg">−1.41%</td><td class="neg">−0.58%</td><td class="pos">+4.10%</td><td class="neg">−0.97%</td></tr>
+      </tbody>
+    </table>
+    <p>Reading, not a label stored in the database: cluster 0 is the window where equities, gold, bonds, and credit are all up. Cluster 1 is the window where oil is up and the other four are down. Those names were the hypothesis taken into the GOOGL study. They were not written into <code>cluster_day</code>.</p>
+  </section>
+
+  <section>
+    <h2>3. GOOGL against those two regimes</h2>
+    <p>Daily close-to-close simple returns, joined to <code>cluster_day</code>. Not the 20-session returns. The clusters were fit on overlapping 20-session returns that already include VOO, so a 20-session regression would recount the same days and use a clustering feature as the benchmark.</p>
+    <p>Beta is covariance(GOOGL, VOO) / variance(VOO), divisor N. Alpha is <code>252 × (mean GOOGL − beta × mean VOO)</code> with a zero risk-free rate, the same Jensen residual as the backtest report. The residual column freezes the full-sample beta (1.259) and averages <code>GOOGL − 1.259 × VOO</code> inside each cluster. Re-estimating beta inside a cluster would hide a harder drawdown inside a larger beta, so that residual is the resilience number.</p>
+    <p>GOOGL's last daily bar in the market database is 2026-09-15, so 8 of the 392 cluster-1 days drop out. 976 days remain. Compounds below multiply only the days inside that cluster. They are not a calendar holding path.</p>
+    <table>
+      <thead>
+        <tr>
+          <th class="left">Sample</th><th>Days</th><th>Start</th><th>End</th>
+          <th>GOOGL / day</th><th>VOO / day</th>
+          <th>GOOGL compound</th><th>VOO compound</th>
+          <th>Beta</th><th>Alpha ann.</th><th>Residual / day</th>
+          <th>VOO-down days</th><th>GOOGL on those days</th><th>Share GOOGL also down</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="left">Full</td><td>976</td><td>2022-10-24</td><td>2026-09-15</td>
+          <td class="pos">+0.146%</td><td class="pos">+0.077%</td>
+          <td class="pos">+241.1%</td><td class="pos">+102.4%</td>
+          <td>1.259</td><td class="pos">+12.3%</td><td class="pos">+4.9 bp</td>
+          <td>432</td><td class="neg">−0.829%</td><td>69.9%</td>
+        </tr>
+        <tr>
+          <td class="left">Cluster 0</td><td>592</td><td>2022-10-24</td><td>2026-08-31</td>
+          <td class="pos">+0.212%</td><td class="pos">+0.161%</td>
+          <td class="pos">+213.9%</td><td class="pos">+153.9%</td>
+          <td>1.313</td><td class="pos">+0.25%</td><td class="pos">+1.0 bp</td>
+          <td>234</td><td class="neg">−0.695%</td><td>67.5%</td>
+        </tr>
+        <tr>
+          <td class="left">Cluster 1</td><td>384</td><td>2022-11-01</td><td>2026-09-15</td>
+          <td class="pos">+0.043%</td><td class="neg">−0.053%</td>
+          <td class="pos">+8.7%</td><td class="neg">−20.3%</td>
+          <td>1.226</td><td class="pos">+27.1%</td><td class="pos">+10.9 bp</td>
+          <td>198</td><td class="neg">−0.988%</td><td>72.7%</td>
+        </tr>
+      </tbody>
+    </table>
+    <ul>
+      <li>Beta does not rise in cluster 1. It is 1.23 there and 1.31 in cluster 0.</li>
+      <li>With the full-sample beta held fixed, the daily residual is +1.0 bp in cluster 0 and +10.9 bp in cluster 1. GOOGL's mean daily return stayed positive in cluster 1 while VOO's was negative.</li>
+      <li>On days VOO fell, GOOGL fell too: 67.5% of those days in cluster 0 (average −0.70%) and 72.7% in cluster 1 (average −0.99%).</li>
+    </ul>
+    <p class="note">Source: <code>sql/studies/googl_regime.sql</code>. Result: <code>reports/googl_market_context.db</code>, tables <code>googl_regime_day</code> and <code>googl_regime_summary</code>. No standard errors. Neighboring days are dependent.</p>
+  </section>
+
+  <section>
+    <h2>4. Clusters refit without VOO</h2>
+    <p>Same days, same method, features limited to IEF, GLD, USO, and HYG. VOO's 20-session return was not an input. k = 2 still wins, and the silhouette is higher (0.273 versus 0.250). k = 7 is the next best at 0.248 and does not beat k = 2. No third regime shows up.</p>
+    <div class="bars" aria-hidden="true">
+      <div class="bar-row"><span>2</span><div class="track"><div class="fill best" style="width:100%"></div></div><span>0.273</span></div>
+      <div class="bar-row"><span>3</span><div class="track"><div class="fill" style="width:76.4%"></div></div><span>0.209</span></div>
+      <div class="bar-row"><span>4</span><div class="track"><div class="fill" style="width:81.2%"></div></div><span>0.222</span></div>
+      <div class="bar-row"><span>5</span><div class="track"><div class="fill" style="width:86.4%"></div></div><span>0.236</span></div>
+      <div class="bar-row"><span>6</span><div class="track"><div class="fill" style="width:89.5%"></div></div><span>0.244</span></div>
+      <div class="bar-row"><span>7</span><div class="track"><div class="fill" style="width:90.7%"></div></div><span>0.248</span></div>
+      <div class="bar-row"><span>8</span><div class="track"><div class="fill" style="width:82.4%"></div></div><span>0.225</span></div>
+      <div class="bar-row"><span>9</span><div class="track"><div class="fill" style="width:87.6%"></div></div><span>0.239</span></div>
+      <div class="bar-row"><span>10</span><div class="track"><div class="fill" style="width:90.3%"></div></div><span>0.246</span></div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>k</th><th>Silhouette</th><th>Inertia</th><th class="left">Chosen</th></tr>
+      </thead>
+      <tbody>
+        <tr class="pick"><td>2</td><td>0.2730</td><td>2,762.8</td><td class="left">yes</td></tr>
+        <tr><td>3</td><td>0.2087</td><td>2,370.7</td><td class="left"></td></tr>
+        <tr><td>4</td><td>0.2218</td><td>2,024.4</td><td class="left"></td></tr>
+        <tr><td>5</td><td>0.2359</td><td>1,757.4</td><td class="left"></td></tr>
+        <tr><td>6</td><td>0.2442</td><td>1,524.3</td><td class="left"></td></tr>
+        <tr><td>7</td><td>0.2477</td><td>1,403.6</td><td class="left"></td></tr>
+        <tr><td>8</td><td>0.2249</td><td>1,297.2</td><td class="left"></td></tr>
+        <tr><td>9</td><td>0.2391</td><td>1,205.5</td><td class="left"></td></tr>
+        <tr><td>10</td><td>0.2464</td><td>1,117.7</td><td class="left"></td></tr>
+      </tbody>
+    </table>
+    <h3>Mean 20-session simple return</h3>
+    <p>Cluster numbers follow HYG, highest first, because VOO was not in the fit. The VOO column is the average of VOO's 20-session simple return on those days. It was not used to train the clusters.</p>
+    <table>
+      <thead>
+        <tr><th>Cluster</th><th>Days</th><th>IEF</th><th>GLD</th><th>USO</th><th>HYG</th><th>VOO held out</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>0</td><td>574</td><td class="pos">+1.04%</td><td class="pos">+4.30%</td><td class="neg">−0.88%</td><td class="pos">+0.82%</td><td class="pos">+2.16%</td></tr>
+        <tr><td>1</td><td>410</td><td class="neg">−1.61%</td><td class="neg">−1.07%</td><td class="pos">+6.10%</td><td class="neg">−0.69%</td><td class="pos">+0.77%</td></tr>
+      </tbody>
+    </table>
+    <p>The oil-up / bonds-and-gold-down split remains. Held-out VOO stays positive in both groups (+2.16% and +0.77%). In the five-asset fit, the oil cluster had VOO at −0.84%. That equity drawdown was partly VOO helping to define the group.</p>
+    <h3>Agreement with the five-asset labels</h3>
+    <p>828 of 984 days keep the same side. 156 switch.</p>
+    <table>
+      <thead>
+        <tr><th class="left">Five-asset cluster</th><th>No-VOO cluster 0</th><th>No-VOO cluster 1</th><th>Total</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="left">0</td><td>505</td><td>87</td><td>592</td></tr>
+        <tr><td class="left">1</td><td>69</td><td>323</td><td>392</td></tr>
+        <tr><td class="left">Total</td><td>574</td><td>410</td><td>984</td></tr>
+      </tbody>
+    </table>
+    <p class="note">The five-asset <code>cluster_day</code> table was not overwritten. This fit is <code>reports/market_context_20d_novoo.db</code>.</p>
+  </section>
+
+  <section>
+    <h2>5. Clusters refit without HYG</h2>
+    <p>Same days, features limited to IEF, GLD, and USO. VOO and HYG are held out. k = 2 wins again, with a higher silhouette than either earlier fit (0.314, versus 0.273 without VOO and 0.250 with all five). k = 4 is the closest runner-up at 0.300 and still does not beat k = 2.</p>
+    <div class="bars" aria-hidden="true">
+      <div class="bar-row"><span>2</span><div class="track"><div class="fill best" style="width:100%"></div></div><span>0.314</span></div>
+      <div class="bar-row"><span>3</span><div class="track"><div class="fill" style="width:90.4%"></div></div><span>0.284</span></div>
+      <div class="bar-row"><span>4</span><div class="track"><div class="fill" style="width:95.5%"></div></div><span>0.300</span></div>
+      <div class="bar-row"><span>5</span><div class="track"><div class="fill" style="width:87.9%"></div></div><span>0.276</span></div>
+      <div class="bar-row"><span>6</span><div class="track"><div class="fill" style="width:88.2%"></div></div><span>0.277</span></div>
+      <div class="bar-row"><span>7</span><div class="track"><div class="fill" style="width:90.7%"></div></div><span>0.285</span></div>
+      <div class="bar-row"><span>8</span><div class="track"><div class="fill" style="width:82.5%"></div></div><span>0.260</span></div>
+      <div class="bar-row"><span>9</span><div class="track"><div class="fill" style="width:85.6%"></div></div><span>0.269</span></div>
+      <div class="bar-row"><span>10</span><div class="track"><div class="fill" style="width:82.2%"></div></div><span>0.259</span></div>
+    </div>
+    <table>
+      <thead>
+        <tr><th>k</th><th>Silhouette</th><th>Inertia</th><th class="left">Chosen</th></tr>
+      </thead>
+      <tbody>
+        <tr class="pick"><td>2</td><td>0.3144</td><td>1,977.8</td><td class="left">yes</td></tr>
+        <tr><td>3</td><td>0.2842</td><td>1,593.4</td><td class="left"></td></tr>
+        <tr><td>4</td><td>0.3004</td><td>1,321.4</td><td class="left"></td></tr>
+        <tr><td>5</td><td>0.2762</td><td>1,146.8</td><td class="left"></td></tr>
+        <tr><td>6</td><td>0.2774</td><td>991.4</td><td class="left"></td></tr>
+        <tr><td>7</td><td>0.2853</td><td>875.4</td><td class="left"></td></tr>
+        <tr><td>8</td><td>0.2595</td><td>807.4</td><td class="left"></td></tr>
+        <tr><td>9</td><td>0.2690</td><td>743.9</td><td class="left"></td></tr>
+        <tr><td>10</td><td>0.2585</td><td>691.8</td><td class="left"></td></tr>
+      </tbody>
+    </table>
+    <h3>Mean 20-session simple return</h3>
+    <p>Cluster numbers follow IEF, highest first. VOO and HYG are averages on those days. Neither was used to train this fit.</p>
+    <table>
+      <thead>
+        <tr><th>Cluster</th><th>Days</th><th>IEF</th><th>GLD</th><th>USO</th><th>HYG held out</th><th>VOO held out</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>0</td><td>544</td><td class="pos">+1.1%</td><td class="pos">+4.7%</td><td class="neg">−1.5%</td><td class="pos">+0.66%</td><td class="pos">+1.66%</td></tr>
+        <tr><td>1</td><td>440</td><td class="neg">−1.5%</td><td class="neg">−1.2%</td><td class="pos">+6.5%</td><td class="neg">−0.39%</td><td class="pos">+1.48%</td></tr>
+      </tbody>
+    </table>
+    <p>What remains is gold and bonds against oil. Held-out VOO is almost the same in both groups (+1.66% and +1.48%). Held-out HYG only leans slightly positive in cluster 0 and slightly negative in cluster 1. Credit and equities are not what separates these days once oil, gold, and bonds are the features.</p>
+    <h3>Agreement with the no-VOO labels</h3>
+    <p>910 of 984 days match the four-asset fit. 74 switch.</p>
+    <table>
+      <thead>
+        <tr><th class="left">No-VOO cluster</th><th>No-HYG cluster 0</th><th>No-HYG cluster 1</th><th>Total</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="left">0</td><td>522</td><td>52</td><td>574</td></tr>
+        <tr><td class="left">1</td><td>22</td><td>388</td><td>410</td></tr>
+        <tr><td class="left">Total</td><td>544</td><td>440</td><td>984</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Earlier cluster databases were not overwritten. This fit is <code>reports/market_context_20d_nohyg.db</code>.</p>
+  </section>
+
+  <section>
+    <h2>6. Do those clusters predict 5% days?</h2>
+    <p>The ticker list is <code>data/gain_5pct_frequency.db</code>. That file stores totals, not the days, so each 5% move was rebuilt from daily closes: up at least 5%, or down at least 5%. GLD and USO are left out because they define the clusters. 69 of the remaining tickers have bars inside the cluster window. The prediction uses yesterday's cluster. The same-day rates are only the coincidence, because the cluster is not known until that session's closes.</p>
+    <table>
+      <thead>
+        <tr><th class="left">Timing</th><th class="left">Cluster</th><th>Symbol-days</th><th>5% up</th><th>Up rate</th><th>Up lift</th><th>5% down</th><th>Down rate</th><th>Down lift</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="left">Next day</td><td class="left">Baseline</td><td>66,710</td><td>5,185</td><td>7.77%</td><td>1.00</td><td>4,527</td><td>6.79%</td><td>1.00</td></tr>
+        <tr><td class="left">Next day</td><td class="left">0 gold and bonds up</td><td>37,211</td><td>2,974</td><td>7.99%</td><td>1.03</td><td>2,555</td><td>6.87%</td><td>1.01</td></tr>
+        <tr><td class="left">Next day</td><td class="left">1 oil up</td><td>29,499</td><td>2,211</td><td>7.50%</td><td>0.96</td><td>1,972</td><td>6.68%</td><td>0.99</td></tr>
+        <tr><td class="left">Same day</td><td class="left">Baseline</td><td>66,777</td><td>5,187</td><td>7.77%</td><td>1.00</td><td>4,532</td><td>6.79%</td><td>1.00</td></tr>
+        <tr><td class="left">Same day</td><td class="left">0 gold and bonds up</td><td>37,210</td><td>3,101</td><td>8.33%</td><td>1.07</td><td>2,535</td><td>6.81%</td><td>1.00</td></tr>
+        <tr><td class="left">Same day</td><td class="left">1 oil up</td><td>29,567</td><td>2,086</td><td>7.06%</td><td>0.91</td><td>1,997</td><td>6.75%</td><td>1.00</td></tr>
+      </tbody>
+    </table>
+    <p>The prior cluster does not predict the next session. Up-day lift is 1.03 and 0.96. Down-day lift is 1.01 and 0.99. The same-day up-day rate is a little higher in cluster 0 (8.33% versus 7.06%), and the down-day rate does not move. Lift near 1 means the regime is not separating 5% days from ordinary days for this ticker list.</p>
+    <p class="note">Source: <code>sql/studies/cluster_5pct.sql</code>. Result: <code>reports/cluster_5pct.db</code>, tables <code>cluster_5pct_day</code> and <code>cluster_5pct_summary</code>.</p>
+  </section>
+
+  <section>
+    <h2>Files</h2>
+    <ul>
+      <li><code>sql/studies/20dayreturn.sql</code> and <code>pkg/study/market_context/return_20d.go</code></li>
+      <li><code>pkg/study/market_context/cluster_regimes.py</code></li>
+      <li><code>sql/studies/googl_regime.sql</code> and <code>pkg/study/market_context/googl_regime.go</code></li>
+      <li><code>reports/market_context_20d.db</code> — returns and the five-asset clusters</li>
+      <li><code>reports/market_context_20d_novoo.db</code> — clusters without VOO</li>
+      <li><code>reports/market_context_20d_nohyg.db</code> — clusters on IEF, GLD, and USO only</li>
+      <li><code>reports/cluster_5pct.db</code> — 5% up and down days by that cluster</li>
+      <li><code>sql/studies/cluster_5pct.sql</code> and <code>pkg/study/market_context/cluster_5pct.go</code></li>
+      <li><code>reports/googl_market_context.db</code> — GOOGL daily beta and residual</li>
+    </ul>
+    <p class="note">Report databases live under <code>/Users/darianhickman/Documents/backtestgosqlite/reports/</code>. GOOGL and VOO daily bars were read from <code>/Users/darianhickman/Documents/trade_well/backtestgosqlite/data/market_history.db</code>.</p>
+  </section>
+</main>
+</body>
+</html>

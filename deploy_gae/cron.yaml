@@ -1,0 +1,94 @@
+# App Engine Cron — America/New_York market schedule
+# Paths hit orchestrator appserve /cron/* routes (same binary as the CLI).
+# App Engine Cron always sends header X-Appengine-Cron: true.
+
+cron:
+  - description: "09:15 ET pre-market account/position sync"
+    url: /cron/account_state
+    schedule: every mon,tue,wed,thu,fri 09:15
+    timezone: America/New_York
+
+  - description: "09:17 ET risk: record equity, set today's entry size from drawdown and daily loss (exits unaffected)"
+    url: /cron/risk
+    schedule: every mon,tue,wed,thu,fri 09:17
+    timezone: America/New_York
+
+  - description: "16:18 ET risk after the post-market sync: sets what the 18:15 staging may do"
+    url: /cron/risk
+    schedule: every mon,tue,wed,thu,fri 16:18
+    timezone: America/New_York
+
+  - description: "18:00 ET Sun-Thu evening strategy scan (buy signals only)"
+    url: /cron/scan_market
+    schedule: every sun,mon,tue,wed,thu 18:00
+    timezone: America/New_York
+
+  - description: "18:15 ET Sun-Thu stage orders from the 18:00 scan (size against live cash)"
+    url: /cron/stage_orders
+    schedule: every sun,mon,tue,wed,thu 18:15
+    timezone: America/New_York
+
+  - description: "09:28 ET premarket submit staged orders"
+    url: /cron/submit_orders
+    schedule: every mon,tue,wed,thu,fri 09:28
+    timezone: America/New_York
+
+  - description: "09:45 ET confirm which entry orders filled (records the position and its entry time)"
+    url: /cron/submit_orders
+    schedule: every mon,tue,wed,thu,fri 09:45
+    timezone: America/New_York
+
+  - description: "09:20 ET seat the day's watched limits before the open: place as many as the broker accepts, nearest to filling first, until it refuses one for buying power"
+    url: /cron/trigger_limits
+    schedule: every mon,tue,wed,thu,fri 09:20
+    timezone: America/New_York
+
+  - description: "09:31 ET swap resting limits that are far from filling for watched names that are nearer, now the market is open"
+    url: /cron/trigger_limits
+    schedule: every mon,tue,wed,thu,fri 09:31
+    timezone: America/New_York
+
+  - description: "every 5 min 09:35-16:05 ET: place the watched limit entries whose limit the day's low reached, cancel the rest after the close (does nothing when no limit entry is being watched)"
+    url: /cron/trigger_limits
+    schedule: every 5 minutes from 09:35 to 16:05
+    timezone: America/New_York
+
+  - description: "09:35 ET exit manager (gap/target/window)"
+    url: /cron/manage_exits
+    schedule: every mon,tue,wed,thu,fri 09:35
+    timezone: America/New_York
+
+  - description: "15:50 ET exit manager last-chance before close"
+    url: /cron/manage_exits
+    schedule: every mon,tue,wed,thu,fri 15:50
+    timezone: America/New_York
+
+  - description: "16:20 ET close out today's entry orders (filled or expired) before the 18:15 staging"
+    url: /cron/submit_orders
+    schedule: every mon,tue,wed,thu,fri 16:20
+    timezone: America/New_York
+
+  - description: "10:00 ET health audit"
+    url: /cron/check_health
+    schedule: every mon,tue,wed,thu,fri 10:00
+    timezone: America/New_York
+
+  - description: "16:15 ET post-market reconciliation"
+    url: /cron/account_state
+    schedule: every mon,tue,wed,thu,fri 16:15
+    timezone: America/New_York
+
+  - description: "09:00 ET pre-open readiness check (emails only when something is wrong)"
+    url: /cron/ready
+    schedule: every sun,mon,tue,wed,thu,fri,sat 09:00
+    timezone: America/New_York
+
+  - description: "17:30 ET pre-scan readiness check, 30 minutes before the 18:00 scan (emails only when something is wrong)"
+    url: /cron/ready
+    schedule: every sun,mon,tue,wed,thu,fri,sat 17:30
+    timezone: America/New_York
+
+  - description: "Saturday 09:00 ET weekly digest email"
+    url: /cron/weekly_digest
+    schedule: every sat 09:00
+    timezone: America/New_York

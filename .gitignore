@@ -1,12 +1,14 @@
 # already in git
-backtestgosqlite/
-backtestgoduckdb/
-backtestgo/
-schwaber/
-trade_orchestrator/
+/backtestgosqlite/
+/backtestgoduckdb/
+/backtestgo/
+/schwaber/
+/trade_orchestrator/
 
 # Binaries and compiled output
-bin/
+/bin/*
+!/bin/.gitkeep
+/*/bin/
 dist/
 build/
 *.exe
@@ -24,6 +26,7 @@ gae/go/listfiles/listfiles
 *.prof
 coverage/
 
+/data
 # Data and SQLite databases
 data/*.db
 data/*.sqlite
@@ -94,3 +97,33 @@ reports/strategy_evals.db
 
 # built binaries at repo root
 /compare_annual_report
+
+# --- merged from schwaber / trade_orchestrator / backtestgosqlite (flattened repo) ---
+# Secrets, tokens, local environment (CRITICAL: never commit)
+.env
+.env_retired
+!.env.example
+token.json
+token.json.lock
+tokens.json
+schwab_token.json
+*.token
+credentials.json
+.netrc
+.gae_netrc
+schwaber.db
+# Build and deploy scratch
+.build_staging/
+.deploy_cache/
+vendor/
+go.work
+go.work.sum
+/orchestrator
+/orchestrator-*
+cover.out
+coverage.txt
+tmp/
+# Databases are not committed, except the reference data and the deploy bundle the old repos tracked.
+# Whether to publish these is an open decision (docs/FlattenAssessment.md).
+!refdata/*.db
+!pkg/orchestrator/strategies/deploy/strategies.db

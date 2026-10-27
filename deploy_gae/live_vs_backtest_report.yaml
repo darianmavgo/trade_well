@@ -1,0 +1,32 @@
+# App Engine service live-vs-backtest-report. Separate deploy from the default
+# trading service. It reads the same GCS bucket (orchestrator.db and
+# market_history.db) and does not replicate. Reached at
+# https://live-vs-backtest-report-dot-<project>.uc.r.appspot.com
+#
+#   ./deploy_gae/deploy_live_vs_backtest_report.sh
+#
+# No env_variables: configuration is gs://<bucket>/config/env.
+
+service: live-vs-backtest-report
+runtime: go126
+entrypoint: main
+
+build_env_variables:
+  GOOGLE_BUILDABLE: "./cmd/orchestrator"
+  GOFLAGS: "-mod=vendor"
+  GOPRIVATE: "github.com/darianmavgo/*"
+  GONOSUMDB: "github.com/darianmavgo/*"
+  GONOPROXY: "github.com/darianmavgo/*"
+
+automatic_scaling:
+  min_instances: 0
+  max_instances: 1
+  target_cpu_utilization: 0.65
+
+inbound_services:
+  - warmup
+
+handlers:
+  - url: /.*
+    script: auto
+    secure: always

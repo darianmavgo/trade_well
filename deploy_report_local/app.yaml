@@ -1,0 +1,9 @@
+# app.yaml for deploy_report_local/servelocal.sh. The script reads `runtime`
+# from here to warn when the local Go differs from what App Engine builds with.
+# The service name comes from deploy_gae/live_vs_backtest_report.yaml.
+#
+# No env_variables: configuration is the single GCS object gs://<bucket>/config/env,
+# read by the app itself at startup (schwaber config.Bootstrap), exactly as on App
+# Engine. Edit it with deploy_gae/config.sh. A test (pkg/strategies TestAppYAMLHasNoEnv)
+# fails if an app.yaml listed there gains an env_variables block.
+runtime: go126

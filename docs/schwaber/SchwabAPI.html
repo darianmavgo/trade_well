@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Charles Schwab API Specification & Reference Manual</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --bg-card: #111827;
+      --bg-card-hover: #162032;
+      --bg-code: #070a10;
+      --border-color: #1f293d;
+      --border-focus: #3b82f6;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+      
+      --accent-blue: #0284c7;
+      --accent-blue-light: #38bdf8;
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --accent-purple: #8b5cf6;
+
+      --method-get: #10b981;
+      --method-post: #3b82f6;
+      --method-put: #f59e0b;
+      --method-delete: #ef4444;
+
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar Navigation */
+    #sidebar {
+      width: 320px;
+      background-color: var(--bg-card);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      padding: 24px 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-blue-light);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 9999px;
+      text-transform: uppercase;
+    }
+
+    .brand-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    .search-box {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--bg-main);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: #fff;
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent-blue-light);
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+
+    .nav-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 10px;
+      list-style: none;
+    }
+
+    .nav-category {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      padding: 14px 10px 6px;
+      letter-spacing: 0.08em;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .nav-item:hover, .nav-item.active {
+      background-color: var(--bg-card-hover);
+      color: #fff;
+    }
+
+    .nav-method {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 5px;
+      border-radius: 4px;
+      width: 48px;
+      text-align: center;
+    }
+
+    .m-get { background: rgba(16, 185, 129, 0.15); color: var(--method-get); }
+    .m-post { background: rgba(59, 130, 246, 0.15); color: var(--method-post); }
+    .m-put { background: rgba(245, 158, 11, 0.15); color: var(--method-put); }
+    .m-delete { background: rgba(239, 68, 68, 0.15); color: var(--method-delete); }
+
+    /* Content Area */
+    #main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 40px 60px;
+      scroll-behavior: smooth;
+    }
+
+    .header-panel {
+      margin-bottom: 40px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .page-title {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #fff;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .page-desc {
+      font-size: 1rem;
+      color: var(--text-muted);
+      max-width: 800px;
+    }
+
+    .server-card {
+      margin-top: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .server-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .server-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+    }
+
+    .server-url {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--accent-blue-light);
+    }
+
+    /* Section & Cards */
+    .section-heading {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #fff;
+      margin: 40px 0 20px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .endpoint-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      margin-bottom: 24px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .endpoint-card:hover {
+      border-color: #2e3d5b;
+    }
+
+    .endpoint-header {
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .endpoint-path {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .endpoint-summary {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      margin-left: auto;
+    }
+
+    .endpoint-body {
+      padding: 0 24px 24px;
+      border-top: 1px solid var(--border-color);
+      background: rgba(11, 15, 25, 0.4);
+    }
+
+    .desc-text {
+      margin: 16px 0;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .subheading {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin: 20px 0 10px;
+    }
+
+    /* Parameter table */
+    .param-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-bottom: 16px;
+    }
+
+    .param-table th {
+      text-align: left;
+      padding: 8px 12px;
+      background: var(--bg-card);
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .param-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(31, 41, 61, 0.6);
+      vertical-align: top;
+    }
+
+    .param-name {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--accent-cyan);
+    }
+
+    .param-type {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--accent-purple);
+      margin-left: 6px;
+    }
+
+    .badge-req {
+      font-size: 0.65rem;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(244, 63, 94, 0.15);
+      color: var(--accent-rose);
+      font-weight: 700;
+      margin-left: 6px;
+    }
+
+    /* Code Blocks */
+    .code-container {
+      background: var(--bg-code);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 12px 0;
+    }
+
+    .code-header {
+      background: #0d1320;
+      padding: 8px 14px;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .btn-copy {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 0.7rem;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-copy:hover {
+      background: var(--bg-card);
+      color: #fff;
+    }
+
+    pre {
+      padding: 14px;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: #e2e8f0;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    .schema-tag {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      background: rgba(139, 92, 246, 0.12);
+      color: #c084fc;
+      border: 1px solid rgba(139, 92, 246, 0.25);
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin: 2px 4px 2px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <div class="brand-title">
+        <span>Charles Schwab API</span>
+        <span class="brand-badge">OAS 3.0</span>
+      </div>
+      <div class="brand-subtitle">Retail Production Specifications</div>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="searchInput" class="search-input" placeholder="Filter endpoints (e.g. orders, quotes)..." onkeyup="filterEndpoints()" />
+    </div>
+
+    <ul class="nav-list" id="navList">
+      <li class="nav-category">Authentication</li>
+      <li><a class="nav-item" href="#oauth-token"><span class="nav-method m-post">POST</span><span>/oauth/token</span></a></li>
+      <li><a class="nav-item" href="#oauth-authorize"><span class="nav-method m-get">GET</span><span>/oauth/authorize</span></a></li>
+
+      <li class="nav-category">Accounts API</li>
+      <li><a class="nav-item" href="#get-account-numbers"><span class="nav-method m-get">GET</span><span>/accounts/accountNumbers</span></a></li>
+      <li><a class="nav-item" href="#get-accounts"><span class="nav-method m-get">GET</span><span>/accounts</span></a></li>
+      <li><a class="nav-item" href="#get-account-detail"><span class="nav-method m-get">GET</span><span>/accounts/{hash}</span></a></li>
+
+      <li class="nav-category">Orders API</li>
+      <li><a class="nav-item" href="#get-orders-account"><span class="nav-method m-get">GET</span><span>/accounts/{hash}/orders</span></a></li>
+      <li><a class="nav-item" href="#post-orders-account"><span class="nav-method m-post">POST</span><span>/accounts/{hash}/orders</span></a></li>
+      <li><a class="nav-item" href="#get-order-id"><span class="nav-method m-get">GET</span><span>/accounts/{hash}/orders/{id}</span></a></li>
+      <li><a class="nav-item" href="#delete-order-id"><span class="nav-method m-delete">DEL</span><span>/accounts/{hash}/orders/{id}</span></a></li>
+      <li><a class="nav-item" href="#put-order-id"><span class="nav-method m-put">PUT</span><span>/accounts/{hash}/orders/{id}</span></a></li>
+      <li><a class="nav-item" href="#get-all-orders"><span class="nav-method m-get">GET</span><span>/orders</span></a></li>
+      <li><a class="nav-item" href="#post-preview-order"><span class="nav-method m-post">POST</span><span>/accounts/{hash}/previewOrder</span></a></li>
+
+      <li class="nav-category">Transactions API</li>
+      <li><a class="nav-item" href="#get-transactions"><span class="nav-method m-get">GET</span><span>/accounts/{hash}/transactions</span></a></li>
+      <li><a class="nav-item" href="#get-transaction-id"><span class="nav-method m-get">GET</span><span>/accounts/{hash}/tx/{id}</span></a></li>
+
+      <li class="nav-category">User Preferences</li>
+      <li><a class="nav-item" href="#get-user-preference"><span class="nav-method m-get">GET</span><span>/userPreference</span></a></li>
+
+      <li class="nav-category">Market Data API</li>
+      <li><a class="nav-item" href="#get-quotes"><span class="nav-method m-get">GET</span><span>/marketdata/v1/quotes</span></a></li>
+      <li><a class="nav-item" href="#get-quote-symbol"><span class="nav-method m-get">GET</span><span>/marketdata/v1/{symbol}/quotes</span></a></li>
+      <li><a class="nav-item" href="#get-chains"><span class="nav-method m-get">GET</span><span>/marketdata/v1/chains</span></a></li>
+      <li><a class="nav-item" href="#get-expiration-chain"><span class="nav-method m-get">GET</span><span>/marketdata/v1/expirationchain</span></a></li>
+      <li><a class="nav-item" href="#get-price-history"><span class="nav-method m-get">GET</span><span>/marketdata/v1/pricehistory</span></a></li>
+      <li><a class="nav-item" href="#get-movers"><span class="nav-method m-get">GET</span><span>/marketdata/v1/movers/{index}</span></a></li>
+      <li><a class="nav-item" href="#get-market-hours"><span class="nav-method m-get">GET</span><span>/marketdata/v1/markets</span></a></li>
+      <li><a class="nav-item" href="#get-instruments"><span class="nav-method m-get">GET</span><span>/marketdata/v1/instruments</span></a></li>
+
+      <li class="nav-category">Specification Schemas</li>
+      <li><a class="nav-item" href="#section-schemas"><span class="nav-method" style="background: rgba(139,92,246,0.2); color: #c084fc;">DEF</span><span>Data Schemas (50+)</span></a></li>
+    </ul>
+  </aside>
+
+  <!-- Main Content -->
+  <main id="main-content">
+    <div class="header-panel">
+      <h1 class="page-title">Charles Schwab API Reference</h1>
+      <p class="page-desc">
+        Comprehensive OpenAPI 3.0 specifications for Charles Schwab Developer APIs, covering Account Access, Positions, Real-time Order Routing, Transactions, and Market Data feeds.
+      </p>
+
+      <div class="server-card">
+        <div class="server-item">
+          <span class="server-label">OAuth 2.0 Auth Server</span>
+          <span class="server-url">https://api.schwabapi.com/v1/oauth</span>
+        </div>
+        <div class="server-item">
+          <span class="server-label">Trader API (Accounts & Orders)</span>
+          <span class="server-url">https://api.schwabapi.com/trader/v1</span>
+        </div>
+        <div class="server-item">
+          <span class="server-label">Market Data API</span>
+          <span class="server-url">https://api.schwabapi.com/marketdata/v1</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= AUTHENTICATION ================= -->
+    <h2 class="section-heading" id="section-oauth">1. OAuth 2.0 Authentication</h2>
+
+    <!-- POST /oauth/token -->
+    <div class="endpoint-card" id="oauth-token">
+      <div class="endpoint-header">
+        <span class="nav-method m-post">POST</span>
+        <span class="endpoint-path">https://api.schwabapi.com/v1/oauth/token</span>
+        <span class="endpoint-summary">Exchange Code or Refresh Token</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Exchanges an authorization code for bearer tokens, or refreshes an expired access token using a refresh token. Requires HTTP Basic Authentication with client_id:client_secret.</p>
+        
+        <div class="subheading">Request Headers</div>
+        <table class="param-table">
+          <tr><th>Header</th><th>Type</th><th>Description</th></tr>
+          <tr><td class="param-name">Authorization</td><td>string <span class="badge-req">REQUIRED</span></td><td>Basic base64(client_id:client_secret)</td></tr>
+          <tr><td class="param-name">Content-Type</td><td>string <span class="badge-req">REQUIRED</span></td><td>application/x-www-form-urlencoded</td></tr>
+        </table>
+
+        <div class="subheading">Form Parameters</div>
+        <table class="param-table">
+          <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+          <tr><td class="param-name">grant_type</td><td>string <span class="badge-req">REQUIRED</span></td><td><code>authorization_code</code> or <code>refresh_token</code></td></tr>
+          <tr><td class="param-name">code</td><td>string</td><td>The authorization code received at your callback URL (valid for 30 seconds).</td></tr>
+          <tr><td class="param-name">redirect_uri</td><td>string</td><td>Must exactly match your registered app callback URL.</td></tr>
+          <tr><td class="param-name">refresh_token</td><td>string</td><td>Required when grant_type is <code>refresh_token</code>.</td></tr>
+        </table>
+
+        <div class="subheading">Response Payload (200 OK)</div>
+        <div class="code-container">
+          <div class="code-header"><span>JSON Response</span><button class="btn-copy" onclick="copyCode(this)">Copy</button></div>
+          <pre>{
+  "access_token": "I0.b2F1dGgyLmNkYy5zY2h3YWIuY29t...",
+  "refresh_token": "Dkdn15WYVIerHkKjogS9calRcGAeZPCb...",
+  "token_type": "Bearer",
+  "expires_in": 1800,
+  "scope": "api",
+  "id_token": "eyJ0eXAiOiJKV1QiLCJhbGciOi..."
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- GET /oauth/authorize -->
+    <div class="endpoint-card" id="oauth-authorize">
+      <div class="endpoint-header">
+        <span class="nav-method m-get">GET</span>
+        <span class="endpoint-path">https://api.schwabapi.com/v1/oauth/authorize</span>
+        <span class="endpoint-summary">User Consent & Login Flow</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Launches the Schwab customer login and consent portal. The user logs in with their personal brokerage credentials and selects accounts to grant permissions to.</p>
+        <div class="subheading">Query Parameters</div>
+        <table class="param-table">
+          <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+          <tr><td class="param-name">client_id</td><td>string <span class="badge-req">REQUIRED</span></td><td>Your Schwab Developer App Key</td></tr>
+          <tr><td class="param-name">redirect_uri</td><td>string <span class="badge-req">REQUIRED</span></td><td>Registered App Callback URL</td></tr>
+        </table>
+      </div>
+    </div>
+
+
+    <!-- ================= ACCOUNTS API ================= -->
+    <h2 class="section-heading" id="section-accounts">2. Accounts & Balances API</h2>
+
+    <!-- GET /accounts/accountNumbers -->
+    <div class="endpoint-card" id="get-account-numbers">
+      <div class="endpoint-header">
+        <span class="nav-method m-get">GET</span>
+        <span class="endpoint-path">/accounts/accountNumbers</span>
+        <span class="endpoint-summary">Get Account Numbers & Encrypted Hashes</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Retrieves the list of authorized Schwab account numbers and their corresponding encrypted hash values used in all subsequent account-specific endpoints.</p>
+
+        <div class="subheading">Response Schema: List&lt;AccountNumberHash&gt; (200 OK)</div>
+        <div class="code-container">
+          <div class="code-header"><span>JSON Response</span><button class="btn-copy" onclick="copyCode(this)">Copy</button></div>
+          <pre>[
+  {
+    "accountNumber": "74234603",
+    "hashValue": "290E929CEDBB15BAAD429AE616CC82340DEEFA63461C52DBD2EC9E3619EFB118"
+  },
+  {
+    "accountNumber": "75124906",
+    "hashValue": "E646AEE32016729CEEAA7D2CC5A912A62FBBA944E1D75DE4E8325C3C83F31E57"
+  }
+]</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- GET /accounts -->
+    <div class="endpoint-card" id="get-accounts">
+      <div class="endpoint-header">
+        <span class="nav-method m-get">GET</span>
+        <span class="endpoint-path">/accounts</span>
+        <span class="endpoint-summary">Get All Linked Accounts & Positions</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Returns balance and portfolio positions across all authorized accounts for the authenticated user.</p>
+
+        <div class="subheading">Query Parameters</div>
+        <table class="param-table">
+          <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+          <tr><td class="param-name">fields</td><td>string</td><td>Determines detailed fields. Use <code>positions</code> to include current portfolio holdings.</td></tr>
+        </table>
+
+        <div class="subheading">Response Schema: List&lt;Account&gt; (200 OK)</div>
+        <div class="code-container">
+          <div class="code-header"><span>JSON Response Sample</span><button class="btn-copy" onclick="copyCode(this)">Copy</button></div>
+          <pre>[
+  {
+    "securitiesAccount": {
+      "type": "MARGIN",
+      "accountNumber": "74234603",
+      "roundTrips": 0,
+      "isDayTrader": false,
+      "currentBalances": {
+        "cashBalance": 12500.50,
+        "availableFunds": 12500.50,
+        "buyingPower": 25001.00,
+        "liquidationValue": 45600.75
+      },
+      "positions": [
+        {
+          "shortQuantity": 0,
+          "averagePrice": 485.20,
+          "currentDayProfitLoss": 142.50,
+          "longQuantity": 20,
+          "marketValue": 9740.00,
+          "instrument": {
+            "symbol": "SPY",
+            "assetType": "EQUITY"
+          }
+        }
+      ]
+    }
+  }
+]</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- GET /accounts/{accountNumber} -->
+    <div class="endpoint-card" id="get-account-detail">
+      <div class="endpoint-header">
+        <span class="nav-method m-get">GET</span>
+        <span class="endpoint-path">/accounts/{accountNumber}</span>
+        <span class="endpoint-summary">Get Specific Account Details</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Retrieves balance and positions for an individual account using its encrypted hash value.</p>
+        <div class="subheading">Path Parameters</div>
+        <table class="param-table">
+          <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+          <tr><td class="param-name">accountNumber</td><td>string <span class="badge-req">REQUIRED</span></td><td>The encrypted <code>hashValue</code> of the account from <code>/accounts/accountNumbers</code>.</td></tr>
+          <tr><td class="param-name">fields</td><td>query string</td><td>Pass <code>positions</code> to return open positions.</td></tr>
+        </table>
+      </div>
+    </div>
+
+
+    <!-- ================= ORDERS API ================= -->
+    <h2 class="section-heading" id="section-orders">3. Orders & Execution API</h2>
+
+    <!-- POST /accounts/{accountNumber}/orders -->
+    <div class="endpoint-card" id="post-orders-account">
+      <div class="endpoint-header">
+        <span class="nav-method m-post">POST</span>
+        <span class="endpoint-path">/accounts/{accountNumber}/orders</span>
+        <span class="endpoint-summary">Place Order for Account</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Places a new market, limit, stop, or complex bracket (1st-Triggers-OCO) order on the specified account. Returns HTTP 201 Created with the Order ID in the <code>Location</code> header.</p>
+
+        <div class="subheading">Request Body: OrderRequest (201 Created)</div>
+        <div class="code-container">
+          <div class="code-header"><span>Standard Limit Buy Order</span><button class="btn-copy" onclick="copyCode(this)">Copy</button></div>
+          <pre>{
+  "orderType": "LIMIT",
+  "session": "NORMAL",
+  "duration": "DAY",
+  "orderStrategyType": "SINGLE",
+  "price": 10.50,
+  "orderLegCollection": [
+    {
+      "orderLegType": "EQUITY",
+      "instruction": "BUY",
+      "quantity": 10,
+      "instrument": {
+        "symbol": "SOFI",
+        "assetType": "EQUITY"
+      }
+    }
+  ]
+}</pre>
+        </div>
+
+        <div class="subheading">Complex Bracket Order (Entry + Take-Profit + Stop-Loss OCO)</div>
+        <div class="code-container">
+          <div class="code-header"><span>1st-Triggers-OCO Bracket Order</span><button class="btn-copy" onclick="copyCode(this)">Copy</button></div>
+          <pre>{
+  "orderType": "LIMIT",
+  "session": "NORMAL",
+  "duration": "DAY",
+  "orderStrategyType": "TRIGGER",
+  "price": 10.00,
+  "orderLegCollection": [
+    {
+      "instruction": "BUY",
+      "quantity": 50,
+      "instrument": { "symbol": "SOFI", "assetType": "EQUITY" }
+    }
+  ],
+  "childOrderStrategies": [
+    {
+      "orderStrategyType": "OCO",
+      "childOrderStrategies": [
+        {
+          "orderType": "LIMIT",
+          "session": "NORMAL",
+          "duration": "GTC",
+          "price": 11.50,
+          "orderLegCollection": [
+            {
+              "instruction": "SELL",
+              "quantity": 50,
+              "instrument": { "symbol": "SOFI", "assetType": "EQUITY" }
+            }
+          ]
+        },
+        {
+          "orderType": "STOP",
+          "session": "NORMAL",
+          "duration": "GTC",
+          "stopPrice": 9.00,
+          "orderLegCollection": [
+            {
+              "instruction": "SELL",
+              "quantity": 50,
+              "instrument": { "symbol": "SOFI", "assetType": "EQUITY" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- GET /accounts/{accountNumber}/orders -->
+    <div class="endpoint-card" id="get-orders-account">
+      <div class="endpoint-header">
+        <span class="nav-method m-get">GET</span>
+        <span class="endpoint-path">/accounts/{accountNumber}/orders</span>
+        <span class="endpoint-summary">Get All Orders for Specific Account</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Returns orders placed within a date range for a specific account. Supports filtering by status (WORKING, FILLED, CANCELED, REJECTED).</p>
+        <div class="subheading">Query Parameters</div>
+        <table class="param-table">
+          <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+          <tr><td class="param-name">fromEnteredTime</td><td>string (ISO-8601)</td><td>Start date (e.g. <code>2026-09-01T00:00:00.000Z</code>)</td></tr>
+          <tr><td class="param-name">toEnteredTime</td><td>string (ISO-8601)</td><td>End date (e.g. <code>2026-09-03T23:59:59.000Z</code>)</td></tr>
+          <tr><td class="param-name">maxResults</td><td>integer</td><td>Maximum number of orders returned (default: 3000)</td></tr>
+          <tr><td class="param-name">status</td><td>string</td><td>Filter: <code>AWAITING_PARENT_ORDER</code>, <code>FILLED</code>, <code>WORKING</code>, <code>CANCELED</code>, <code>REJECTED</code></td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- DELETE /accounts/{accountNumber}/orders/{orderId} -->
+    <div class="endpoint-card" id="delete-order-id">
+      <div class="endpoint-header">
+        <span class="nav-method m-delete">DEL</span>
+        <span class="endpoint-path">/accounts/{accountNumber}/orders/{orderId}</span>
+        <span class="endpoint-summary">Cancel Open Order</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Cancels an existing working or pending order. Returns HTTP 200 OK or 204 No Content upon receipt of the cancellation request.</p>
+      </div>
+    </div>
+
+    <!-- PUT /accounts/{accountNumber}/orders/{orderId} -->
+    <div class="endpoint-card" id="put-order-id">
+      <div class="endpoint-header">
+        <span class="nav-method m-put">PUT</span>
+        <span class="endpoint-path">/accounts/{accountNumber}/orders/{orderId}</span>
+        <span class="endpoint-summary">Replace / Cancel-Replace Order</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Modifies an existing order (price, quantity, duration) via atomic Cancel/Replace.</p>
+      </div>
+    </div>
+
+    <!-- POST /accounts/{accountNumber}/previewOrder -->
+    <div class="endpoint-card" id="post-preview-order">
+      <div class="endpoint-header">
+        <span class="nav-method m-post">POST</span>
+        <span class="endpoint-path">/accounts/{accountNumber}/previewOrder</span>
+        <span class="endpoint-summary">Preview Order Before Placement</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Validates an order payload against buying power, commission costs, and order validation rules without placing it on the exchange.</p>
+      </div>
+    </div>
+
+
+    <!-- ================= TRANSACTIONS API ================= -->
+    <h2 class="section-heading" id="section-transactions">4. Transactions History API</h2>
+
+    <!-- GET /accounts/{accountNumber}/transactions -->
+    <div class="endpoint-card" id="get-transactions">
+      <div class="endpoint-header">
+        <span class="nav-method m-get">GET</span>
+        <span class="endpoint-path">/accounts/{accountNumber}/transactions</span>
+        <span class="endpoint-summary">Query Account Transaction History</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Lists completed transactions including trade executions, dividend payments, deposits, withdrawals, and fee adjustments.</p>
+        <div class="subheading">Query Parameters</div>
+        <table class="param-table">
+          <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+          <tr><td class="param-name">startDate</td><td>string (ISO-8601) <span class="badge-req">REQUIRED</span></td><td>Start timestamp (e.g. <code>2026-08-01T00:00:00.000Z</code>)</td></tr>
+          <tr><td class="param-name">endDate</td><td>string (ISO-8601) <span class="badge-req">REQUIRED</span></td><td>End timestamp (e.g. <code>2026-09-01T23:59:59.000Z</code>)</td></tr>
+          <tr><td class="param-name">types</td><td>string</td><td>Transaction type: <code>TRADE</code>, <code>RECEIVE_AND_DELIVER</code>, <code>DIVIDEND_OR_INTEREST</code>, <code>ACH_RECEIPT</code>, <code>ACH_DISBURSEMENT</code>, <code>ELECTRONIC_FUND</code></td></tr>
+        </table>
+      </div>
+    </div>
+
+
+    <!-- ================= USER PREFERENCES ================= -->
+    <h2 class="section-heading" id="section-preferences">5. User Preferences & Streamer API</h2>
+
+    <!-- GET /userPreference -->
+    <div class="endpoint-card" id="get-user-preference">
+      <div class="endpoint-header">
+        <span class="nav-method m-get">GET</span>
+        <span class="endpoint-path">/userPreference</span>
+        <span class="endpoint-summary">Get User Preferences & Streamer Socket Info</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Returns user configuration, default account settings, and WebSocket streaming connection credentials (streamerSocketUrl, schwabClientCorrelId, schwabClientChannel).</p>
+      </div>
+    </div>
+
+
+    <!-- ================= MARKET DATA API ================= -->
+    <h2 class="section-heading" id="section-marketdata">6. Market Data API (Market Data Production)</h2>
+
+    <!-- GET /marketdata/v1/quotes -->
+    <div class="endpoint-card" id="get-quotes">
+      <div class="endpoint-header">
+        <span class="nav-method m-get">GET</span>
+        <span class="endpoint-path">https://api.schwabapi.com/marketdata/v1/quotes</span>
+        <span class="endpoint-summary">Batch Real-Time Quotes</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Fetches real-time market quotes and depth for multiple symbols across Equities, Options, Mutual Funds, and Indices.</p>
+        <div class="subheading">Query Parameters</div>
+        <table class="param-table">
+          <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+          <tr><td class="param-name">symbols</td><td>string <span class="badge-req">REQUIRED</span></td><td>Comma-separated symbols (e.g. <code>AAPL,MSFT,SOFI,SPY</code>)</td></tr>
+          <tr><td class="param-name">fields</td><td>string</td><td>Optional fields to return: <code>quote</code>, <code>fundamental</code>, <code>extended</code>, <code>reference</code>, <code>regular</code></td></tr>
+          <tr><td class="param-name">indicative</td><td>boolean</td><td>Include indicative quotes (default: false)</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- GET /marketdata/v1/chains -->
+    <div class="endpoint-card" id="get-chains">
+      <div class="endpoint-header">
+        <span class="nav-method m-get">GET</span>
+        <span class="endpoint-path">https://api.schwabapi.com/marketdata/v1/chains</span>
+        <span class="endpoint-summary">Option Chains Matrix</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Fetches full Option Chains for a specified equity or index ticker with greeks, strikes, expiration dates, open interest, and implied volatility.</p>
+        <div class="subheading">Query Parameters</div>
+        <table class="param-table">
+          <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+          <tr><td class="param-name">symbol</td><td>string <span class="badge-req">REQUIRED</span></td><td>Underlying equity or index ticker (e.g. <code>SPY</code>, <code>AAPL</code>)</td></tr>
+          <tr><td class="param-name">contractType</td><td>string</td><td><code>CALL</code>, <code>PUT</code>, or <code>ALL</code> (default: ALL)</td></tr>
+          <tr><td class="param-name">strikeCount</td><td>integer</td><td>Total number of strikes above and below the at-the-money price</td></tr>
+          <tr><td class="param-name">includeUnderlyingQuote</td><td>boolean</td><td>Include current market price and quote of underlying stock</td></tr>
+          <tr><td class="param-name">strategy</td><td>string</td><td><code>SINGLE</code>, <code>ANALYTICAL</code>, <code>COVERED</code>, <code>VERTICAL</code>, <code>CALENDAR</code>, <code>STRANGLE</code>, <code>STRADDLE</code>, <code>BUTTERFLY</code>, <code>CONDOR</code>, <code>IRON_CONDOR</code></td></tr>
+          <tr><td class="param-name">range</td><td>string</td><td><code>ITM</code> (In-The-Money), <code>NTM</code> (Near-The-Money), <code>OTM</code> (Out-of-The-Money), <code>ATM</code> (At-The-Money)</td></tr>
+          <tr><td class="param-name">fromDate</td><td>string (YYYY-MM-DD)</td><td>Filter expirations on or after this date</td></tr>
+          <tr><td class="param-name">toDate</td><td>string (YYYY-MM-DD)</td><td>Filter expirations on or before this date</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- GET /marketdata/v1/pricehistory -->
+    <div class="endpoint-card" id="get-price-history">
+      <div class="endpoint-header">
+        <span class="nav-method m-get">GET</span>
+        <span class="endpoint-path">https://api.schwabapi.com/marketdata/v1/pricehistory</span>
+        <span class="endpoint-summary">Historical OHLCV Candlestick Data</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Fetches historical open, high, low, close, and volume candles for technical analysis and backtesting.</p>
+        <div class="subheading">Query Parameters</div>
+        <table class="param-table">
+          <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+          <tr><td class="param-name">symbol</td><td>string <span class="badge-req">REQUIRED</span></td><td>Ticker symbol (e.g. <code>NVDA</code>)</td></tr>
+          <tr><td class="param-name">periodType</td><td>string</td><td><code>day</code>, <code>month</code>, <code>year</code>, <code>ytd</code></td></tr>
+          <tr><td class="param-name">frequencyType</td><td>string</td><td><code>minute</code>, <code>daily</code>, <code>weekly</code>, <code>monthly</code></td></tr>
+          <tr><td class="param-name">frequency</td><td>integer</td><td>Frequency multiplier (e.g. 1, 5, 15, 30 for minute)</td></tr>
+          <tr><td class="param-name">needExtendedHoursData</td><td>boolean</td><td>Include pre-market and after-hours data (default: false)</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- GET /marketdata/v1/movers/{index} -->
+    <div class="endpoint-card" id="get-movers">
+      <div class="endpoint-header">
+        <span class="nav-method m-get">GET</span>
+        <span class="endpoint-path">https://api.schwabapi.com/marketdata/v1/movers/{index}</span>
+        <span class="endpoint-summary">Top Market Movers / Screeners</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Returns the top gainers, losers, and most active volume equities for major indexes (<code>$DJI</code>, <code>$COMPX</code>, <code>$SPX</code>).</p>
+      </div>
+    </div>
+
+    <!-- GET /marketdata/v1/markets -->
+    <div class="endpoint-card" id="get-market-hours">
+      <div class="endpoint-header">
+        <span class="nav-method m-get">GET</span>
+        <span class="endpoint-path">https://api.schwabapi.com/marketdata/v1/markets</span>
+        <span class="endpoint-summary">Market Operating Hours & Holidays</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="desc-text">Retrieves trading session schedules, holiday closures, and pre/post-market operational windows for equity, option, and bond exchanges.</p>
+      </div>
+    </div>
+
+
+    <!-- ================= SCHEMAS ================= -->
+    <h2 class="section-heading" id="section-schemas">7. Official Data Schemas (OAS3)</h2>
+    <p class="desc-text">Official object models and data structures defined in the Charles Schwab Developer Specification.</p>
+
+    <div style="margin: 20px 0;">
+      <span class="schema-tag">AccountNumberHash</span>
+      <span class="schema-tag">Account</span>
+      <span class="schema-tag">SecuritiesAccount</span>
+      <span class="schema-tag">MarginAccount</span>
+      <span class="schema-tag">CashAccount</span>
+      <span class="schema-tag">Position</span>
+      <span class="schema-tag">Order</span>
+      <span class="schema-tag">OrderRequest</span>
+      <span class="schema-tag">OrderLeg</span>
+      <span class="schema-tag">OrderLegCollection</span>
+      <span class="schema-tag">OrderStrategy</span>
+      <span class="schema-tag">OrderValidationResult</span>
+      <span class="schema-tag">PreviewOrder</span>
+      <span class="schema-tag">Transaction</span>
+      <span class="schema-tag">UserPreference</span>
+      <span class="schema-tag">StreamerInfo</span>
+      <span class="schema-tag">QuoteResponse</span>
+      <span class="schema-tag">OptionChain</span>
+      <span class="schema-tag">CandleList</span>
+    </div>
+
+    <div class="code-container">
+      <div class="code-header"><span>Core Data Models Structure</span><button class="btn-copy" onclick="copyCode(this)">Copy</button></div>
+      <pre>// AccountNumberHash
+{
+  "accountNumber": "string",
+  "hashValue": "string"
+}
+
+// Position
+{
+  "shortQuantity": 0.0,
+  "averagePrice": 0.0,
+  "currentDayProfitLoss": 0.0,
+  "currentDayProfitLossPercentage": 0.0,
+  "longQuantity": 0.0,
+  "settledLongQuantity": 0.0,
+  "settledShortQuantity": 0.0,
+  "marketValue": 0.0,
+  "maintenanceRequirement": 0.0,
+  "instrument": {
+    "symbol": "string",
+    "assetType": "EQUITY | OPTION | MUTUAL_FUND | FIXED_INCOME",
+    "cusip": "string"
+  }
+}
+
+// Order Request
+{
+  "orderType": "MARKET | LIMIT | STOP | STOP_LIMIT | TRAILING_STOP",
+  "session": "NORMAL | AM | PM | SEAMLESS",
+  "duration": "DAY | GTC | FOK | IOC",
+  "orderStrategyType": "SINGLE | OCO | TRIGGER",
+  "price": 0.0,
+  "stopPrice": 0.0,
+  "orderLegCollection": [
+    {
+      "orderLegType": "EQUITY | OPTION",
+      "instruction": "BUY | SELL | BUY_TO_COVER | SELL_SHORT | BUY_TO_OPEN | BUY_TO_CLOSE | SELL_TO_OPEN | SELL_TO_CLOSE",
+      "quantity": 0.0,
+      "instrument": {
+        "symbol": "string",
+        "assetType": "EQUITY | OPTION"
+      }
+    }
+  ]
+}</pre>
+    </div>
+
+  </main>
+
+  <script>
+    function filterEndpoints() {
+      const input = document.getElementById('searchInput').value.toLowerCase();
+      const cards = document.querySelectorAll('.endpoint-card');
+      const navItems = document.querySelectorAll('.nav-list li');
+
+      cards.forEach(card => {
+        const text = card.innerText.toLowerCase();
+        if (text.includes(input)) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+
+    function copyCode(btn) {
+      const pre = btn.parentElement.nextElementSibling;
+      navigator.clipboard.writeText(pre.innerText);
+      btn.innerText = 'Copied!';
+      setTimeout(() => {
+        btn.innerText = 'Copy';
+      }, 2000);
+    }
+  </script>
+</body>
+</html>

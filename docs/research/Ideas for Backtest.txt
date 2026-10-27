@@ -1,0 +1,13 @@
+1. Buy biggest winner.   From conversation with Patrick, somebody backtested what happens you buy and hold for a year the biggest winner of the previous year and it beat the SP500 most years.
+2. Build my market context with clustering.
+3. Downscale biggest winner to each week. Then buy and hold each
+4. Build a profile of each trading week.  See if there are any cyclical stocks year over year.
+5. Do the same cycle detection with minute bars from Polygon.
+6. Buy the Morningstar feed and see if 5star stocks reduce drawdown risk.
+7. Use 5 the most different fundamentals and score stocks on that.
+8. Invest in GOOGL and search for signal that it's about to drop 5% in one day.
+9. Study small publicly traded companies that got acquired.
+10.Study how fast GOOGL responds to news and see if I can jump on good news.
+11. Which stock in the SP500 predicts the movement of VOO, other SP500 indices, etfs use minute bars from polygon.
+12. Once positions are entered look for a simple calc signals that mean we should exit early before the default hold window.
+13. Find a stack of strategies that works for 10% alllocation.

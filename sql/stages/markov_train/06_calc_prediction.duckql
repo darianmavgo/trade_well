@@ -1,0 +1,10 @@
+-- Walk-forward probabilities of the next bar being bull or bear.
+INSERT INTO markov_batch_prediction (symbol, date, state, prob_bull, prob_bear, signal)
+SELECT
+    symbol, date, from_state,
+    CASE WHEN total_transitions > 0 THEN CAST(cum_to_bull AS REAL) / total_transitions ELSE 0.0 END,
+    CASE WHEN total_transitions > 0 THEN CAST(cum_to_bear AS REAL) / total_transitions ELSE 0.0 END,
+    CASE WHEN total_transitions > 0
+         THEN (CAST(cum_to_bull AS REAL) - CAST(cum_to_bear AS REAL)) / total_transitions
+         ELSE 0.0 END
+FROM markov_cumulative;

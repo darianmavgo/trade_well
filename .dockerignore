@@ -1,0 +1,31 @@
+# .dockerignore
+# Applies to `docker build` run directly against the repo root (local-build.sh).
+# `gcloud builds submit` uses .gitignore (no .gcloudignore present) for what it
+# uploads to Cloud Build; this file is the equivalent filter for a local
+# `docker build .` context. Keep in sync with the repo's own .gitignore.
+
+.git
+.gitignore
+.DS_Store
+.build_staging
+.claude
+
+# Secrets — never belong in a build context even transiently.
+.env
+.env.*
+token.json
+token.json.lock
+*.log
+
+# SQLite data — not source, and schwaber.db/token.json here are symlinks
+# into ../schwaber anyway.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Large / irrelevant to the Go build.
+bin/
+data/
+.idea/
+.vscode/

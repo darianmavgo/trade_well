@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .Title }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #090d16;
+            --card: #111827;
+            --card-hover: #172033;
+            --border: #1e293b;
+            --text: #f8fafc;
+            --text-dim: #94a3b8;
+            --accent: #38bdf8;
+            --strategy: #10b981;
+            --benchmark: #a855f7;
+            --danger: #f43f5e;
+            --amber: #f59e0b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 32px 20px; line-height: 1.6; }
+        .container { max-width: 1320px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 12px; }
+        .title { font-size: 24px; font-weight: 800; color: #fff; }
+        .subtitle { color: var(--text-dim); font-size: 14px; margin-top: 4px; }
+        .controls { display: flex; gap: 8px; align-items: center; }
+        .btn { background: #1e293b; color: var(--text); border: 1px solid var(--border); padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+        .btn:hover, .btn.active { background: var(--accent); color: #090d16; border-color: var(--accent); }
+        
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .kpi-label { font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-value { font-size: 26px; font-weight: 800; margin-top: 6px; color: #fff; }
+        .kpi-sub { font-size: 12px; color: var(--accent); margin-top: 4px; }
+        
+        .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
+        .chart-title { font-size: 17px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+        .legend-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; margin-left: 12px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        
+        .table-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; overflow-x: auto; margin-top: 24px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+        th { color: var(--text-dim); font-weight: 600; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+        td { padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        tbody tr:hover { background: var(--card-hover); }
+        .pos { color: var(--strategy); font-weight: 700; }
+        .neg { color: var(--danger); font-weight: 700; }
+        .badge { padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+        .badge-win { background: rgba(16, 185, 129, 0.15); color: var(--strategy); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-loss { background: rgba(244, 63, 94, 0.15); color: var(--danger); border: 1px solid rgba(244, 63, 94, 0.3); }
+        .params-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }
+        .params-card > summary { cursor: pointer; font-weight: 700; }
+        .params-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 12px; }
+        .params-group h4 { margin: 0 0 6px; font-size: 13px; color: #38bdf8; }
+        .params-group table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .params-group td { padding: 3px 0; vertical-align: top; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .params-group td:first-child { opacity: 0.7; padding-right: 12px; white-space: nowrap; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1 class="title">{{ .Title }}</h1>
+                <p class="subtitle">{{ .Subtitle }}</p>
+            </div>
+            <div class="controls">
+                <button class="btn" onclick="setTimeframe('all')" id="btn-all">5 Years (All)</button>
+                <button class="btn" onclick="setTimeframe('2y')" id="btn-2y">2 Years</button>
+                <button class="btn" onclick="setTimeframe('1y')" id="btn-1y">1 Year</button>
+                <button class="btn" onclick="setTimeframe('6m')" id="btn-6m">6 Months</button>
+            </div>
+        </div>
+
+        {{ if .Params }}
+        <details class="params-card" open>
+            <summary>⚙️ Run Parameters</summary>
+            <div class="params-grid">
+                {{ range .Params }}
+                <div class="params-group">
+                    <h4>{{ .Title }}</h4>
+                    <table>{{ range .Rows }}<tr><td>{{ .Name }}</td><td>{{ .Value }}</td></tr>{{ end }}</table>
+                </div>
+                {{ end }}
+            </div>
+        </details>
+        {{ end }}
+
+        {{ if .KPICards }}
+        <div class="kpi-grid">
+            {{ range .KPICards }}
+            <div class="kpi-card">
+                <div class="kpi-label">{{ .Label }}</div>
+                <div class="kpi-value" style="color: {{ .Color }};">{{ .Value }}</div>
+                <div class="kpi-sub">{{ .Sub }}</div>
+            </div>
+            {{ end }}
+        </div>
+        {{ end }}
+
+        <!-- MAIN EQUITY COMPARISON CHART -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <div class="chart-title">
+                    <span>💰 Cumulative Portfolio Equity</span>
+                </div>
+            </div>
+            <div style="height: 440px; position: relative;">
+                <canvas id="equityChart"></canvas>
+            </div>
+        </div>
+
+        <!-- DRAWDOWN UNDERWATER CHART -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <div class="chart-title">
+                    <span>📉 Mark-to-Market Drawdown (%)</span>
+                </div>
+            </div>
+            <div style="height: 220px; position: relative;">
+                <canvas id="drawdownChart"></canvas>
+            </div>
+        </div>
+
+        {{ if .Trades }}
+        <!-- EXECUTED TRADES TABLE -->
+        <div class="table-card">
+            <div class="chart-title" style="margin-bottom: 16px;">
+                <span>📜 Executed Trades Log (Click to inspect timeline)</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Direction</th>
+                        <th>Asset</th>
+                        <th>Trade Window</th>
+                        <th>Entry Price</th>
+                        <th>Exit Price</th>
+                        <th>Hold</th>
+                        <th>Exit Reason</th>
+                        <th>Return %</th>
+                        <th>Net PnL ($)</th>
+                        <th>Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .Trades }}
+                    <tr onclick="focusDate('{{ .EntryDate }}')" style="cursor: pointer;">
+                        <td><strong>#{{ .TradeNum }}</strong></td>
+                        <td>
+                            {{ if eq .Direction "LONG" }}
+                            <span style="color: #10b981; font-weight: 700;">🟢 LONG</span>
+                            {{ else }}
+                            <span style="color: #38bdf8; font-weight: 700;">🔴 SHORT</span>
+                            {{ end }}
+                        </td>
+                        <td><strong>{{ .Asset }}</strong></td>
+                        <td>{{ .EntryDate }} ➔ {{ .ExitDate }}</td>
+                        <td>${{ printf "%.2f" .EntryPrice }}</td>
+                        <td>${{ printf "%.2f" .ExitPrice }}</td>
+                        <td>{{ .HoldDays }}d</td>
+                        <td>{{ .ExitReason }}</td>
+                        <td class="{{ if .IsWin }}pos{{ else }}neg{{ end }}">{{ printf "%+.2f" (multiply .ReturnPct 100.0) }}%</td>
+                        <td class="{{ if .IsWin }}pos{{ else }}neg{{ end }}">${{ printf "%+.2f" .NetPnL }}</td>
+                        <td>
+                            {{ if .IsWin }}
+                            <span class="badge badge-win">🟢 WIN</span>
+                            {{ else }}
+                            <span class="badge badge-loss">🔴 LOSS</span>
+                            {{ end }}
+                        </td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+        {{ end }}
+
+        {{ if .ComparisonTable }}
+        <!-- COMPARISON MATRIX TABLE -->
+        <div class="table-card">
+            <div class="chart-title" style="margin-bottom: 16px;">
+                <span>📊 Strategy Comparison Matrix</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        {{ range .ComparisonTable.Headers }}
+                        <th>{{ . }}</th>
+                        {{ end }}
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ range .ComparisonTable.Rows }}
+                    <tr>
+                        {{ range . }}
+                        <td>{{ . }}</td>
+                        {{ end }}
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+        </div>
+        {{ end }}
+    </div>
+
+    <script>
+        const chartData = {{ .ChartDataJSON }};
+        let currentFilter = 'all';
+
+        function getFilteredIndices() {
+            const total = chartData.dates.length;
+            if (currentFilter === '6m') return Math.max(0, total - 126);
+            if (currentFilter === '1y') return Math.max(0, total - 252);
+            if (currentFilter === '2y') return Math.max(0, total - 504);
+            return 0;
+        }
+
+        const equityCtx = document.getElementById('equityChart').getContext('2d');
+        const ddCtx = document.getElementById('drawdownChart').getContext('2d');
+
+        function buildDatasets(startIdx) {
+            const eqDatasets = [];
+            const ddDatasets = [];
+
+            for (const s of chartData.series) {
+                eqDatasets.push({
+                    label: s.label,
+                    data: s.equity.slice(startIdx),
+                    borderColor: s.color,
+                    borderWidth: s.border_width || 2,
+                    borderDash: s.is_dash ? [4, 4] : [],
+                    pointRadius: 0,
+                    tension: 0.1
+                });
+
+                ddDatasets.push({
+                    label: s.label + ' DD',
+                    data: s.drawdown.slice(startIdx),
+                    borderColor: s.color,
+                    borderWidth: s.border_width ? s.border_width * 0.8 : 1.5,
+                    borderDash: s.is_dash ? [4, 4] : [],
+                    pointRadius: 0,
+                    tension: 0.1
+                });
+            }
+
+            return { eq: eqDatasets, dd: ddDatasets, labels: chartData.dates.slice(startIdx) };
+        }
+
+        const initial = buildDatasets(0);
+
+        let equityChart = new Chart(equityCtx, {
+            type: 'line',
+            data: { labels: initial.labels, datasets: initial.eq },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: '#f8fafc', font: { weight: 'bold' } } },
+                    tooltip: {
+                        backgroundColor: '#111827',
+                        borderColor: '#1e293b',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(c) {
+                                return c.dataset.label + ': $' + c.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8', maxTicksLimit: 12 } },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', callback: v => '$' + (v/1000) + 'k' } }
+                }
+            }
+        });
+
+        let ddChart = new Chart(ddCtx, {
+            type: 'line',
+            data: { labels: initial.labels, datasets: initial.dd },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { labels: { color: '#f8fafc' } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(c) { return c.dataset.label + ': -' + c.parsed.y.toFixed(2) + '%'; }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#94a3b8', maxTicksLimit: 12 } },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', callback: v => '-' + v + '%' } }
+                }
+            }
+        });
+
+        function setTimeframe(tf) {
+            currentFilter = tf;
+            document.querySelectorAll('.controls .btn').forEach(b => b.classList.remove('active'));
+            const btn = document.getElementById('btn-' + tf);
+            if (btn) btn.classList.add('active');
+
+            const startIdx = getFilteredIndices();
+            const update = buildDatasets(startIdx);
+
+            equityChart.data.labels = update.labels;
+            equityChart.data.datasets = update.eq;
+            equityChart.update();
+
+            ddChart.data.labels = update.labels;
+            ddChart.data.datasets = update.dd;
+            ddChart.update();
+        }
+
+        function focusDate(dateStr) {
+            const idx = chartData.dates.findIndex(d => d === dateStr);
+            if (idx === -1) return;
+            const start = Math.max(0, idx - 20);
+            const end = Math.min(chartData.dates.length, idx + 30);
+
+            const sliceLabels = chartData.dates.slice(start, end);
+            const sliceEq = chartData.series.map(s => ({
+                label: s.label,
+                data: s.equity.slice(start, end),
+                borderColor: s.color,
+                borderWidth: 2,
+                pointRadius: 0
+            }));
+            const sliceDD = chartData.series.map(s => ({
+                label: s.label + ' DD',
+                data: s.drawdown.slice(start, end),
+                borderColor: s.color,
+                borderWidth: 1.5,
+                pointRadius: 0
+            }));
+
+            document.querySelectorAll('.controls .btn').forEach(b => b.classList.remove('active'));
+            equityChart.data.labels = sliceLabels;
+            equityChart.data.datasets = sliceEq;
+            equityChart.update();
+
+            ddChart.data.labels = sliceLabels;
+            ddChart.data.datasets = sliceDD;
+            ddChart.update();
+
+            window.scrollTo({ top: 120, behavior: 'smooth' });
+        }
+
+        document.getElementById('btn-all').classList.add('active');
+    </script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+CREATE TABLE hmm_strategy AS SELECT * FROM src.hmm_strategy WHERE id IN (__ID_LIST__)
