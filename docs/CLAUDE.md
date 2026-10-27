@@ -33,7 +33,7 @@ Every capability must work from the **CLI**, the **local web server** and **GAE*
 - `cmd/<binary>` is a thin wrapper: parse flags, build the config, call the `pkg/` function, print the result, set the exit code. No business logic in `cmd/`. (BT already does this well with `pkg/backtest/backtest/main.go` and `pkg/backtest/livescan/main.go`; follow that.)
 - HTTP handlers (`/cron/<job>`, dashboard, OAuth) are the same kind of wrapper: check auth, build the config, call the same `pkg/` function, write the response.
 - Where the environment differs (paths, DB replication, secrets, token sync), the difference is a **parameter or a runtime check inside the one package** (`runtimeenv.Detect()`, `APP_FOLDER`, `GCS_BUCKET`, `MARKET_DB`), never a second package or a copy of the function. "Change the context parameter, don't fork the code."
-- Never shell out to a binary that exists as a Go package (this is how the old `livescan` binary and `sync_schwab_token.sh` broke on GAE). Import the package. The only acceptable external process is a tool with no Go equivalent (Litestream today).
+- Never shell out to a binary that exists as a Go package (this is how the old `livescan` binary and `sync_schwab_token.sh` broke on GAE). Import the package. The only acceptable external process is a tool with no Go equivalent.
 - A change to a capability is not done until you have checked that its CLI command, its `/cron/...` route (if it has one) and its package tests all still go through the same function.
 
 ## Rule 3: consistent names, everywhere

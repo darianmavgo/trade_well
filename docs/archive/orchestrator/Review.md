@@ -1,6 +1,6 @@
 # Trading Stack Review — backtestgosqlite / trade_orchestrator / schwaber
 
-> **Archived 2026-10-27.** Historical record, not maintained. Paths and statements refer to the old three-repo layout (`backtestgosqlite`, `trade_orchestrator`, `schwaber` as separate repositories, Litestream, `schwaber.db`); the code is now under `pkg/backtest`, `pkg/orchestrator` and `pkg/schwaber`.
+> **Archived 2026-10-27.** Historical record, not maintained. Paths and statements refer to the old three-repo layout (`backtestgosqlite`, `trade_orchestrator`, `schwaber` as separate repositories, `schwaber.db`); the code is now under `pkg/backtest`, `pkg/orchestrator` and `pkg/schwaber`.
 
 Date: 2026-09-21 (historical: written when the database was Litestream-replicated SQLite; the orchestrator is Turso-only now)
 Scope: all three repos that make up the live-trading pipeline (research → signal → order → broker), reviewed end to end, plus a look at how mature open-source trading frameworks (Backtrader, NautilusTrader, Zipline, Freqtrade, QuantConnect Lean) handle the same problems.

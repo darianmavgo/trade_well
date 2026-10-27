@@ -1,6 +1,6 @@
 # backtestgo settings table (snapshot, 2026-10-13)
 
-> **Archived 2026-10-27.** Historical record, not maintained. Paths and statements refer to the old three-repo layout (`backtestgosqlite`, `trade_orchestrator`, `schwaber` as separate repositories, Litestream, `schwaber.db`); the code is now under `pkg/backtest`, `pkg/orchestrator` and `pkg/schwaber`.
+> **Archived 2026-10-27.** Historical record, not maintained. Paths and statements refer to the old three-repo layout (`backtestgosqlite`, `trade_orchestrator`, `schwaber` as separate repositories, `schwaber.db`); the code is now under `pkg/backtest`, `pkg/orchestrator` and `pkg/schwaber`.
 
 Kept for reference when backtestgo is retired. `backtestgosqlite` has no settings table; two have a home here: `split_jump_ratio` is `sessions.DefaultSplitJumpRatio`, and `max_bar_volume_share` is `StrategyConfig.MaxBarVolumeShare` (off by default; backtestgo ran with 0.05, which changes results in thinly traded names).
 

@@ -13,7 +13,7 @@ Orchestration layer. The cross-repo rules in `../CLAUDE.md` apply and are not re
 
 ## Rules for this repo
 
-- **Turso is the only database.** No Litestream, no replica, no local operational SQLite outside `go test`. Do not reintroduce a sync layer.
+- **Turso is the only database.** No replica, no local operational SQLite outside `go test`. Do not reintroduce a sync layer.
 - **Configuration is one GCS object**, `gs://<bucket>/config/env`. No `env_variables` in any `app.yaml` (`TestAppYAMLHasNoEnv`). Edit it only through `deploy_gae/config.sh`.
 - **Never point `APP_FOLDER` at a sibling repo** (for example `backtestgosqlite`). The embedded bundle (`pkg/orchestrator/strategies/deploy/*.db`) is copied over files in `APP_FOLDER` and overwrites the real `refdata/strategies.db` and model databases there.
 - **The strategy bundle is data.** Change it with `orchestrator deploy_strategy` or `scripts/export_strategies.sh`, then rebuild. The live `STRATEGY_ALLOWLIST` is changed with `orchestrator strategy_allowlist` or the `/allowlist` page; a running instance keeps its list until it restarts or redeploys.

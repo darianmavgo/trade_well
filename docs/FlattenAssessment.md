@@ -51,7 +51,7 @@ Flattening is the cheapest moment to remove duplicates. Across repos a duplicate
 
 `docs/KillDupeCode.md` was the inventory of 16 items, mostly orchestrator code that schwaber or backtestgosqlite already provides. It was **re-scanned on 2026-10-27** and rewritten with the current status (symbol searches plus reading the bodies of five items; no clone detector, nothing compiled for the scan). Result:
 
-- **9 of 16 are done:** `gcsAccessToken`, Secret Manager, `flattenOrders`, token sync, interactive OAuth, Litestream `dbsync` (removed), market-DB path, the signal-scan wrapper, and the trading calendar. `SafetyGuard` is also now used by `submit_orders`.
+- **9 of 16 are done:** `gcsAccessToken`, Secret Manager, `flattenOrders`, token sync, interactive OAuth, the old `dbsync` (removed), market-DB path, the signal-scan wrapper, and the trading calendar. `SafetyGuard` is also now used by `submit_orders`.
 - **5 are partly done, with small leftovers:** `.env` parsing (BT `appenv` still has its own loop), account ingest (`accountstore` exists; 386 lines remain in TO, not yet compared), linked-account resolution, CSV and stack parsing, and SQLite pragmas (SW `dbutil.Open` vs BT `storage.OpenSQLite`).
 - **2 are open:** `orderNumericID` (identical 6 lines in TO and SW) and `windowForSignal` (in both `stage_orders` and `manage_exits`).
 - **What is left to remove is about 120 to 150 lines**, not the roughly 900 to 1,700 the first version estimated. The large wins have already happened without flattening.

@@ -1,6 +1,6 @@
 # Data Needs: Is `account_state` Enough to Rebuild State?
 
-> **Archived 2026-10-27.** Historical record, not maintained. Paths and statements refer to the old three-repo layout (`backtestgosqlite`, `trade_orchestrator`, `schwaber` as separate repositories, Litestream, `schwaber.db`); the code is now under `pkg/backtest`, `pkg/orchestrator` and `pkg/schwaber`.
+> **Archived 2026-10-27.** Historical record, not maintained. Paths and statements refer to the old three-repo layout (`backtestgosqlite`, `trade_orchestrator`, `schwaber` as separate repositories, `schwaber.db`); the code is now under `pkg/backtest`, `pkg/orchestrator` and `pkg/schwaber`.
 
 **Question:** Does `account_state` retrieve enough information for every job to do its
 job, even if the app DB (`$APP_FOLDER/$APP_DB`, i.e. `schwaber.db`) is missing

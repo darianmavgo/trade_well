@@ -74,11 +74,11 @@ Strategies are database rows (`refdata/strategies.db`), not code. App Engine run
 | Run folders | `data/reports/<run>/` | One fresh calculation database per run, plus HTML reports |
 | GCS config object | `gs://<bucket>/config/env` | Secrets and settings, including `STRATEGY_ALLOWLIST` |
 
-Litestream was removed; Turso is the only live database. Backtest SQLite uses `modernc.org/sqlite` (no cgo) so packages the orchestrator imports build on App Engine. `mattn/go-sqlite3` is now only an indirect dependency.
+Turso is the only live database. Backtest SQLite uses `modernc.org/sqlite` (no cgo) so packages the orchestrator imports build on App Engine. `mattn/go-sqlite3` is now only an indirect dependency.
 
 ### Turso table cleanup
 
-`scripts/turso_drop_deprecated_tables.sql` drops tables no code touches any more: Litestream bookkeeping, the old `audit_slippage`, `reconcile_trade` and `backtest_winrate`, the orphaned `dashboard`, `runtimeenv` and `account_allowlist`, and the plain-named Schwab mirror (`accounts`, `positions`, `orders`, `order_legs`, `transactions`, `raw_responses`, `user_preferences`). It has not been run. Run it only after the new build is deployed, since the old app recreates some of them with `CREATE TABLE IF NOT EXISTS`. `DROP TABLE` cannot be undone; read the script's checks first.
+`scripts/turso_drop_deprecated_tables.sql` drops tables no code touches any more: replication bookkeeping, the old `audit_slippage`, `reconcile_trade` and `backtest_winrate`, the orphaned `dashboard`, `runtimeenv` and `account_allowlist`, and the plain-named Schwab mirror (`accounts`, `positions`, `orders`, `order_legs`, `transactions`, `raw_responses`, `user_preferences`). It has not been run. Run it only after the new build is deployed, since the old app recreates some of them with `CREATE TABLE IF NOT EXISTS`. `DROP TABLE` cannot be undone; read the script's checks first.
 
 ## Deploy targets
 
@@ -96,6 +96,5 @@ Packages deleted from `pkg/backtest` because nothing used them: `bdc_edgar`, `re
 
 ## Known gaps
 
-- The root `CLAUDE.md` still describes a multi-repo workspace ("each repo has its own `.git`") and needs the single-module update that `docs/CLAUDE.md` already has. `docs/CLAUDE.md` Rule 4 still lists known test fakes (`fakeLister`, `fakeValidator`, `fakeGcloud`, `sendFailureEmail`) that have not been removed.
+- `docs/CLAUDE.md` Rule 4 still lists known test fakes (`fakeLister`, `fakeValidator`, `fakeGcloud`, `sendFailureEmail`) that have not been removed.
 - `docs/orchestrator/README.md` still describes some pre-merge workflow details (for example `backtestgosqlite` train commands).
-- Several references to Litestream remain in older docs and are stale.

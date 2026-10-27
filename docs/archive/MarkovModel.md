@@ -1,6 +1,6 @@
 # Markov Regime Model Implementation Plan
 
-> **Archived 2026-10-27.** Historical record, not maintained. Paths and statements refer to the old three-repo layout (`backtestgosqlite`, `trade_orchestrator`, `schwaber` as separate repositories, Litestream, `schwaber.db`); the code is now under `pkg/backtest`, `pkg/orchestrator` and `pkg/schwaber`.
+> **Archived 2026-10-27.** Historical record, not maintained. Paths and statements refer to the old three-repo layout (`backtestgosqlite`, `trade_orchestrator`, `schwaber` as separate repositories, `schwaber.db`); the code is now under `pkg/backtest`, `pkg/orchestrator` and `pkg/schwaber`.
 
 This document outlines the step-by-step plan for implementing a Markov Regime model as described in the hedge fund method (source: `UsingMarkovModels.md`). The model classifies market states, computes transition probabilities, and generates predictive trading signals without relying on traditional technical indicators.
 

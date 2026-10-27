@@ -1,6 +1,6 @@
 # Using libsql locally (experiment, branch `libsql-turso`)
 
-> **Archived 2026-10-27.** Historical record, not maintained. Paths and statements refer to the old three-repo layout (`backtestgosqlite`, `trade_orchestrator`, `schwaber` as separate repositories, Litestream, `schwaber.db`); the code is now under `pkg/backtest`, `pkg/orchestrator` and `pkg/schwaber`.
+> **Archived 2026-10-27.** Historical record, not maintained. Paths and statements refer to the old three-repo layout (`backtestgosqlite`, `trade_orchestrator`, `schwaber` as separate repositories, `schwaber.db`); the code is now under `pkg/backtest`, `pkg/orchestrator` and `pkg/schwaber`.
 
 Status: **cancelled before any timing was taken.** This records what was learned about swapping `modernc.org/sqlite` for libsql in this repo, so the work can be resumed or dropped.
 

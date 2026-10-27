@@ -1,6 +1,6 @@
 # Turso end-to-end report
 
-> **Archived 2026-10-27.** Historical record, not maintained. Paths and statements refer to the old three-repo layout (`backtestgosqlite`, `trade_orchestrator`, `schwaber` as separate repositories, Litestream, `schwaber.db`); the code is now under `pkg/backtest`, `pkg/orchestrator` and `pkg/schwaber`.
+> **Archived 2026-10-27.** Historical record, not maintained. Paths and statements refer to the old three-repo layout (`backtestgosqlite`, `trade_orchestrator`, `schwaber` as separate repositories, `schwaber.db`); the code is now under `pkg/backtest`, `pkg/orchestrator` and `pkg/schwaber`.
 
 Run on 2026-10-15 after hours (22:23 to 22:32 ET) from a Mac, against Turso database `tradeorchestrator` (aws-us-east-2), with `orchestrator run_e2e_live` (live, real Schwab accounts), then the local web server on port 18080. The database was the Litestream snapshot loaded the same day (36 tables, row counts verified equal). Branch `turso`. Nothing was deployed.
 
