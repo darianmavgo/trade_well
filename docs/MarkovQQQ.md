@@ -31,10 +31,7 @@ The hourly market database holds only 503 daily QQQ bars (2024-10 to 2026-10), t
 
 ```bash
 cd /Users/darianhickman/Documents/trade_well/backtestgosqlite
-go build -o ./bin ./cmd/daily_bars
 
-./bin/daily_bars -dry-run          # downloads and reports; writes nothing
-./bin/daily_bars                   # brings data/daily_bars.db up to date; downloads only what is missing (-full: everything again)
 ```
 
 - Defaults: `-symbols QQQ`, `-start 2010-01-01`, `-db data/daily_bars.db`.
@@ -158,7 +155,6 @@ All paths below are relative to `/Users/darianhickman/Documents/trade_well`. Bui
 
 ```bash
 cd backtestgosqlite
-go build -o ./bin ./cmd/daily_bars ./cmd/train
 ```
 
 Files: bars in `data/daily_bars.db`; model in `data/hmm_models.db` (override with `-bars-db` / `-model-db`; `APP_FOLDER` moves the whole `data/` folder). Both are git-ignored.
@@ -175,8 +171,6 @@ The tests use seeded synthetic series with known regimes and a temp SQLite. They
 ### 3.2 Refresh the data
 
 ```bash
-./bin/daily_bars -dry-run     # download and report, write nothing
-./bin/daily_bars              # download what is missing into data/daily_bars.db
 ```
 
 ### 3.3 Compare state counts  (read-only)
@@ -206,7 +200,6 @@ Flags: `-symbols` (default QQQ), `-states` (2 to 6), `-through`, `-from`, `-hold
 ### 3.6 Daily update  (writes data/hmm_models.db)
 
 ```bash
-./bin/daily_bars                         # 1. refresh the bars
 ./bin/train hmm extend -dry-run          # 2. preview: prints the regime and next-session odds
 ./bin/train hmm extend                   # 3. append predictions for the new sessions (no refit)
 ```
@@ -234,7 +227,6 @@ The earlier `regime_predict` job and its `regime_prediction` table were removed.
 
 ```bash
 cd backtestgosqlite
-./bin/daily_bars && ./bin/train hmm compare && ./bin/train hmm && ./bin/train hmm report
 
 cd ../trade_orchestrator
 scripts/export_strategies.sh      # re-exports the bundle, including data/hmm_models.db -> pkg/orchestrator/strategies/deploy/hmm_models.db

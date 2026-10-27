@@ -12,16 +12,13 @@ Written 2026-10-15 from a read-only scan of `schwaber`, `trade_orchestrator`, `b
 
 | Control | What it does | Where | Tested |
 |---|---|---|---|
-| Killswitch | Cron refuses every job while engaged; `KillAll` cancels running jobs. Does not touch positions. | `trade_orchestrator/pkg/killswitch`, `pkg/orchestrator/appserve/cron.go:113`, web `/killswitch` | yes |
 | `exit_market` | Cancels working orders, then market-sells whole-share longs. Skips and reports shorts, options, funds, fractions. Has dry-run; can engage the killswitch. | `trade_orchestrator/pkg/orchestrator/exit_market` | yes |
 | Risk breaker | Drawdown ladder (halve at 10%, halt at 20%), daily loss halt (5%), long exposure cap (100% of equity). Entries only; exits keep running. Env overrides `RISK_*`. | `trade_orchestrator/pkg/orchestrator/risk/risk.go`; enforced in `stage_orders/run.go:96`, `submit_orders/submit_orders.go:336`, `trigger_limits/seat.go:74` | yes |
 | Account allowlist | Caps and parses the account list (`MaxAccounts`). | `trade_orchestrator/pkg/orchestrator/account_allowlist` | yes |
 | Strategy allowlist | `STRATEGY_ALLOWLIST` names deployed strategies; promotion is manual. Whether the scan enforces it was **unverified**. | `trade_orchestrator/pkg/orchestrator/strategy_allowlist`, `pkg/orchestrator/live_vs_backtest_sync` | package only |
 | Sizing | Uses leftover cash only, never evicts a position, caps each order at 95% of remaining cash, skips held or already-staged symbols. | `trade_orchestrator/pkg/orchestrator/stage_orders/sizing.go` | yes |
-| Duplicate-order protection | Same symbol and instruction rejected within a run; `PENDING` to `SUBMITTING` claim; durable order intent before each broker call; ambiguous results are reconciled, not re-placed. | `submit_orders.go:264`; `schwaber/pkg/schwaber/schwab/place_idempotent.go`; `schwaber/pkg/schwaber/orderintent`; `ibkr_api/pkg/ibkr/orders.go` | yes |
 | Submit-time validation | Re-checks cash and positions; `ValidateOrder` checks buying power, blocks selling more than held, warns on a limit more than 15% from market. | `schwaber/pkg/schwaber/trader/safety.go:30` (also used by IBKR) | yes |
 | Dry-run / preview | Schwab CLI and IBKR have dry-run (IBKR uses what-if); cron has dry-run and `SIMULATED` modes. `-y` confirms live CLI orders. | `schwaber/cmd/schwaber/main.go`, `ibkr_api/pkg/orchestrator/orders/orders.go:78`, `submit_orders.go` | yes |
-| Brackets and crisis stop | Entry plus take-profit plus stop as one order structure. If the strategy has no stop, a -20% crisis stop is added. | `submit_orders.go:306` (`trader.CrisisStopFraction`), `schwaber/pkg/trader/order_tree.go` | order tree yes |
 | Hold window exits | `manage_exits` at 09:35 and 15:50 ET; exit date counted in NYSE trading days from the actual fill. | `trade_orchestrator/pkg/orchestrator/manage_exits` | yes |
 | `check_health` | Audits each position: tracked, strategy known, exit date, broker stop and take-profit match. Rolls up to HEALTHY / WARNING / ACTION_REQUIRED and is emailed. | `trade_orchestrator/pkg/orchestrator/check_health` | yes |
 | Live vs model | Slippage in basis points, weekly digest, strategy status. | `pkg/orchestrator/live_vs_backtest_trades`, `pkg/orchestrator/live_vs_backtest_slippage`, `pkg/orchestrator/strategy_status` | yes |
@@ -64,7 +61,6 @@ Updated 2026-10-15 after the first round of fixes.
 
 ## 5. Untested paths
 
-- `schwaber/pkg/killswitch` and `ibkr_api/pkg/killswitch` have no test files. Under the no-mocks rule they can only be covered by dry-run on real data; until that exists they are untested.
 - Broker order paths are covered only by dry-run and preview, never by a live test.
 - The GET retry loop in `schwaber/pkg/schwaber/schwab/retry.go` has no test of the loop itself (a test would need a fake server, which the project forbids). The partial-fill branch in `reconcilePendingFill` is tested only through its decision function `endedPartlyFilled`.
 - `trade_orchestrator/pkg/orchestrator/appserve/cron.go` has `var sendFailureEmail`, a swappable function used by `cron_test.go`. That is a fake under rule 4. It predates this work and was left in place; remove it only if you ask.

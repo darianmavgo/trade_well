@@ -154,10 +154,8 @@ Still Go, and not signal generation: the simulator and its metrics (`pkg/backtes
 
 ## Simulation
 
-> **Out of date (2026-10-27).** The paragraphs below describe the daily-range engine, `pkg/simulator` with `PortfolioSimulator` and `SharedAccountSimulator`, which was deleted. Its rules (exit order, sizing, shorts, cooldowns, the shared-account priority ledger) were carried into the hourly engine, `pkg/backtest/sim` driven by `pkg/backtest/hoursim`, but the type names, the day-by-day walk and the file references below no longer exist. What changed in the numbers is in [HourlyEngineParity.md](HourlyEngineParity.md). Rewrite this section from `pkg/backtest/sim` before relying on it.
 
 
-`PortfolioSimulator` (`pkg/simulator/portfolio.go`) does not know strategy ids. It walks sorted dates, accrues cash yield on leftover cash every day, evaluates exits, then opens entries. Exit order is take-profit, stop, trailing stop, ATR stop, then the time barrier. `HoldDaysOverride` on a signal is stored on the position and beats `HoldingWindow`. Sizing is `pkg/simulator/sizer.go`. `analytics.CalculatePerformanceMetrics` turns trades and the equity curve into the report (CAGR, drawdown, Sharpe, Sortino, Calmar, win rate, and the rest of the tear sheet).
 
 `SharedAccountSimulator` is one cash ledger. List order is priority; 0 is primary. Only the primary may preempt: it can liquidate a subordinate for cash or for the same symbol. Same-symbol eviction requires `signal.Priority == 0` and `position.Priority > 0`. Overlays never evict each other; they size to leftover cash or skip. On a cash shortfall the primary sells the default-asset lot first, then liquidates subordinates longest `HoldDays` first. Subordinates use `CalculateShares(cash, equity, …)` and skip when they cannot afford the order. Positions are keyed by symbol. Idle stats (`AvgCashPct`, `FullyIdlePct`, `DaysFullyIdle`) come from the equity curve. An idle day is `invested IS NULL OR invested = 0`.
 

@@ -244,9 +244,7 @@ func fixRefs(root string, refs []StaleRef) (int, error) {
 			if !f.Fixable() || drop[f.Line-1] {
 				continue
 			}
-			// Only the whole path: pkg/strategy must not rewrite the start of pkg/strategy/family.
-			re := regexp.MustCompile(`(` + regexp.QuoteMeta(f.From) + `)([^a-z0-9_/]|$)`)
-			lines[f.Line-1] = re.ReplaceAllString(lines[f.Line-1], f.To+"${2}")
+			lines[f.Line-1] = replacePath(lines[f.Line-1], f.From, f.To)
 		}
 		kept := lines[:0:0]
 		for i, l := range lines {
@@ -261,3 +259,29 @@ func fixRefs(root string, refs []StaleRef) (int, error) {
 	}
 	return changed, nil
 }
+
+// replacePath swaps from for to wherever from is a whole path: pkg/strategy
+// changes in "pkg/strategy/*.go" but not in the start of "pkg/strategy/family"
+// or "pkg/strategy_cmd".
+func replacePath(line, from, to string) string {
+	var sb strings.Builder
+	for {
+		i := strings.Index(line, from)
+		if i < 0 {
+			sb.WriteString(line)
+			return sb.String()
+		}
+		end := i + len(from)
+		rest := line[end:]
+		more := len(rest) > 0 && (isPathByte(rest[0]) || rest[0] == '/' && len(rest) > 1 && isPathByte(rest[1]))
+		sb.WriteString(line[:i])
+		if more {
+			sb.WriteString(from)
+		} else {
+			sb.WriteString(to)
+		}
+		line = rest
+	}
+}
+
+func isPathByte(c byte) bool { return c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_' }

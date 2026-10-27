@@ -23,7 +23,6 @@ type Strategy interface {
 
 ## 2. Complete Strategy Example: SMA 20/50 Golden Cross
 
-Create a new file `pkg/backtest/strategy/sma_crossover.go`:
 
 ```go
 package strategy
@@ -135,7 +134,6 @@ Once saved, rebuild and execute:
 
 ## 4. Built-in Technical Indicators Available
 
-The engine provides zero-dependency vectorized mathematical indicators in `pkg/backtest/strategy/indicators.go`:
 - `CalcSMA(bars, period)` — Simple Moving Average
 - `CalcEMA(bars, period)` — Exponential Moving Average
 - `CalcRSI(bars, period)` — Wilder's RSI (14, 5, 2, etc.)

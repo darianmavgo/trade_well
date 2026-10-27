@@ -25,7 +25,6 @@ version** of the default service.
 | `setup_turso.sh` | Writes `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` into the config object. Token from `$TURSO_AUTH_TOKEN` or a hidden prompt. `--dry-run` previews |
 | `turso_check.sh` | Read-only: `SELECT 1` against Turso over HTTPS using the config object's credentials; lists tables |
 | `seed_turso.sh` | One-time `sqlite3 .dump` of a local DB into a Turso database (writes to Turso; `--dry-run` previews) |
-| `deploy.sh` | `gcloud app deploy` app + cron, behind a Turso gate: both keys present and the database answers (`SKIP_TURSO_CHECK=1` skips the query). Cache in `.deploy_cache/gae_turso` |
 | `manage_gae.sh` | `status`, `logs`, `open`, `cron`, `versions`, `turso` (runs `turso_check.sh`) |
 
 Local launchers live beside this folder: `deploy_live_local/servelocal.sh` (the app against live Turso
@@ -40,7 +39,6 @@ on port 8082) and `deploy_report_local/servelocal.sh` (the report service on por
 5. `deploy_gae/turso_check.sh`
 6. `deploy_gae/deploy.sh`, then open `/ready`.
 
-Overrides for `deploy.sh`: `FORCE_SETUP=1` re-checks APIs and storage; `FORCE_DEPLOY=1` redeploys app and
 cron even when the source hashes match; `FORCE_DEPLOY=app` redeploys the app only.
 
 There is no fallback to a local database: without Turso a version loses its data when the instance

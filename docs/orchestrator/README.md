@@ -157,7 +157,6 @@ If a signal fails safety validation (insufficient cash, for example) at step 3 i
 A live position is sized from the strategy row: `allocation_pct` of the account's equity, at most 95% of the cash left. Nothing else carries the allocation a backtest ran with, so the bundle in `pkg/orchestrator/strategies/deploy/` is exported at it:
 
 ```bash
-EXPORT_ALLOC=0.20 scripts/export_strategies.sh        # default 0.20; use the -alloc the backtest ran with
 ```
 
 `strategy export -alloc` sets `allocation_pct` on every exported row and records it in the bundle's `bundle_meta` table. The backtest it matches is `backtest stack -alloc 0.20`: every position is that share of equity, and a signal's own allocation (the Markov pipeline's 5 to 30% by signal strength) is ignored in the run, as it is live (`scan_market` takes the row's allocation and never the signal's). A strategy sized by its own rule (`tsll-daily-one-share`, one share) is not a share of equity and is left alone.
@@ -196,7 +195,6 @@ The orchestrator database (job runs, risk state, orders, account mirror, order i
 - **Remote only, pure Go** (`libsql-client-go`, no cgo, builds for App Engine). `libsql://` URLs are used over HTTPS. Every query is a network call, so jobs are somewhat slower than against a local file.
 - **`/ready` is the proof.** Its `database` check is bad without Turso (on any platform), bad when Turso does not answer or a table the jobs use is missing, and otherwise reports the job runs it can read.
 - **Tests never use Turso.** `dbutil.Turso()` returns off under `go test`, so exported variables cannot make a test write the real database. Tests use real SQLite in a `t.TempDir()` or `:memory:` (the only local SQLite the orchestrator opens); `appconfig.Load` sets `Config.DBPath` only under `go test`, and `dbutil.Open` refuses a local file otherwise.
-- **`live_vs_backtest_winrate -reports-dir …` works on Turso. The comparison builds its stage tables in Turso while it runs and drops them when it returns (an in-process cache serves repeat page views); `live_vs_backtest_winrate` is the only table of win rates that stays.** It reads each backtest asset file read-only, for only the columns the comparison needs (`pkg/orchestrator/live_vs_backtest_winrate/sql/asset_*.sql`), and upserts them into `live_vs_backtest_winrate` in one transaction. The comparison itself runs in Turso: every stage writes a slice table named for the run (`winrate_compare__r20261026t…`), the newest 3 runs are kept for audit and older ones dropped (`pkg/orchestrator/runtables`). Nothing is staged in a local database, and `--dry-run` reads the assets and writes nothing.
 - The market DB (`MARKET_DB`) and the other read-only files (strategies, backtest reports) are local files on the instance; the scan rebuilds the market file from Turso `market_bars` and the data source.
 
 ## End-to-end live run (`/run_e2e_live`)
@@ -287,7 +285,6 @@ Every managed position has a stored **exit date**: `max_trading_days` trading da
 
 ## Readiness, the ops board and the weekly digest
 
-- **`ready`** (`pkg/orchestrator/ready`, `/cron/ready`, `orchestrator ready`, `/ready`) runs at 09:00 and 17:30 ET every day and **emails only when something is not ok**, so a message from it always means look. `orchestrator ready --static` checks only that every entry of the live `STRATEGY_ALLOWLIST` resolves from the bundle in this source tree; `deploy_gae/deploy.sh` runs it before it uploads and refuses to deploy a bundle that cannot trade the live allowlist (`SKIP_READY_CHECK=1` skips it). After the deploy, `deploy.sh` reads `/ready?format=json` and prints every check that is not ok; it exits 1 only if the new version cannot resolve the live allowlist; other problems (a failed scan from yesterday, an expiring token) are printed and left for you.
 - **`weekly_digest`** (`pkg/orchestrator/weekly_digest`, `/cron/weekly_digest`, `orchestrator weekly_digest [--dry-run]`) emails a Saturday 09:00 ET summary: signals by strategy and day, orders staged and submitted, runs and failures per job, open positions with unrealized P&L, and the readiness status. It has no live-versus-backtest P&L: the database keeps one current account snapshot, not an equity history.
 - Every operator page gets a navigation bar and a footer with the deployed version, service and strategy-bundle hash (`withChrome`), so you can tell which deploy you are looking at.
 - Both jobs are in `job_runs.Schedule` (after `check_health`; nothing depends on them), so `/ops` and `check_health` notice a missed run. `trigger_limits` is not, on purpose: it records a run only when it acts (`job_runs.NotRecordedEachRun`).
@@ -398,7 +395,6 @@ These commands compare a live strategy with its backtest. Each one is a `pkg/` f
 From the repo root. Rolls an in-sample window forward and simulates each out-of-sample window from a flat book. Signals are generated once on the full history. Only that window's dates are simulated. Returns in the tables are fractions (`0.05` is five percent).
 
 ```bash
-go run ./cmd/validate walk -strategy tsll-daily-one-share -market-db data/market.db -table backtest_start -db reports/walk_forward.db -train-months 24 -test-months 6 -step-months 6 -capital 100000
 ```
 
 | Flag | Default | Meaning |
@@ -417,7 +413,6 @@ go run ./cmd/validate walk -strategy tsll-daily-one-share -market-db data/market
 Reads `walk_forward_summary` and writes `check_overfit`. It does not re-simulate. Run `validate walk` first. Verdicts are `HOLDS`, `DECAYS`, `CURVE_FIT`, and `INSUFFICIENT`.
 
 ```bash
-go run ./cmd/validate verdict -db reports/walk_forward.db -min-oos-trades 8 -trial-cutoff 20 -decay 0.25
 ```
 
 | Flag | Default | Meaning |

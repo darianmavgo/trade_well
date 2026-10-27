@@ -6,7 +6,6 @@ orchestrator's main SQLite database** (`DB_PATH`, the same file as `stage_order`
 before every buy: *is this account allowed to open new positions right now, and how big?*
 
 It limits **new entries only**. Exits, stops and take-profits keep running. That is what makes it
-different from the killswitch (`pkg/killswitch`), which stops every cron job and touches no positions.
 
 ## How it runs
 

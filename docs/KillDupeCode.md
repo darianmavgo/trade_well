@@ -22,12 +22,10 @@ Tags: **DELETE** (a lower repo already has it), **PROMOTE** (generic code in TO,
 | 2.2 | Interactive OAuth | **Done** | SW `oauthcli.Run`; TO `auth/command.go` imports it; `IsPermanentAuthError` lives in SW `schwab/client.go:294` |
 | 2.3 | Account / order / transaction ingest | **Mostly done** | SW `pkg/schwaber/accountstore` (625 + 177 + 42 lines) and `listall` uses it; TO `account_state` no longer has `parseAndSave*` and delegates `Summary` to it. TO still keeps 386 lines of sync, progress events and table builders: probably orchestration, not verified line by line |
 | 2.4 | Linked-account resolution | **Partly done** | `filterLinkedAccounts` is gone. `account_allowlist.ResolveFromDB` still maps stored rows to `trader.ResolvedAccount` in TO; no `ResolveFromLinked` exists in SW. That DB-row mapper may be legitimately TO's |
-| 2.5 | Litestream `dbsync` | **Done (removed)** | `pkg/dbsync` is gone; the deploy is Turso only (commit 83ab70a) |
 | 2.6 | Stack and allowlist parsing | **Done 2026-10-27** (see below) | BT exports `strategy.IsStack` / `ParseStack` and TO uses them (16 call sites). Left: TO `strategies.Contains` is a one-line `slices.Contains` wrapper; `strategies.Parse` and `account_allowlist.Parse` are the same split, trim and dedupe function |
 | 2.7 | Market-DB path resolution | **Done** | `resolveMarketDB` is gone; TO calls `appenv.MarketDB()`. `BACKTEST_ROOT` only appears in a comment (`appconfig/schema.go:36`) |
 | 2.8 | Signal scan wrapper | **Done** | BT has `runner.RunLiveScan` (`livescan.go:21`); TO's `livescan.go` is gone and `SignalScanResult` exists only in BT. TO's `scan_market.RunSignalScan` (285 lines) is a different function: it calls `runner.RunLiveScan` and adds bar sync and persistence. It shares a name, not logic |
 | 2.9 | Trading calendar | **Done** | BT `pkg/backtest/calendar` (`LastCompletedSession`); `CalculateTradingDays` and the 3-holiday list are gone |
-| 2.10 | SQLite open and pragmas | **Mostly done** | SW `dbutil.Open` holds the pragmas (WAL, synchronous, temp_store); TO `appconfig.OpenDB` is a one-line call to it. Left: BT `storage.OpenSQLite` has its own pragma block, and `park_sweep/db.go:117` adds a `busy_timeout` of its own. Both use the pure-Go `"sqlite"` driver, so the driver question in the old file is answered; the one exception is `cmd/markov_test`, which imports the cgo `mattn/go-sqlite3` |
 
 Also closed since the first version: `SafetyGuard` is now used. `submit_orders.go:381` calls `tc.Safety.ValidateOrder` before placing an order (the old file listed it as a gap).
 

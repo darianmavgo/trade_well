@@ -16,8 +16,6 @@ asks for fresh market data. Run the long steps in the background and poll their 
 
 ```bash
 go build -o ./bin ./...
-MARKET_MAX=$(sqlite3 data/market_history.db "select max(Date) from backtest_start where symbol='SPY'")
-IS_END=$(sqlite3 :memory: "select date('$MARKET_MAX','-12 months')")
 echo "market data to $MARKET_MAX, in-sample ends $IS_END (last 12 months are held out)"
 ```
 
@@ -76,7 +74,6 @@ First pass over the in-sample and held-out results:
 
 ```bash
 .claude/skills/stack-candidates/top_strategies.sh $RUN 50
-IDS=$(IDS_ONLY=1 .claude/skills/stack-candidates/top_strategies.sh $RUN 50)
 ```
 
 Then tune only those, on the in-sample window only. `-end` is what keeps the held-out
@@ -94,8 +91,6 @@ columns are listed in `strategy_family_param` in `refdata/strategies.db`.
 ## 4. strateval on the same candidates
 
 ```bash
-./bin/strateval -strategy "$IDS" -optimize -oos-months 12
-./bin/strateval report
 ```
 
 This does its own in-sample parameter sweep and a held-out evaluation and writes a tier

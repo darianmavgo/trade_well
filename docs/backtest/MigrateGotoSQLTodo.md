@@ -6,7 +6,6 @@ Signals for every strategy are calculated in SQL (`strategy.RunPipeline` runs a
 ## Left in Go
 
 - The simulator and its metrics: `pkg/backtest/sim` and `pkg/backtest/hoursim` (the hourly
-  portfolio simulator; the daily `pkg/simulator` was deleted) and `pkg/backtest/analytics` (Sharpe, drawdown, tear sheet).
 - The dividend-adjusted price copy in `pkg/backtest/runner` (`toTotalReturnBars`, and
   dividend recovery from `AdjClose`/`Close` in `pkg/backtest/options`).
 - The covered-call overlay in `pkg/backtest/options` (the `*-covered-call` ids return no

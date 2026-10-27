@@ -199,17 +199,23 @@ func sessionSymbols(conf Config) []string {
 	stratreg.RegisterAll(appenv.Folder(), conf.Db)
 	var strats []strategy.Strategy
 	for _, id := range ids {
-		s, ok := strategy.Get(id)
-		if !ok {
+		members := []strategy.Strategy{}
+		if s, ok := strategy.Get(id); ok {
+			members = append(members, s)
+		} else if fam, isFamily := strategy.FamilyMembers(id); isFamily { // a family name stands for every row
+			members = fam
+		} else {
 			return nil
 		}
-		if _, sql := s.(*strategy.SQLPipelineStrategy); sql { // reads symbols its SQL does not name
-			return nil
+		for _, s := range members {
+			if _, sql := s.(*strategy.SQLPipelineStrategy); sql { // reads symbols its SQL does not name
+				return nil
+			}
+			if rp, ok := s.(strategy.RequiredSymbolsProvider); !ok || len(rp.RequiredSymbols()) == 0 {
+				return nil
+			}
 		}
-		if rp, ok := s.(strategy.RequiredSymbolsProvider); !ok || len(rp.RequiredSymbols()) == 0 {
-			return nil
-		}
-		strats = append(strats, s)
+		strats = append(strats, members...)
 	}
 	syms := runner.RequiredSymbolsFor(strats, conf.Symbol)
 	if da := strings.ToUpper(strings.TrimSpace(conf.DefaultAsset)); da != "" {

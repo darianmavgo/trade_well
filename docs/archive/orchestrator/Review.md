@@ -15,10 +15,8 @@ The pipeline works and the individual pieces are each reasonably well built for 
 
 ### backtestgosqlite — research & strategy evaluation
 - Clean `Strategy` interface (Go or SQL-pipeline backed), a process-wide registry, ~34 strategies (many are template variants: N-day-decline → buy a leveraged ETF).
-- `pkg/simulator`: day-by-day portfolio sim with stop-loss/take-profit/time-up exits, multiple position sizers, a shared-account mode for running strategy stacks off one cash ledger. Exit ordering is conservative (stop checked before target on the same bar), and gap-through-stop/target is modeled by comparing against the bar's open — a genuinely good realism touch.
 - `pkg/backtest/analytics`: full metrics suite (CAGR, Sharpe/Sortino, Calmar, Ulcer, Alpha/Beta vs. benchmark).
 - `cmd/livescan` reuses the exact same `GenerateSignals` code path as the backtest engine (`pkg/backtest/runner/signal_scan.go`), so signal-logic parity between backtest and live is structural. `pkg/backtest/runner/asof.go` hard-fails a live scan if the market DB's newest bar isn't current, which is a real safeguard against trading on stale data.
-- `cmd/strateval` (added **2026-09-20**, i.e. yesterday relative to this review): IS/OOS split, Tier A/B/C/D gating (win rate, drawdown, Sharpe, trade count thresholds), a lifecycle ledger. Already needed a path bugfix and a threshold retune within a day of being added.
 - Options support is narrow but honest: `pkg/backtest/options/coveredcall.go` models one specific covered-call cycle well and documents its own limitation (priced from last-trade bars, not bid/ask).
 
 ### trade_orchestrator — live orchestration (now GAE-only, Cloud Run just decommissioned)
@@ -39,7 +37,6 @@ The pipeline works and the individual pieces are each reasonably well built for 
 ## What's missing or risky, by area
 
 ### 1. The safety net between repos is advisory, not enforced
-`cmd/strateval`'s Tier A/B/C/D gating in backtestgosqlite is explicitly documented as additive-only: `sync-deployed` only writes a local ledger and **never touches `STRATEGY_ALLOWLIST`**. On the trade_orchestrator side, the only actual live-trading gate is whether a strategy ID string is present in that hand-edited env var — with zero code-level link to strateval's tier output. Nothing stops an unevaluated or Tier-D strategy from being pasted into the allowlist and trading real money. The eval pipeline you built is a dashboard right now, not a circuit breaker.
 
 This matters concretely for the TSLL ops-check strategy from earlier in this session (`tsll-daily-one-share`, committed as `e415844 "Strategy used for checking ops not for making money"`) — it's fine as a smoke test, but there's currently no mechanism that would stop it (or anything like it) from ending up in `STRATEGY_ALLOWLIST` by mistake and trading with real capital indefinitely.
 
@@ -57,7 +54,6 @@ Across all three repos there is no max-concurrent-positions limit, no daily-loss
 Several live-candidate strategies (`gld-decline`, `sig-voo-buy-tecl`, `sig-voo-buy-spxu`, and the new `tsll-daily-one-share`) are configured with **zero slippage and zero commission**. The simulator has no bid/ask spread model at all — every fill is priced off OHLC bar values with a flat percentage slippage. For the leveraged/inverse ETFs this stack actually trades (TECL, SPXU, TQQQ, SQQQ, TSLL), real spread and market-impact costs are almost certainly understated, which inflates exactly the strategies most likely to look good enough to greenlight.
 
 ### 6. Selection-on-backtest-performance overfitting risk
-The commit history and `pkg/strategy/failed_training/` (nine archived strategies explicitly kept for the record of "failed win rate <50% / CAGR <10%") show the normal workflow here is build → backtest → discard if it doesn't score well, across dozens of variants. strateval's single 12-month IS/OOS split is good discipline but doesn't fully protect against this kind of multiple-comparisons risk. The most recent commit message is a direct admission of this from you: *"I have looked at so many strategies built on a market gains as buy signal that it is suspicious that I haven't a good one."*
 
 ### 7. Data durability has an unconfirmed failure window
 Litestream's post-write replication confirms by polling GCS for up to 30 seconds; if that times out it just logs and returns — the caller has no way to know the write didn't durably land. Combined with GAE Standard's `min_instances: 0` (scale-to-zero), there's a real if narrow window where a completed job's writes could be lost on the next cold-start restore. No backup/restore drill or DR runbook was found.
@@ -70,7 +66,6 @@ On GAE, `STRATEGY_ALLOWLIST`, Schwab API keys, SMTP credentials, and the dashboa
 - schwaber's `Order` struct and confirmation logic never read filled/remaining quantity — a partial fill is invisible to the live order-placement path.
 - schwaber logs full request/response bodies, including live OAuth tokens in plaintext, to `schwab_api.log` on every call.
 - schwaber's deployed systemd timer (`deploy/schwaber-jobs.service`) invokes `run-all-jobs`/`health-check` subcommands that don't exist in the current binary — stale config left over from before this logic moved into trade_orchestrator.
-- Cmd-level test coverage is 0% across `cmd/livescan`, `cmd/strateval`, `cmd/backtest` in backtestgosqlite — the actual entry points a cron job invokes are untested; the safety logic underneath (stale-data rejection, gate thresholds) is only unit-tested one layer down.
 - Stooq's data source doesn't actually adjust for splits/dividends despite carrying an `AdjClose` field — a latent correctness gap if it's ever used for a `TotalReturnProvider` strategy.
 - ETF universe discovery only considers `active=true` tickers — classic survivorship bias; delisted/liquidated leveraged ETFs are invisible to backtests by construction.
 

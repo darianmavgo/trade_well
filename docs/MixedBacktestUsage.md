@@ -8,7 +8,7 @@
 |---|---|
 | `backtestgo` | Where strategy rows are **researched and stored**. Its `refdata/strategies.db`, `data/markov_models.db` and `data/tree_models.db` are the source of truth for rows and trained models. |
 | `backtestgosqlite` | The **code** `trade_orchestrator` imports (`replace github.com/darianmavgo/backtestgosqlite => ../backtestgosqlite`, `go.mod:53`). Its registry, row families, `refdb`, `livescan` and `strategy export` run in production. |
-| `trade_orchestrator` | Holds the **allowlist** (what is greenlit) and the **embedded bundle** (`pkg/strategies/deploy/*.db`) that ships to App Engine. |
+| `trade_orchestrator` | Holds the **allowlist** (what is greenlit) and the **embedded bundle** (`pkg/orchestrator/strategies/deploy/*.db`) that ships to App Engine. |
 
 `backtestgo` does not import into the orchestrator (it is cgo/DuckDB). The orchestrator only reads its *data*, through `scripts/export_strategies.sh`.
 
@@ -63,14 +63,14 @@ backtestgo                              backtestgosqlite                 trade_o
 backtest / gridsearch / train           (code only)                      STRATEGY_ALLOWLIST (GCS config/env)
   -> refdata/strategies.db rows                                              |
   -> data/markov_models.db                                                   v
-  -> data/tree_models.db         scripts/export_strategies.sh  ->  pkg/strategies/deploy/{strategies,markov_models,tree_models}.db
+  -> data/tree_models.db         scripts/export_strategies.sh  ->  pkg/orchestrator/strategies/deploy/{strategies,markov_models,tree_models}.db
                                  (runs `strategy export`)              |  go:embed (bundle.go)
                                                                        v
                                                          strategies.ResolveGreenlit -> strategy.Get -> scan / stage / submit
 ```
 
 1. **Research (`backtestgo`).** `bin/backtest`, `bin/gridsearch`, `bin/train`. Rows live in `refdata/strategies.db`; `+` joins ids into a shared-account stack (`-id "markov_model_mull+streak-shpu-down3"`, `backtestgo/README.md:66`).
-2. **Export (`scripts/export_strategies.sh`).** Reads the allowlist, keeps only entries whose every member is a row in one of the five tables, then runs `go run ./cmd/strategy export` in `backtestgosqlite` with `APP_FOLDER=../backtestgo`. That reads backtestgo's `strategies.db` and models, and writes the bundle into `pkg/strategies/deploy/`.
+2. **Export (`scripts/export_strategies.sh`).** Reads the allowlist, keeps only entries whose every member is a row in one of the five tables, then runs `go run ./cmd/strategy export` in `backtestgosqlite` with `APP_FOLDER=../backtestgo`. That reads backtestgo's `strategies.db` and models, and writes the bundle into `pkg/orchestrator/strategies/deploy/`.
 3. **Embed (`pkg/orchestrator/strategies/bundle.go`).** Three `//go:embed` blobs. `ensureRegistered` writes them to `appenv.RefDB()`, `MarkovDB()`, `TreeDB()` (always on App Engine, because `/tmp` is empty or old; elsewhere only when no file exists). Then `stratreg.RegisterFamiliesAt(path)`.
 4. **Greenlight (`pkg/orchestrator/strategies/strategies.go`).** `Parse`, `ResolveRequest` (an explicit `-strategy` must already be in the allowlist), `ResolveGreenlit` (expands `a+b+c` stacks via `strategy.ParseStack`, calls `strategy.Get`, logs one row per strategy to the orchestrator's `strategies` table).
 5. **Run.** `ResolveGreenlit` is called by `scan_market`/`stage_orders` (`stage_orders/command.go:52`), `manage_exits`, `trigger_limits`, `check_health`, the dashboard stage-orders preview and `appserve/cron.go:198,535`. A failure here stops those jobs, which is why `strategy_allowlist` validates before saving.

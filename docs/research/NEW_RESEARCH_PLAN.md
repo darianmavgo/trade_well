@@ -8,7 +8,6 @@ The platform distinguishes between **Strategies** (`pkg/backtest/strategy/`, sta
 **Concept:** Buy and hold for a year the biggest winner of the previous year (beats SP500 most years).
 **Type:** `pkg/backtest/strategy`
 **Implementation Plan:**
-- Create `pkg/backtest/strategy/biggest_winner.go`.
 - The strategy will scan all symbols in the provided universe at the end of every calendar year.
 - It calculates the `(Close_Dec31 - Close_Jan01) / Close_Jan01` return for every symbol in the prior year.
 - It generates a `models.Signal` with `OrderType: "market"` to buy the top performer on the first trading day of the new year, and a sell signal on the last trading day.
@@ -36,7 +35,6 @@ The platform distinguishes between **Strategies** (`pkg/backtest/strategy/`, sta
 **Concept:** Profile each trading week year-over-year to detect seasonal/cyclical stocks.
 **Type:** `pkg/backtest/study`
 **Implementation Plan:**
-- Create `pkg/backtest/study/weekly_seasonality.go`.
 - It iterates over the historical data, grouping data by `ISO Week Number` (1-52).
 - For each stock, it calculates the historical probability of a positive return for that specific week number, and the average return.
 - Output: `data/reports/weekly_seasonality.db` with a view showing the most historically reliable stocks for each week of the year.
@@ -52,9 +50,7 @@ The platform distinguishes between **Strategies** (`pkg/backtest/strategy/`, sta
 **Concept:** Buy Morningstar feed, see if 5-star stocks reduce drawdown risk.
 **Type:** Data Ingestion + `pkg/backtest/strategy`
 **Implementation Plan:**
-- **Data:** Requires a new implementation in `pkg/backtest/datasource/morningstar.go` that writes ratings into SQLite.
 - The ratings need to be stored chronologically (as a stock's rating changes over time) in a new table in `market_history.db` or `settings.db`.
-- **Strategy:** Create `pkg/backtest/strategy/morningstar_defense.go`, which acts as a regime filter: only take long signals if the stock is currently 5-star. Compare its equity curve's Max Drawdown against a baseline.
 
 ## 7. Score Stocks on 5 Most Different Fundamentals
 **Concept:** Use 5 distinct fundamental metrics to score stocks.
@@ -68,7 +64,6 @@ The platform distinguishes between **Strategies** (`pkg/backtest/strategy/`, sta
 **Type:** `pkg/backtest/study` -> `pkg/backtest/strategy`
 **Implementation Plan:**
 - **Study:** First, run the existing `gain_5pct_frequency` study (modified for a -5% loss) to see how often it actually happens.
-- **Study:** Create `pkg/backtest/study/googl_drop_predictor.go` that looks at the day *before* every historical -5% drop in GOOGL and aggregates technical indicators (RSI, Bollinger Band width, Volume surge).
 - **Strategy:** Once a pattern is identified, implement it as a strategy (e.g., `googl-short-drop`) to backtest.
 
 ## 9. Study Small Publicly Traded Companies Acquired

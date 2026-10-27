@@ -87,7 +87,6 @@ Every number below is copied from a doc, a commit message, or a result DB in tho
 - **09-12/13** Minute bars for studying news. Two strategies sharing one account/cash ledger; solo vs tiered comparison. ETF universe: 5,449 US ETFs found, 1,753 with ≥6 years of history kept; one tree + grid search per ETF in 20 seconds (555 usable, 994 had too few ±5% days, top result HIBL at 42.4% CAGR, later regarded with suspicion per §2).
 - **09-14** Grid-search batch mode on one shared worker pool (44x faster on the slow case); skip-duplicate-work made the default; Whitings Creek archived.
 - **09-15** Repo-wide rename; Cloud Run chosen; *"it took a weird amount of work to make livescan actually live."*
-- **09-16** *"Lots of failed strategies and one super strong stack to implement."* Failed strategies moved to `pkg/strategy/failed_training/`: `bb_capitulation`, `donchian_breakout`, `genetic_momentum`, `macd_crossover`, `rsi2_trend`, `trend_bb`, `voo_context_forest`, `voo_tree`. Switch from CGO sqlite to pure-Go `modernc.org/sqlite`.
 - **09-17/18** Ended duplicate order submissions in the DB; submit-order bugs; healthcheck made thorough; Litestream instead of FUSE.
 - **09-19** Started on App Engine ("schwab completely sucks now").
 - **09-20** `strateval` in-sample/out-of-sample ledger with tiers A–D.

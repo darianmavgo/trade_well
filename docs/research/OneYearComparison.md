@@ -80,7 +80,6 @@ Profit in the four-strategy stack by sleeve: MULL $143k, LITE $66k, TECL streak 
 ## Reproduce
 
 ```bash
-./bin/transaction_calc account -in data/U22262325.TRANSACTIONS.1Y.csv \
   -claim "data/ibkr_claim_performance_nas100,TopTech&RUSS3000.txt" -db data/ibkr_2025oct_2026_oct.db
 ./bin/backtest -run-id 19 -strategy "streak-voo-buy-tecl+markov_model_amd+markov_model_lite+markov_model_mull"
 ```

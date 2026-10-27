@@ -57,7 +57,6 @@ One checklist of every strategy and tactic I have dived into, and every idea sti
 - [x] **Grok4Trading monthly rotation** (SPY/TLT, then UPRO/TMF). About 0.7–1% a month. The 5%/month target is a fantasy.
 - [x] **Crisis winner** (buy inverse ETF TZA when SPY drops, exit on recovery). Built 2025-07; no results file.
 - [x] **Covered calls** (`backtest covered-call`; "could I rent out risk monthly?"). Implemented, no recorded conclusion.
-- [x] **Dividend margin buy-and-hold / dividend covered call.** Code exists (`pkg/strategy/dividend_*`); no verdict found.
 - [x] **Crypto** (`tradexrpbot`, `BTCMomentum`). 30% win rate, −2.63% while BTC fell 38%. The put-overlay "+60%" is Black-Scholes at an assumed IV, not real.
 - [x] **Third-party email signals** (`backteststoxx`). 3 of 193 trades hit target. A limit on someone else's price mostly never fills.
 - [x] **Failed and retired:** `bb_capitulation`, `donchian_breakout`, `genetic_momentum`, `macd_crossover`, `rsi2_trend`, `trend_bb`, `voo_context_forest`, `voo_tree`.

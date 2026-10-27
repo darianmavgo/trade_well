@@ -1,6 +1,5 @@
 # Flattening trade_orchestrator, backtestgosqlite and schwaber into one repo
 
-> **Status 2026-10-27: done in the working tree, not committed.** One module, `github.com/darianmavgo/trade_well`: `pkg/schwaber/` (Foundation), `pkg/backtest/` (Calculation), `pkg/orchestrator/` (Orchestration), all commands in `cmd/`, and `sql/`, `refdata/`, `studies/`, `deploy_*` at the root. `go build`, `go vet` and `go test ./...` pass (96 packages, 0 failures); `CGO_ENABLED=0 go build ./...` passes. `pkg/layers` fails the build if a lower layer imports upward. The old three repos are untouched. What is still open is listed in "After the merge" at the end of this file. The text below is the assessment as written before the merge.
 
 Written 2026-10-27. Assessment only: nothing has been moved. Facts below come from the working trees on that date.
 
@@ -21,7 +20,6 @@ Replace three repos (three Go modules, three histories, `replace` directives and
 
 - Imports already point one way: orchestrator imports the other two (71 files import schwaber, 60 import backtestgosqlite). Neither of those imports the other, and neither imports orchestrator. There are no cycles to untangle.
 - Two package names exist in more than one repo: `killswitch` and `orders`. They are **not duplicates**: schwaber's are CLI commands (`killswitch.Run`, `orders.Place/Cancel/Bracket/List`), while the orchestrator's are state and display (`killswitch.Set/Current/KillAll`, `orders.Rows/Format`). They only collide by name, so they get renamed or merged by role when flattened (see "Killing duplicate code" below for the real duplicates).
-- One command in backtestgosqlite, `cmd/markov_test`, imports a cgo SQLite driver (`mattn/go-sqlite3`). Everything else is pure Go (`modernc.org/sqlite`), which App Engine needs.
 - Import paths would change in up to about 540 files (cross-repo imports plus each repo's own self-imports). This is mechanical and a build catches mistakes.
 
 ## Pros
@@ -41,7 +39,6 @@ Replace three repos (three Go modules, three histories, `replace` directives and
 2. **Schwab client is no longer separately reusable.** The most generally useful piece for outsiders (schwaber: OAuth, orders, quotes) is small, about 8k lines, and has only 16 requirements. Inside a big module it still imports fine, but its `go.mod` becomes the union of all dependencies, including Turso, GCP and email libraries. People who only want a Schwab client pull in far more than they need.
 3. **One version number for everything.** You can no longer tag a Foundation fix without releasing the strategy code with it. For a trading system that is mostly fine, but it removes the option of pinning the order path while experimenting on strategies.
 4. **Blast radius of the experiments.** backtestgosqlite is a research repo with 24 commands and a lot of study code (`pkg/backtest/study`, gridsearch, parked sweeps). In one repo, research churn sits beside the live order path, and a broken experimental package breaks `go build ./...` and `go vet ./...` for the whole tree. Mitigation: keep research packages compiling, or delete the dead ones first.
-5. **Build and deploy constraints get shared.** App Engine needs pure Go. `cmd/markov_test` (cgo) would make `CGO_ENABLED=0 go build ./...` fail. It must be ported to the pure-Go driver, moved to a build tag, or deleted before flattening. Any future cgo dependency in research code carries the same risk to the deploy.
 6. **Heavy data in the checkout.** `refdata/universe.db` (24 MB) and `refdata/strategies.db` (9 MB) come with it. Everyone who clones the repo downloads them unless they are removed or moved to release assets or a separate data repo. (Your docs say "Data is separate repo now" for `data/`, so there is precedent.)
 7. **History is lost or tangled.** There are 233 + 144 + 40 commits. Options: squash (clean, loses blame), or `git filter-repo` path-rewrite merge (keeps blame, keeps the sensitive blobs unless filtered). Either way old commit hashes in docs and the "Update ..." messages stop resolving.
 8. **Flattening is a large, risky one-time change.** Up to about 540 files get new import paths. The module is also the deploy unit: App Engine config (`deploy_gae/`), cron job names, `.gcloudignore` and the vendor flow all assume the current layout. A mistake could break the scheduled jobs that place real orders. It needs a dry run on a branch, a full test pass and a deploy to a non-live service first.
@@ -105,7 +102,6 @@ Expected size: about 120 to 150 lines from the known items, plus whatever a clon
 Go with **B**, in this order, so the layering is never unenforced:
 
 1. Before moving anything, write the import-direction test (and run it against the three repos as they are, to prove it passes).
-2. Finish the small open duplicate items (see `KillDupeCode.md` section 2). Rename the name collisions (`killswitch`, `orders`, and the two `RunSignalScan`) and port or remove `cmd/markov_test` (cgo).
 3. Decide what happens to the `refdata/*.db` files, `baseline.json` and the bundled `strategies.db` (these decide the clone size and the history question).
 4. Create the new repo from a filtered or squashed history that omits `schwaber.db` and the large blobs.
 5. Move schwaber, then backtestgosqlite, then orchestrator in, rewriting import paths; build and test after each move.

@@ -205,3 +205,15 @@ func TestRefsFixMovedPkgPaths(t *testing.T) {
 		t.Fatalf("got %q want %q\n%s", b, want, out.String())
 	}
 }
+
+func TestReplacePath(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		{"pkg/strategy/*.go", "pkg/backtest/strategy/*.go"},
+		{"pkg/strategy/<id>.go and pkg/strategy.", "pkg/backtest/strategy/<id>.go and pkg/backtest/strategy."},
+		{"pkg/strategy/family pkg/strategy_cmd", "pkg/strategy/family pkg/strategy_cmd"},
+	} {
+		if got := replacePath(c.in, "pkg/strategy", "pkg/backtest/strategy"); got != c.want {
+			t.Errorf("replacePath(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}

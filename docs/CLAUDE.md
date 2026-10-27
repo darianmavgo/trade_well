@@ -24,7 +24,6 @@ Dependency direction is one way: TO imports SW and BT. SW and BT never import TO
 - Calculations live in `.sql` under `sql/` (strategy pipelines under `sql/strategies/`), run through `storage.ExecuteSQLFile`.
 - **No nesting.** No subquery inside a subquery, no deep CTE chains. Break a calculation into steps and write each step's result to a **slice table** (a real table holding one stage's output, e.g. one row per symbol per date), then the next step reads that table. Slice tables are how calculation state persists and how you debug: you can `SELECT` any stage.
 - Name slice tables by stage so the order is obvious, and make each `.sql` file do one stage.
-- Existing Go indicator/tree code (`pkg/backtest/strategy/indicators.go`, `decisiontree.go`, `pkg/backtest/study/*`) predates this rule. Do not add to it. When you touch that logic, move the calculation into SQL slice tables rather than extending the Go.
 
 ## Rule 2: one implementation, three execution contexts
 

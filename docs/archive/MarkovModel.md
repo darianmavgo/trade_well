@@ -36,7 +36,6 @@ We will build and validate this initially using **GOOGL** daily history before g
 ## Phase 5: Generalization to Any Symbol
 **Objective:** Expand the model to generate probabilities and signals for the entire stock universe, not just a single hardcoded asset.
 1. **Universal SQL Pipeline:** Rename the pipeline from `markov_googl` to a generic `markov_model`. Update the SQL views to use `PARTITION BY symbol` in the `LAG()` and `LEAD()` window functions, allowing the database to compute regimes and transition matrices for every ticker in `market_history.db` simultaneously.
-2. **Dynamic Strategy Instantiation:** Update the Go wrapper (`pkg/strategy/markov_model.go`) to accept `__SYMBOL__` config injection, so the user can run `gridsearch` or `backtest` on `-symbol MSFT` or `-symbol TSLA` seamlessly.
 3. **Universal Signal Generation:** Output the predictions into a universal `markov_signals` table where signals for all tickers are stored, ready to be consumed by a multi-asset portfolio simulation.
 
 ## Phase 6: Walk-Forward Backtesting (Zero Lookahead)

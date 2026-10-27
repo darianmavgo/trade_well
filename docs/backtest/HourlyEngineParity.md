@@ -1,6 +1,5 @@
 # Daily simulator vs hourly simulator: what changed
 
-Backtests run on `pkg/backtest/sim` through `pkg/backtest/hoursim`. The old daily-range engine (`pkg/simulator`) has been deleted; the numbers below were measured before it went, and the test that printed them now only checks the hourly run (`pkg/backtest/hoursim/realdata_test.go`). This is what the switch changed, measured on real hourly bars (`data/market_history_hourly.db`).
 
 To see the hourly side today: `HOURSIM_REAL_STRATEGIES=streak-voo-buy-tecl,markov_model_mull go test ./pkg/backtest/hoursim -run RealData -v`.
 

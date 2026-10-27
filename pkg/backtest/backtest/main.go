@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/darianmavgo/trade_well/pkg/backtest/appenv"
@@ -828,13 +829,26 @@ func runOnce(conf Config) error {
 		}
 		if len(kept) > 0 {
 			fmt.Printf("\n🔎 BACKTEST RELIABILITY (strategies whose trades were kept; run one with -strategy <id> for the full report)\n")
-			for _, r := range kept {
-				cfg := runOverride(conf).Apply(r.Strat.DefaultConfig())
-				fs := reliability.Assess(reliability.Input{
-					MarketDB: conf.Db, Table: conf.Table, Strategy: r.Strat, Config: cfg, Trades: r.Trades, Report: r.Report,
-					HoldoutMonths: conf.HoldoutMonths, Phase: conf.phase, Prior: conf.prior,
-				})
-				reliability.PrintCompact(os.Stdout, r.Strat.ID(), fs)
+			// Each assessment loads its own bars, so they run side by side; the lines print in order.
+			findings := make([][]reliability.Finding, len(kept))
+			var wg sync.WaitGroup
+			slots := make(chan struct{}, max(conf.Concurrency, 1))
+			for i, r := range kept {
+				wg.Add(1)
+				slots <- struct{}{}
+				go func() {
+					defer wg.Done()
+					defer func() { <-slots }()
+					cfg := runOverride(conf).Apply(r.Strat.DefaultConfig())
+					findings[i] = reliability.Assess(reliability.Input{
+						MarketDB: conf.Db, Table: conf.Table, Strategy: r.Strat, Config: cfg, Trades: r.Trades, Report: r.Report,
+						HoldoutMonths: conf.HoldoutMonths, Phase: conf.phase, Prior: conf.prior,
+					})
+				}()
+			}
+			wg.Wait()
+			for i, r := range kept {
+				reliability.PrintCompact(os.Stdout, r.Strat.ID(), findings[i])
 			}
 			if len(kept) < len(results) {
 				fmt.Printf("  %d other strategies were not assessed: their trades are not kept in a bulk run.\n", len(results)-len(kept))

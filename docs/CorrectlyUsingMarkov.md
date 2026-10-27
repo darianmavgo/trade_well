@@ -62,7 +62,6 @@ A limit that does not fill is a trade live never made. The backtest models that 
 - `allocation_pct` on the row is 0.20 for the five bundled rows (`markov_model_amd`, `_amuu`, `_lite`, `_mull`, `_vrtl`), the same as `EXPORT_ALLOC`. Other rows still say 0.25.
 - The SQL gives each signal its own allocation (5% to 30% by `|signal|`). In `backtest stack` with `-alloc`, and live, that is ignored: every position is the flat fraction (`FlatAllocation`).
 - `strategy export -alloc` and `EXPORT_ALLOC` (default **0.20**) size the exported bundle rows and record `alloc_pct` in `bundle_meta`.
-- Rule: run `backtest stack -alloc X` and export with `EXPORT_ALLOC=X`, same `X`.
 
 ### 3.4 What `slippage_pct` is
 
@@ -115,10 +114,9 @@ The run does an IN-SAMPLE pass up to the cutoff, then one OOS pass on the last 1
 
 ```bash
 cd ../trade_orchestrator
-EXPORT_ALLOC=0.20 scripts/export_strategies.sh "<your live allowlist>"
 ```
 
-This rebuilds `pkg/strategies/deploy/{strategies,markov_models,tree_models}.db` from the models you just trained. The script fails if an allowlisted Markov strategy has no trained model. Pass the allowlist explicitly; with no argument it falls back to the one seeded in `deploy_gae/config.sh`, which may differ from the live `STRATEGY_ALLOWLIST` in the config object.
+This rebuilds `pkg/orchestrator/strategies/deploy/{strategies,markov_models,tree_models}.db` from the models you just trained. The script fails if an allowlisted Markov strategy has no trained model. Pass the allowlist explicitly; with no argument it falls back to the one seeded in `deploy_gae/config.sh`, which may differ from the live `STRATEGY_ALLOWLIST` in the config object.
 
 ### Step 5: deploy
 
@@ -195,7 +193,6 @@ Recomputing the signal for one date by hand is also a good check: take the saved
 - [ ] `train markov -through <in-sample end> -symbols <only these>` for the symbols in your allowlist.
 - [ ] `backtest` run, in-sample tuned, OOS read once.
 - [ ] Rows you intend to trade have `next_day_limit = 1` and a non-zero `slippage_pct`, or you accept the entry-fill gap in 3.2.
-- [ ] `backtest stack -alloc X` and `EXPORT_ALLOC=X` agree.
 - [ ] `scripts/export_strategies.sh "<live allowlist>"` run, rebuilt, redeployed.
 - [ ] `trained_through` in the bundle equals the cutoff; `/ready` `markov_models` is ok or a short-lived warn.
 - [ ] After the first live scan, `signal_trace` shows `scored_live = true` for sessions after the cutoff and the `reason` matches what the backtest would have done on those dates.

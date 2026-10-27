@@ -81,21 +81,15 @@ Every command in this repo, in the order you use them to take one idea from raw 
 | 1 | Get data | `./bin/market_history GOOGL VOO SGOV -years 5` | Downloads hourly bars (and derives daily sessions) for the signal symbol, a benchmark and a cash park. Run again to fill new sessions. | writes `data/market_history_hourly.db` |
 | 2 | Find symbols (optional) | `./bin/universe -stocks-only` | Rebuilds the stock and ETF universe to pick related tickers. Needs `POLYGON_API_KEY`. | writes `refdata/universe.db` |
 | 3 | See what exists | `./bin/strategy` then `./bin/backtest -strategylist` | Confirms the GOOGL ids above are registered and shows row counts per family. | reads `refdata/strategies.db` |
-| 4 | Explore the idea | `./bin/study -list`, `./bin/study -study hmm_regime -symbol GOOGL`, `./bin/markov_test` | Regime study for GOOGL; `markov_test` prints the bear / sideways / bull matrix and tomorrow's odds. Use `-study googl_market_context` only if a caller supplies a cluster DB. | reads market DB; writes `data/reports/<study>.db` |
 | 5 | Train models | `./bin/train markov GOOGL` and `./bin/train tree GOOGL` | Fits the Markov regime table and the depth-3 tree that `markov_model_googl` and `googl_tree` read. `streak` and `hold` have nothing to train. Use `-through <date>` on `markov` or `tree` to keep later months out of sample (see [docs/CorrectlyUsingMarkov.md](../CorrectlyUsingMarkov.md)). | writes `data/markov_models.db`, `data/tree_models.db` |
-| 5a | QQQ regime model | `./bin/daily_bars` then `./bin/train hmm` (also `train hmm compare`, `extend`, `report`, `export`) | Downloads QQQ daily bars from 2010 into `data/daily_bars.db` (replacing that symbol's history; `-dry-run` writes nothing), then fits a 3-state Gaussian hidden Markov model of daily return and 20-day realized volatility, with the newest 12 months held out (`-through`, `-holdout-months`). `extend` appends predictions with the frozen parameters and never refits. `train hmm` is not part of `train all`. Full walk-through: [docs/MarkovQQQ.md](../MarkovQQQ.md). | writes `data/daily_bars.db`, `data/hmm_models.db` |
 | 5b | Trade the QQQ regime | `./bin/backtest -strategy hmm-calm-qqq,hmm-calmdown-qqq -auto-download=false` | The `hmm` family reads the model from step 5a. `hmm-calm-qqq` is long while the stressed regime is unlikely, `hmm-calmdown-qqq` after stress eases. The model's regimes are volatility regimes, so a rule works with the stressed one (highest volatility), never a state number. QQQ hourly bars start 2024-10, so the backtest window is about two years and the held-out year is thin. The model's `hmm_symbol` is a row field, default QQQ | writes `data/reports/<run_id>/hmm.db` |
 | 7 | First backtest | `./bin/backtest -strategy streak-googl-down3,googl_tree,markov_model_googl` | Runs each idea alone: an IN-SAMPLE pass, then one OUT-OF-SAMPLE pass on the last 12 months. Tune on the in-sample numbers only. | writes `data/reports/<run_id>/` (`streak.db`, `tree.db`, `markov.db`, `report.html`, `oos/`) |
 | 8 | Look at the grid | `./bin/gridsearch params streak-googl-down3` | Prints the hold, take-profit, stop and regime grid with no simulation. | none |
 | 9 | Sweep parameters | `./bin/gridsearch -strategy streak-googl-down3 -top 20` | Sweeps hold, target, stop and regime. The sweep stops before the held-out months (`-holdout-months`, default 12) so they do not tune the result. | writes `data/reports/gridsearch.db`, `<strategy>_gridsearch.html` |
 | 10 | Promote winners | `./bin/gridsearch promote -strategy streak-googl-down3 -min-win-rate 0.6 -min-trades 30 -top 5` | Copies the best sweep rows into `streak_strategy` as new ids such as `streak-googl-down3-googl`. | writes `refdata/strategies.db` |
 | 11 | Re-run tuned | `./bin/gridsearch apply -run-id <N> -strategy streak-googl-down3` | Re-runs with the highest-resilience sweep row. Compare to step 7. | reads `gridsearch.db` |
-| 12 | Walk-forward | `./bin/validate walk -keep-going -strategy streak-googl-down3-googl,googl_tree` | Rolling 24 month train / 6 month test folds, one strategy at a time. | writes `data/reports/walk_forward.db` |
-| 13 | Overfit verdict | `./bin/validate verdict -strategy streak-googl-down3-googl,googl_tree` (or plain `validate`, which does 12 and 13 together) | Prints `HOLDS`, `DECAYS`, `CURVE_FIT` or `INSUFFICIENT` per strategy. Drop anything that is not `HOLDS`. | reads/writes `walk_forward.db` |
-| 14 | Ledger and tier | `./bin/strateval -strategy streak-googl-down3-googl`, then `strateval report` | Records in-sample and out-of-sample results and a tier A to D (A needs 12 OOS trades, win rate 0.55, drawdown under 0.15). `-optimize -max-trials 50` searches parameters inside the eval. | writes `data/reports/strategies.db` |
 | 15 | Stack it | `./bin/backtest -strategy "streak-googl-down3-googl+googl_tree+park-googl" -alloc 0.1` | Shares one cash ledger. `park-googl` (or `-default-asset GOOGL`) holds leftover cash in GOOGL and is never the primary. | writes `data/reports/<run_id>/stack.db` |
 | 16 | Find complements | `./bin/backtest stack -primary streak-googl-down3-googl -secondary "googl_tree,markov_model_googl,park-sgov" -stack-depth 3` | Ranks each secondary as an idle-cash overlay, then builds the greedy stack. Rank finalists by Calmar and max drawdown. Beat [docs/omnifunds_benchmark.md](../research/omnifunds_benchmark.md). | writes `data/reports/stack_eval_<primary>.db` |
-| 17 | Park-symbol sweep (optional) | `./bin/park_sweep -strategy <ids> seed`, `run`, `rank`, `report` | Runs the listed `streak_strategy` and `markov_strategy` rows (all rows without `-strategy`) with leftover cash parked in GOOGL and ranks them. | writes `data/reports/park_googl.db`, `park_googl.html` |
 | 18 | Options overlay (optional) | `./bin/market_history -source polygon-options -symbols GOOGL`, then `./bin/backtest covered-call -symbol GOOGL` | Compares holding GOOGL with selling a monthly call. | writes `option_*` tables; prints to stdout |
 | 19 | Rank everything | `./bin/scoreboard -strategy <ids>`, `scoreboard status -strategy <ids>` | Backtests the listed strategies (all registered ones without `-strategy`) that lack a result and ranks them. | writes `data/reports/scoreboard.db` |
 | 20 | Keep fresh | `./bin/backtest stale` and `./bin/gridsearch stale` | Lists results made stale by new bars or edited SQL. Rerun steps 1, 5, 7 for those. | none |
@@ -147,7 +141,6 @@ Backtests, grid searches, walk-forward folds and stacks (with or without a parke
 
 Each stored run records its engine in `runs.engine` (`hourly`; none means it predates the column and was made by the old daily simulator, so `scoreboard` and `backtest` redo it). A run that traded a symbol with an unadjusted split (a close-to-close move beyond 1.8x between sessions, `sessions.SplitJumps`) records why in `runs.suspect` and is left out of `scoreboard` unless `-include-suspect`. A row that can never fill (entry limit at or below its stop) fails with that reason instead of reporting zero trades.
 
-`docs/HourlyEngineParity.md` shows what changed against the daily engine and how to measure it (`pkg/backtest/hoursim/parity_test.go`).
 
 ### check
 
@@ -408,11 +401,6 @@ Run every row of `streak_strategy` and `markov_strategy` with leftover cash park
 **Writes:** `data/reports/park_googl.db` (`sweep_config`, `park_asset`, `sweep_strategy`, `strategy_run`). Nothing is inserted into the settings tables, and no per-strategy file is written under `data/reports/`.
 
 ```bash
-./bin/park_sweep seed
-./bin/park_sweep run
-./bin/park_sweep rank
-./bin/park_sweep report
-./bin/park_sweep -strategy streak-googl-down3-googl,markov_model_googl seed   # compare only these rows; put the same -strategy on run, rank and report
 ```
 
 `-strategy a,b,c` limits seed, run, rank and report to those ids (case-insensitive). Only `streak_strategy` and `markov_strategy` ids qualify, and any other id is printed and skipped. `report` writes `data/reports/park_googl_report.db` and `data/reports/park_googl.html` from the sweep. The database holds every strategy row. The page shows the park buy-and-hold, every done streak, and the 25 Markov rows with the highest edge.
@@ -478,13 +466,6 @@ In-sample / out-of-sample ledger. It does not edit `STRATEGY_ALLOWLIST` or live 
 **Writes:** `strategies.db` (`strategies`, `strategy_evals`, `deployments`) in a run folder, `$APP_FOLDER/data/reports/<run_id>/`, unless `-db` names another file. `-run-id N` uses run N and without it an evaluation starts a new run (`report`, `status`, `path` use the latest). `report` and `status` take `-strategy` to show only those ids. Scratch artifacts under `strateval_runs/` in the same folder. Held-out window `-oos-months 12`. Capital `$100,000`. Start `2021-01-01`. Tier A gates: at least 12 OOS trades, win rate 0.55, max drawdown 0.15.
 
 ```bash
-./bin/strateval -list
-./bin/strateval -strategy streak-voo-buy-tecl
-./bin/strateval -strategy all -optimize -max-trials 50
-./bin/strateval report
-./bin/strateval status
-./bin/strateval sync-deployed -allowlist "$STRATEGY_ALLOWLIST"
-./bin/strateval path
 ```
 
 `path` prints how to open the ledger. `sync-deployed` snapshots the allowlist into `deployments`. `-sync-deployed` on an eval run does the same snapshot after the eval.
@@ -554,9 +535,6 @@ Flags: `-strategy`, `-symbols`, `-db` (market DB, default `appenv.MarketDB()`), 
 Is the strategy real or overfit? Walks it through rolling train / test folds (24 months in sample, 6 out, step 6), then prints a verdict per strategy: `HOLDS`, `DECAYS`, `CURVE_FIT`, or `INSUFFICIENT`.
 
 ```bash
-./bin/validate -keep-going -strategy streak-googl-down3,googl_tree    # folds, then the verdict
-./bin/validate walk -strategy streak-googl-down3                       # only the folds
-./bin/validate verdict -run-id 12 -strategy streak-googl-down3         # only the verdict, from run 12
 ```
 
 **Reads:** `data/market_history_hourly.db`, table `backtest_start`.
@@ -740,10 +718,6 @@ One command for tidying `data/reports/`, built on `prune_losers` and `clear_olde
 Remove what does not earn its place. `-dry-run` on every mode reports without changing anything.
 
 ```bash
-./bin/prune_losers -dry-run                       # strategies whose latest backtest has win_rate < 0.5 (or no trades)
-./bin/prune_losers untrainable -dry-run           # tree strategies and models that cannot be trained before the holdout cutoff
-./bin/prune_losers orphans -dry-run                 # result-DB rows of strategies that no longer exist
-./bin/prune_losers symbols -strategy rotation-2x-sector-pairs-daily-limit95-tp3-sl3 -dry-run
 ```
 
 The first two delete rows from `refdata/strategies.db`.
@@ -765,7 +739,6 @@ The strategy is pointed at a new symbol list, the old id plus `-pruned` (`etf-2x
 Print the empirical bear / sideways / bull transition matrix and tomorrow's probabilities for GOOGL (20-day return, plus or minus 5% thresholds). No flags, no writes. See [docs/MarkovModel.md](../archive/MarkovModel.md).
 
 ```bash
-./bin/markov_test
 ```
 
 ## Stack candidates skill

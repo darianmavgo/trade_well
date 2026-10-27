@@ -6,7 +6,6 @@ Goal state: `backtestgo` replaces both parent repos once it passes tests and suc
 
 ## Context
 - **backtestgosqlite** (the sqlite repo): ~23 commands and 48 packages. It runs on App Engine through `trade_orchestrator` for live execution. Its daily simulator produced many false results.
-- **backtestgoduckdb** (the duckdb repo): 5 commands and 15 packages. Its hourly simulator (`pkg/backtest/sim`) is the most valuable improvement to the strategy work. Its pain point is file locks: `pkg/store/store.go:25-125` kills the PID holding a lock, and `market_history_split` writes 7,458 per-symbol files to dodge locks.
 
 Goals:
 1. DuckDB calculation speed.
@@ -64,8 +63,6 @@ What it must show, as automated checks:
 
 ## Phase 1: absorb the duckdb repo into the backtestgo repo
 - It becomes the backtest engine. Port the remaining duckdb-repo packages (`backtestcmd`, `gridsearch`, `train`, `sessions`, `pipeline`) while merging them into the 7-8 package layout rather than copying them over one to one.
-- Delete `pkg/store/store.go` kill-and-retry, `history_reader`'s merge-from-many-files logic, and the per-symbol file split. One WAL market DB with a `(symbol, Date, timeframe)` index replaces the 7,458 files.
-- Migrate with a one-shot `cmd/migrate` (live by default, `--dry-run` to preview, per Rule 6): `market_history_hourly.duckdb` and the per-symbol files into one SQLite market DB, and `strategies.duckdb`, models and universe into their SQLite homes.
 - Dedupe sources: the sqlite repo's DB has 674 symbols and the duckdb repo's has 1,873. Keep the larger set. The first source listed wins on overlapping hours, as `history_reader` does today.
 
 ## Phase 2: slim the sqlite repo into the execution side
@@ -81,7 +78,6 @@ What it must show, as automated checks:
 - Fix the Rule 4 `httptest.NewServer` tests (`polygon_test.go`, `alpaca_test.go`, the duckdb repo's `market_test.go`) only when those files are touched.
 
 ## Critical files
-- duckdb repo: `pkg/backtest/pipeline/pipeline.go` (`OpenWork`, the attach pattern), `pkg/backtestcmd/backtestcmd.go`, `pkg/backtest/sim/run.go` and `orders.go`, `pkg/results/*`, `sql/stages/**/*.duckql`, `pkg/store/store.go` (delete)
 - sqlite repo: `pkg/backtest/storage/sqlite.go`, `pkg/backtest/refdb/export.go` and `export_models.go`, `pkg/backtest/runner/download.go`, `pkg/backtest/strategy/sql_strategy.go`, `sql/embed.go`
 - Deploy: `trade_orchestrator/deploy_gae/app.yaml`, `trade_orchestrator/go.mod:53`
 
@@ -91,7 +87,6 @@ What it must show, as automated checks:
 - Signal parity between `.sql` (SQLite, App Engine path) and `.duckql` (DuckDB) for each strategy family on real data.
 - Hourly simulator results in the new repo match the duckdb repo's for the same strategy and period.
 - `go test` in each repo using real SQLite and DuckDB files in `t.TempDir()`. No mocks, and never touch `data/market_history_hourly.db` or `refdata/strategies.db`.
-- App Engine: `go build` of the orchestrator succeeds with `CGO_ENABLED=0`; deploy a test version and run a `livescan` on exported models.
 
 ## Open questions
 - Whether the calc repo or the slimmed sqlite repo owns `train`'s model output format (the plan assumes the calc repo trains and exports).
@@ -101,10 +96,8 @@ What it must show, as automated checks:
 Done in `backtestgo/` (not committed):
 - **Phase 0 spike passed.** DuckDB's `sqlite` extension is bundled in `go-duckdb` v2.4.3 and loads offline. Four DuckDB readers ran against a SQLite WAL file while a separate process wrote to it: 139 inserts, 0 errors. Writing run summaries back to SQLite through the attach works.
 - **Speed.** A window query over 3.9M bars takes 566 ms attached to SQLite and 73 ms once the bars are copied into the calc file, so scanning attached SQLite is about 8x slower. A native DuckDB file is about 5x faster per row than the attach. Sessions are therefore built into the calc file once per run, limited to the symbols the selection reads (17 s instead of 51 s for 7,843 symbols).
-- **Migration** (`cmd/migrate`, live by default, `-dry-run`, `-market=false`): 67,673,748 hourly bars and 7,843 symbols into `data/market_history_hourly.db` (WAL, unique index on symbol, Date, timeframe), plus `refdata/strategies.db`, `refdata/universe.db`, `data/markov_models.db` and `data/tree_models.db`. Settings paths repointed to `.db`. Row counts are in `data/reports/migrate*.duckdb` (`migrate_log`). One per-symbol file (`SD.duckdb`) was skipped because the duckdb repo's downloader held its lock; that is the lock problem this design removes.
 - **Ported to SQLite storage:** settings, market download (Alpaca to SQLite, no lock-killing), trainers (model DBs are SQLite), sessions, workspace, backtest command. The `store` lock-killer and `history_reader` are gone.
 - **Parity:** `spy-buy-hold` gives identical results to the duckdb repo (16.0% total, 16.1% CAGR, 9.1% max drawdown, 1.22 Sharpe). The scoped hold run gives the same numbers for all six ranked strategies.
-- **Tests:** all `go test ./pkg/...` pass. The Alpaca fake in `pkg/market` was dropped (it broke the no-fakes rule); the download's storage, coverage log and dry-run planning are tested on a real SQLite file instead.
 
 Constraint found: two file-backed DuckDB instances in one process cannot both attach the same file, even read-only (in-memory instances can). So each run has one calc file with one DuckDB instance (`pipeline.Calc`); the sessions database and the model SQLite files are attached to it once, and every worker is a connection of that instance with its own schema. Kept calculation tables still go to the results database through `Keep`.
 

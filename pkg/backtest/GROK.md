@@ -27,7 +27,6 @@ go test ./pkg/backtest/strategy -run TestName              # one test
 
 - No shared or lasting scratch tables. A pipeline's slice and signal tables live in one strategy's own scratch database, created fresh for each run (`runner.freshCalcDB`), and are never shared between strategies or kept between runs. Stage SQL must not rely on `CREATE TABLE IF NOT EXISTS` or `CREATE TABLE ... AS` to reuse a table that an earlier run or another strategy may have filled: that returns someone else's rows as this strategy's signals (it made every markov strategy in a scan report the first one's entry). A new scan or run path must give each strategy its own calc database and delete the old file first. Anything worth keeping (a trace, a prediction) goes to a named table in a real database.
 
-- Backtests run on the hourly simulator: `pkg/backtest/hoursim` converts the signals, config and bars and calls `pkg/backtest/sim` (the engine, with a parked leftover-cash book, `sim.Park`). It is the only simulator: the daily-range one (`pkg/simulator`) is deleted, and a strategy that needs margin, ATR stops, Kelly sizing or dividends is refused with that reason (`hoursim.Supported`). Every stored run records its engine in `runs.engine` (`storage.EngineHourly`); a run with none predates the column and was made by the old daily simulator, so its same-session fills and exits are suspect and bulk commands redo it. Rows on a symbol with an unadjusted split (`sessions.SplitJumps`) are flagged in `runs.suspect` and left out of `scoreboard` unless `-include-suspect`. With no hourly bars a session is played as its daily bar (one bar, so nothing exits on the bar that entered it) and `hoursim` reports which sessions.
 
 - `cmd/<name>/main.go` is a thin main that calls `pkg/<name>.Main` / `Run`. Flags, defaults and logic live in `pkg/<name>` so tests call `Run` without `os.Args`. Follow `pkg/backtest/backtest/main.go` and `pkg/backtest/livescan/main.go`.
 - `pkg/backtest/strategy` holds the `Strategy` interface and registry (`Register`, `RegisterAlias`, `Get`; lookup is case- and punctuation-insensitive). Keys differ by `-`/`_`, so do not add a second id that normalizes to an existing one.
@@ -41,7 +40,7 @@ go test ./pkg/backtest/strategy -run TestName              # one test
 
 ## Adding or changing a strategy
 
-1. Implement `strategy.Strategy` in `pkg/strategy/<id>.go` and register it (see `price_action_reclaim.go` for the newest example).
+1. Implement `strategy.Strategy` in `pkg/backtest/strategy/<id>.go` and register it (see `price_action_reclaim.go` for the newest example).
 2. Put the signal math in `sql/strategies/<id>/` as ordered files (`01_schema.sql`, `02_calc_....sql`, ...), one stage per file, each writing a slice table. `GenerateSignals` runs them in name order.
 3. The output table needs `idx, symbol, date, open, high, low, close, volume, buylimit, entry`; rows with `entry = 1` become entries. See `sql/strategies/README.md`.
 4. Add a test using a real temp SQLite DB with literal bars. No mocks or fakes.
