@@ -683,7 +683,14 @@ func runOnce(conf Config) error {
 	// Detect missing market data and download before running backtest (scoped to
 	// what we're actually about to run).
 	if err := runner.DetectAndDownloadMissingData(conf.Db, conf.Table, toRun, conf.Symbol, conf.AutoDownload, conf.DownloadYears); err != nil {
-		return fmt.Errorf("Market data resolution error: %v", err)
+		// One strategy with no bars for its symbol would otherwise stop a bulk run: skip those.
+		have, lacking, missing, serr := runner.SplitByData(conf.Db, conf.Table, toRun, conf.Symbol)
+		if len(toRun) < 2 || serr != nil || len(lacking) == 0 || len(have) == 0 {
+			return fmt.Errorf("Market data resolution error: %v", err)
+		}
+		fmt.Printf("⚠️  Market data: %v\n   Skipping %d strategies that need %d symbols with no bars (%s); running the other %d.\n\n",
+			err, len(lacking), len(missing), strings.Join(firstN(missing, 8), " "), len(have))
+		toRun = have
 	}
 
 	// Open read-only historical bars from source DB
@@ -959,4 +966,12 @@ func reliabilityTitle(conf Config, strat strategy.Strategy) string {
 		title += ", " + conf.phase
 	}
 	return title + ")"
+}
+
+// firstN returns at most n of s, with "..." in place of the rest.
+func firstN(s []string, n int) []string {
+	if len(s) <= n {
+		return s
+	}
+	return append(append([]string{}, s[:n]...), "...")
 }

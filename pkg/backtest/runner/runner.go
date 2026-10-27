@@ -680,6 +680,55 @@ func ScopedSymbols(strategies []strategy.Strategy, symbolFilter string) ([]strin
 	return RequiredSymbolsFor(strategies, symbolFilter), true
 }
 
+// missingFrom returns, sorted, the symbols of set that have no bar at all in table: an indexed
+// existence check per symbol.
+func missingFrom(db *sqlx.DB, table string, set map[string]struct{}) []string {
+	var missing []string
+	for sym := range set {
+		var have int
+		if err := db.Get(&have, fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE symbol = ?)", table), sym); err != nil || have == 0 {
+			missing = append(missing, sym)
+		}
+	}
+	sort.Strings(missing)
+	return missing
+}
+
+// SplitByData separates the strategies whose symbols all have bars in table from those that need
+// a symbol with none. A bulk run uses it to skip what it cannot test instead of failing as a whole.
+// missing lists the symbols with no bars, sorted. A strategy that names no symbols is kept.
+func SplitByData(targetDb, table string, strategies []strategy.Strategy, symbolFilter string) (have, lacking []strategy.Strategy, missing []string, err error) {
+	db, err := storage.OpenSQLite(targetDb)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to open database %s: %w", targetDb, err)
+	}
+	defer db.Close()
+	set := map[string]struct{}{}
+	for _, sym := range RequiredSymbolsFor(strategies, symbolFilter) {
+		set[sym] = struct{}{}
+	}
+	missing = missingFrom(db, table, set)
+	gone := make(map[string]bool, len(missing))
+	for _, sym := range missing {
+		gone[sym] = true
+	}
+	for _, s := range strategies {
+		lack := false
+		for _, sym := range RequiredSymbolsFor([]strategy.Strategy{s}, symbolFilter) {
+			if gone[sym] {
+				lack = true
+				break
+			}
+		}
+		if lack {
+			lacking = append(lacking, s)
+		} else {
+			have = append(have, s)
+		}
+	}
+	return have, lacking, missing, nil
+}
+
 func DetectAndDownloadMissingData(
 	targetDb string,
 	tableName string,
@@ -716,15 +765,7 @@ func DetectAndDownloadMissingData(
 		}
 	}
 
-	// A symbol is missing when it has no bar at all: an indexed existence check.
-	var missingSymbols []string
-	for sym := range requiredSet {
-		var have int
-		if err := db.Get(&have, fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE symbol = ?)", tableName), sym); err != nil || have == 0 {
-			missingSymbols = append(missingSymbols, sym)
-		}
-	}
-	sort.Strings(missingSymbols)
+	missingSymbols := missingFrom(db, tableName, requiredSet)
 
 	db.Close() // Close before spawning download process
 
