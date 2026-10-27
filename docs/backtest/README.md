@@ -41,10 +41,8 @@ Each command is one stage and answers one question. Run them left to right, or r
 | Is it real or overfit: walk-forward folds plus a verdict per strategy | `validate` |
 | In-sample / out-of-sample ledger with tiers A to D | `strateval` |
 | Rank every registered strategy, or a list | `scoreboard` |
-| Score existing backtest trades by the SPY Markov regime at entry (bull / sideways / bear) | `regime_score` |
 | Live signal scan for the next session | `livescan` |
 | Research studies (clustering, HMM regimes, lead/lag, decision trees) | `study` |
-| Report on an IBKR transaction CSV | `transaction_calc` |
 | Covered-call simulation | `backtest covered-call` |
 
 ### Strategies
@@ -68,8 +66,6 @@ The search that produced the current numbers, in order:
 4. `backtest stack` over the survivors for several primaries and `-alloc` sizes.
 5. Re-run the frozen stacks on the held-out year with `-start`.
 
-Shortcut for steps 4 and 5: `./bin/stackopt -candidates-file ids.txt -max-dd 0.10` picks sleeves one at a time by the stack's own CAGR while the stack's max drawdown stays under `-max-dd`, selecting on data before the holdout (`-holdout-months`, default 12), then runs the held-out months once. It writes `<run>/stack.db` and `<run>/oos/stack.db`; `-name "My Stack"` saves the result in the `stack` table. Other flags: `-alloc`, `-capital`, `-min-gain`, `-max-sleeves`, `-start`, `-concurrency`, `-out-dir`. It drops tree strategies listed by `train check` unless `-allow-leaks` is given.
-
 `./bin/train check` lists models trained on bars after the holdout cutoff (today: trees; markov is walk-forward by construction) and saves them to `training_leak` in `data/reports/training_leaks.db`. `-fix` retrains each through the cutoff; a symbol without enough pre-cutoff history stays on the list.
 
 Every `backtest` and `backtest stack` run now does step 5 itself (see the holdout note under `backtest`). Result to date: no stack reached 79% CAGR with drawdown under 6%. Liquid stacks held a Calmar of about 4 to 8 in-sample and about 4.5 on the holdout. The benchmark to beat is in [docs/omnifunds_benchmark.md](../research/omnifunds_benchmark.md).
@@ -89,7 +85,6 @@ Every command in this repo, in the order you use them to take one idea from raw 
 | 5 | Train models | `./bin/train markov GOOGL` and `./bin/train tree GOOGL` | Fits the Markov regime table and the depth-3 tree that `markov_model_googl` and `googl_tree` read. `streak` and `hold` have nothing to train. Use `-through <date>` on `markov` or `tree` to keep later months out of sample (see [docs/CorrectlyUsingMarkov.md](../CorrectlyUsingMarkov.md)). | writes `data/markov_models.db`, `data/tree_models.db` |
 | 5a | QQQ regime model | `./bin/daily_bars` then `./bin/train hmm` (also `train hmm compare`, `extend`, `report`, `export`) | Downloads QQQ daily bars from 2010 into `data/daily_bars.db` (replacing that symbol's history; `-dry-run` writes nothing), then fits a 3-state Gaussian hidden Markov model of daily return and 20-day realized volatility, with the newest 12 months held out (`-through`, `-holdout-months`). `extend` appends predictions with the frozen parameters and never refits. `train hmm` is not part of `train all`. Full walk-through: [docs/MarkovQQQ.md](../MarkovQQQ.md). | writes `data/daily_bars.db`, `data/hmm_models.db` |
 | 5b | Trade the QQQ regime | `./bin/backtest -strategy hmm-calm-qqq,hmm-calmdown-qqq -auto-download=false` | The `hmm` family reads the model from step 5a. `hmm-calm-qqq` is long while the stressed regime is unlikely, `hmm-calmdown-qqq` after stress eases. The model's regimes are volatility regimes, so a rule works with the stressed one (highest volatility), never a state number. QQQ hourly bars start 2024-10, so the backtest window is about two years and the held-out year is thin. The model's `hmm_symbol` is a row field, default QQQ | writes `data/reports/<run_id>/hmm.db` |
-| 6 | Pick a list | `./bin/stratlist sql/lists/<file>.sql` | Turns a SELECT on `strategies.db` into ids, for example every strategy whose signal symbol is GOOGL. Feed it to `backtest -strategy "$(...)"`. | reads `refdata/strategies.db` |
 | 7 | First backtest | `./bin/backtest -strategy streak-googl-down3,googl_tree,markov_model_googl` | Runs each idea alone: an IN-SAMPLE pass, then one OUT-OF-SAMPLE pass on the last 12 months. Tune on the in-sample numbers only. | writes `data/reports/<run_id>/` (`streak.db`, `tree.db`, `markov.db`, `report.html`, `oos/`) |
 | 8 | Look at the grid | `./bin/gridsearch params streak-googl-down3` | Prints the hold, take-profit, stop and regime grid with no simulation. | none |
 | 9 | Sweep parameters | `./bin/gridsearch -strategy streak-googl-down3 -top 20` | Sweeps hold, target, stop and regime. The sweep stops before the held-out months (`-holdout-months`, default 12) so they do not tune the result. | writes `data/reports/gridsearch.db`, `<strategy>_gridsearch.html` |
@@ -105,8 +100,9 @@ Every command in this repo, in the order you use them to take one idea from raw 
 | 19 | Rank everything | `./bin/scoreboard -strategy <ids>`, `scoreboard status -strategy <ids>` | Backtests the listed strategies (all registered ones without `-strategy`) that lack a result and ranks them. | writes `data/reports/scoreboard.db` |
 | 20 | Keep fresh | `./bin/backtest stale` and `./bin/gridsearch stale` | Lists results made stale by new bars or edited SQL. Rerun steps 1, 5, 7 for those. | none |
 | 21 | Go live | `./bin/livescan -strategy streak-googl-down3-googl,googl_tree -json` | Signals for the next session from the last completed bar. `ENTER` means buy next session. `trade_orchestrator` consumes the JSON. | writes `data/reports/livescan.db` |
-| 22 | Check real trades | `./bin/transaction_calc -in data/<ibkr export>.csv` | Builds the same performance report from your broker CSV, so live results can be compared to the backtest. | writes `data/reports/<date>/<csv>.html` |
 | 23 | Rank in bulk | the `stack-candidates` skill | Runs `train`, `backtest`, `gridsearch` and `strateval` for all families and reports the top 20 to stack. See [Stack candidates skill](#stack-candidates-skill). | uses all of the above |
+
+Steps 6 and 22 were the `stratlist` and `transaction_calc` commands, which were removed; the other numbers are unchanged so references to them stay valid.
 
 Notes:
 
@@ -235,7 +231,6 @@ Every run prints the database it reads bars from, with size and last update, rig
 ./bin/backtest -family rotation                 # every row of one family: streak, hold, tree, markov, hmm, rotation (same as -strategy rotation; not combinable with -strategy)
 ./bin/backtest -strategy markov                 # every row of one family: streak, hold, tree or markov
 ./bin/backtest -strategy markov -run-id 7       # continue run 7: strategies already done in it are skipped
-./bin/backtest -strategy "$(./bin/stratlist -comma sql/lists/sample_100_per_table.sql)"
 ./bin/backtest -primary streak-voo-buy-tecl -secondary mara_tree,pdd_tree -capital 100000
 ./bin/backtest streak-voo-buy-tecl+mara_tree
 ./bin/backtest -alloc 0.10 streak-voo-buy-tecl+mara_tree+pdd_tree
@@ -534,7 +529,7 @@ Runs every stage for a set of stocks as one controlled run: download the bars, t
 | `-steps`, `-skip`, `-redo` | all steps | which steps run, and rerun finished ones |
 | `-skip-network` | off | leave out the downloading steps |
 
-`scripts/googl_pipeline.sh` is a one-line wrapper for `pipeline -symbol GOOGL`. Not yet in the pipeline: `markov_test` (its logic is still in `cmd/`) and `universe`, `transaction_calc` and `livescan`, which are not part of building a strategy. `hmm_regime.db` is still written to `data/reports/` and shared between runs, because the `markov_hmm` strategies read it from there. `park_sweep` uses its own configured park symbol (GOOGL).
+`scripts/googl_pipeline.sh` is a one-line wrapper for `pipeline -symbol GOOGL`. Not yet in the pipeline: `markov_test` (its logic is still in `cmd/`) and `universe` and `livescan`, which are not part of building a strategy. `hmm_regime.db` is still written to `data/reports/` and shared between runs, because the `markov_hmm` strategies read it from there. `park_sweep` uses its own configured park symbol (GOOGL).
 
 ## backtest export_views
 
@@ -553,21 +548,6 @@ With `-strategy <id>` the views are that strategy's own signal pipeline (`sql/st
 Without `-strategy` the views are the shared indicators (definitions in `sql/views/`): `v_daily_bars`, `v_bar_sma`, `v_streak_diff` / `v_streak_group` / `v_streak_slice`, `v_tree_base` / `v_tree_chg` / `v_tree_win` / `v_tree_features`, `v_avg_volume` (20, 50 and 200 sessions), `v_session_ratio` / `v_split_jumps`. Filter by `symbol`: every window partitions by symbol alone so SQLite searches the index.
 
 Flags: `-strategy`, `-symbols`, `-db` (market DB, default `appenv.MarketDB()`), `-db-out` (default `auto`: `data/reports/views.db`, or `<id>.db` with `-strategy`; `none` skips it), `-sql-out` (the script; same `auto` and `none`), `-dry-run`. An existing `-db-out` file is replaced.
-
-## runview
-
-A local, read-only browser for a run folder: the pipeline steps with their status and timings, every result database with its tables (sort, per-column filter, search across all columns, paging, CSV export), the HTML reports, and a SQL box. The newest run opens first, and a run still in progress refreshes its steps every few seconds.
-
-```bash
-./bin/runview                      # opens http://127.0.0.1:8765 on the newest run
-./bin/runview -root data/reports -addr 127.0.0.1:9000 -open=false
-```
-
-Databases are opened with `mode=ro` and `query_only`, and the SQL box accepts only `SELECT`, `WITH` and `EXPLAIN`, so a run in progress is never touched. It reads only the numbered folders under `-root` and refuses any path outside the run folder. It has no login: keep `-addr` on `127.0.0.1`. The page address holds the run, file and table (`#22/scoreboard.db/scoreboard`), so a view can be bookmarked. **Strategy view.** Click any `strategy_id` cell, or type an id in the header box, to see one strategy's whole story: its definition from `refdata/strategies.db` (`-ref`), the current definition against any swept config side by side with the changed parameters highlighted (click a row of the sweep table to compare it), every parameter combination the sweep tried, the optimizer's `params_json` with in/out-of-sample results, and every other table that holds the id. The bar-level tables (`trades`, `equity_curve`, `signals`) open filtered to the strategy.
-
-**Top ETFs.** The sidebar's *Top ETFs* lists the largest ETFs (top 50 to 300) with how many strategies, and how many streak strategies, are tied to each, and how many of those are in the run. A row opens that symbol's strategies with the run's CAGR, Sharpe, drawdown, trades and win rate where it has them. The repo has no AUM or market-cap data, so "largest" is average daily dollar volume (close × volume) over the last 90 daily bars of the market database (`-db`), for the active ETFs in `refdata/universe.db` (`-universe`); leveraged funds are left out unless ticked, and common stocks the universe marks as ETFs are dropped. Replace `sql/stages/runview/01_top_etfs.sql` if you get a real AUM list.
-
-Keys: `/` jumps to search, Ctrl/Cmd+Enter runs the SQL, double-click a cell to copy it.
 
 ## validate
 
@@ -657,17 +637,6 @@ Average daily share volume (ADTV) of every symbol in the market database, over o
 Flags for `markov` and `tree` (`tree` has no `-batch`): `-db`, `-model-db`, `-ref-db`, `-symbols`, `-batch 200`, `-calc-dir` (keep the last batch's slice tables). Both take `-through <date>`, which learns only from bars up to that date so the later months stay out of sample, and `markov` also takes `-from <date>`, the first session it may learn from. With `markov -through`, later sessions are still scored, with the counts frozen at that date, and `markov_model_meta.trained_through` records it; that is the model a live scan extends, so train with the backtest's in-sample end.
 
 **`slippage_pct` (every row family).** An adverse price move applied to each fill, as a fraction of the fill price: a long entry pays `price * (1 + slippage_pct)`, and every exit (take-profit, stop, time-up, signal) sells at `price * (1 - slippage_pct)`. A short is the mirror image. It is charged once per side, so a round trip costs about twice the value. It stands in for the bid/ask spread and market impact on a limit or market fill. It is not a commission (that is `CommissionPerShare`) and not a financing cost (`cash_yield`). `0.001` is 0.1% per side. Code: `slip()` in `pkg/backtest/sim/run.go`.
-
-## stratlist
-
-Run a SELECT from a `.sql` file against `refdata/strategies.db` and print the first column (the strategy id) of each row. Duplicates and blanks are dropped; the DB is opened query-only. Examples are in `sql/lists/`.
-
-```bash
-./bin/stratlist sql/lists/sample_100_per_table.sql          # one id per line
-./bin/backtest -strategy "$(./bin/stratlist -comma sql/lists/sample_100_per_table.sql)"
-```
-
-Flags: `-db` (default `refdata/strategies.db`), `-sql` (or give the file as the first argument), `-comma`.
 
 ## strategy
 
@@ -790,27 +759,6 @@ Take the losing names out of a rotation strategy's symbol list. A name is a lose
 The strategy is pointed at a new symbol list, the old id plus `-pruned` (`etf-2x-sector-pairs` becomes `etf-2x-sector-pairs-pruned`). The list it used is not changed, because other strategies may use it. A strategy with a literal ticker list has the names removed from that list. Run the strategy's `backtest` again to see the effect; the result files of the earlier run still hold the removed names, and the command prints the table it decided from.
 
 ---
-
-## transaction_calc
-
-Turn an Interactive Brokers transaction-history CSV into the same performance report the backtester uses.
-
-**Writes:** `data/reports/<YYYY-MM-DD>/<csv name>.html`.
-
-```bash
-./bin/transaction_calc -in data/U22262325.TRANSACTIONS.1Y.csv
-```
-
-### transaction_calc account
-
-Rebuild the account day by day and measure it like a claimed performance table. Reads the statement, optionally a tab-separated claimed table (`Timeframe`, `Total`, `CAR`, `Max Drawdown`, `Calmar Ratio`, `Avg CAR`, `Avg MDD`, `Avg Trades/Year`), and the daily bars in the market database.
-
-```bash
-./bin/transaction_calc account -in data/U22262325.TRANSACTIONS.1Y.csv \
-  -claim "data/ibkr_claim_performance_nas100,TopTech&RUSS3000.txt" -db data/ibkr_2025oct_2026_oct.db
-```
-
-**Writes** to `-db`: `ibkr_transactions` (the statement rows), `claimed_performance`, and slice tables from `sql/stages/ibkr_account` in order: `ibkr_calendar`, `ibkr_cash_running`, `ibkr_position_daily`, `ibkr_equity_daily`, `ibkr_return_daily` (time-weighted, deposits and withdrawals are not returns), `ibkr_actual_performance` and `ibkr_claim_vs_actual`. Fills priced on an old split basis are put on the bars' basis, and a symbol with no bars is marked at its last fill. `-market-db` and `-calendar` (default VOO) choose the bars and the trading days. See [docs/OneYearComparison.md](../research/OneYearComparison.md) for the comparison it produced.
 
 ## markov_test
 

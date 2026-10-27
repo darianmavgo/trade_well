@@ -48,8 +48,8 @@ const (
 	InLine     = "IN_LINE"
 )
 
-// file returns one of this package's SQL files, sql/orchestrator/trade_history/<name>.sql.
-func file(name string) string { return orchestratorsql.Q("trade_history/" + name) }
+// file returns one of this package's stage files, sql/orchestrator/trade_history/<name>.sql.
+func file(name string) string { return orchestratorsql.File("trade_history", name) }
 
 // statement is a one-statement file without its leading comment lines, so it can be sent as it is.
 func statement(name string) string {

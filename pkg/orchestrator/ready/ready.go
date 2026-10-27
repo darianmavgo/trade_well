@@ -125,16 +125,12 @@ func sqlFilesCheck() Check {
 		c.Status, c.Detail = Bad, err.Error()
 		return c
 	}
-	orch := sqlfiles.Sub("orchestrator")
-	var files, packages int
-	err = fs.WalkDir(orch, ".", func(path string, d fs.DirEntry, err error) error {
+	var files int
+	err = fs.WalkDir(sqlfiles.Sub("orchestrator"), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		switch {
-		case d.IsDir() && path != ".":
-			packages++
-		case strings.HasSuffix(path, ".sql"):
+		if !d.IsDir() && strings.HasSuffix(path, ".sql") {
 			files++
 		}
 		return nil
@@ -145,10 +141,10 @@ func sqlFilesCheck() Check {
 	}
 	if _, err := fs.Stat(sqlfiles.FS, "stages"); err != nil {
 		c.Status = Warn
-		c.Detail = fmt.Sprintf("sql folder %s: %d orchestrator SQL files in %d package folders, but no stages/ folder for the backtest layer's SQL", root, files, packages)
+		c.Detail = fmt.Sprintf("sql folder %s: %d orchestrator SQL files, but no stages/ folder for the backtest layer's SQL", root, files)
 		return c
 	}
-	c.Detail = fmt.Sprintf("sql folder %s: %d orchestrator SQL files in %d package folders, and the backtest layer's SQL", root, files, packages)
+	c.Detail = fmt.Sprintf("sql folder %s: %d orchestrator SQL files, and the backtest layer's SQL", root, files)
 	return c
 }
 

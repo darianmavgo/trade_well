@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	orchestratorsql "github.com/darianmavgo/trade_well/sql/orchestrator"
 )
 
 // dynamicSQL lists the files that still build SQL text in Go, with how many statements each builds.
@@ -117,15 +119,22 @@ func TestOrchestratorSQLLivesInFiles(t *testing.T) {
 	}
 }
 
-// Every orchestratorsql.Q("<package>/<name>") in the code names a file that exists, and every file in
-// sql/orchestrator is read by something. A typo in a name would otherwise show only when that
-// statement first runs on a live instance. A package that reads its folder as a whole
-// (orchestratorsql.Dir, or Q with a name built at run time) counts all of its files as read.
-func TestEveryOrchestratorSQLFileExistsAndIsRead(t *testing.T) {
+// What the code reads and what is on disk agree, in both directions. A name in the code with no SQL
+// behind it would otherwise fail only when that statement first runs on a live instance, and SQL
+// nothing reads is clutter.
+//
+//	orchestratorsql.Q("<package>/<name>")   needs a "-- name: <name>" block in sql/orchestrator/<package>.sql,
+//	                                        and every block must be read by some Q
+//	orchestratorsql.File("<package>", n)    needs sql/orchestrator/<package>/<n>.sql
+//	orchestratorsql.Dir("<package>")        reads the whole folder, so all of its files count as read
+//
+// A File whose name is not a literal (a helper that takes the name) counts its package's whole folder as read.
+func TestEveryOrchestratorSQLNameExistsAndIsRead(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
 	fset := token.NewFileSet()
-	named := map[string]string{} // "<package>/<name>" -> where it is read
-	wholePackage := map[string]bool{}
+	statements := map[string]string{} // "<package>/<name>" -> where it is read
+	stageFiles := map[string]string{} // "<package>/<name>" -> where it is read
+	wholeFolder := map[string]bool{}
 	for _, dir := range []string{"pkg/orchestrator", "cmd/orchestrator"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
@@ -151,18 +160,35 @@ func TestEveryOrchestratorSQLFileExistsAndIsRead(t *testing.T) {
 					return true
 				}
 				where := fset.Position(call.Pos()).String()
-				switch arg := call.Args[0].(type) {
-				case *ast.BasicLit:
-					name, _ := strconv.Unquote(arg.Value)
-					if sel.Sel.Name == "Dir" {
-						wholePackage[name] = true
-					} else {
-						named[name] = where
+				lit := func(e ast.Expr) (string, bool) {
+					b, ok := e.(*ast.BasicLit)
+					if !ok {
+						return "", false
 					}
-				case *ast.BinaryExpr: // "<package>/" + name: the package is read by name at run time
-					if lit, ok := arg.X.(*ast.BasicLit); ok {
-						prefix, _ := strconv.Unquote(lit.Value)
-						wholePackage[strings.TrimSuffix(prefix, "/")] = true
+					v, err := strconv.Unquote(b.Value)
+					return v, err == nil
+				}
+				switch sel.Sel.Name {
+				case "Q":
+					if name, ok := lit(call.Args[0]); ok {
+						statements[name] = where
+					}
+				case "Dir":
+					if pkg, ok := lit(call.Args[0]); ok {
+						wholeFolder[pkg] = true
+					}
+				case "File":
+					if len(call.Args) < 2 {
+						return true
+					}
+					pkg, ok := lit(call.Args[0])
+					if !ok {
+						return true
+					}
+					if name, ok := lit(call.Args[1]); ok {
+						stageFiles[pkg+"/"+name] = where
+					} else {
+						wholeFolder[pkg] = true
 					}
 				}
 				return true
@@ -173,20 +199,52 @@ func TestEveryOrchestratorSQLFileExistsAndIsRead(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+
 	var problems []string
-	for name, where := range named {
-		if _, err := fs.Stat(osDir(root), filepath.ToSlash(filepath.Join("sql", "orchestrator", name+".sql"))); err != nil {
+	sqlRoot := filepath.Join(root, "sql", "orchestrator")
+	have := map[string]bool{} // "<package>/<name>" of every block on disk
+	entries, err := os.ReadDir(sqlRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".sql") {
+			continue
+		}
+		pkg := strings.TrimSuffix(e.Name(), ".sql")
+		names, err := orchestratorsql.Names(pkg)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("sql/orchestrator/%s.sql: %v", pkg, err))
+			continue
+		}
+		for _, n := range names {
+			have[pkg+"/"+n] = true
+			if _, read := statements[pkg+"/"+n]; !read {
+				problems = append(problems, fmt.Sprintf("sql/orchestrator/%s.sql: the statement %q is read by nothing", pkg, n))
+			}
+		}
+	}
+	for name, where := range statements {
+		if !have[name] {
+			problems = append(problems, fmt.Sprintf("%s reads the statement %s, which is not in sql/orchestrator", where, name))
+		}
+	}
+	for name, where := range stageFiles {
+		if _, err := os.Stat(filepath.Join(sqlRoot, filepath.FromSlash(name)+".sql")); err != nil {
 			problems = append(problems, fmt.Sprintf("%s reads sql/orchestrator/%s.sql, which does not exist", where, name))
 		}
 	}
-	err := filepath.WalkDir(filepath.Join(root, "sql", "orchestrator"), func(path string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(sqlRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".sql") {
 			return err
 		}
-		rel, _ := filepath.Rel(filepath.Join(root, "sql", "orchestrator"), path)
+		rel, _ := filepath.Rel(sqlRoot, path)
 		rel = filepath.ToSlash(rel)
-		pkg := strings.Split(rel, "/")[0]
-		if _, ok := named[strings.TrimSuffix(rel, ".sql")]; !ok && !wholePackage[pkg] {
+		parts := strings.Split(rel, "/")
+		if len(parts) == 1 { // <package>.sql: its statements were checked above
+			return nil
+		}
+		if _, read := stageFiles[strings.TrimSuffix(rel, ".sql")]; !read && !wholeFolder[parts[0]] {
 			problems = append(problems, fmt.Sprintf("sql/orchestrator/%s is read by nothing", rel))
 		}
 		return nil
@@ -196,8 +254,6 @@ func TestEveryOrchestratorSQLFileExistsAndIsRead(t *testing.T) {
 	}
 	if len(problems) > 0 {
 		sort.Strings(problems)
-		t.Fatalf("orchestrator SQL files and the code that reads them disagree:\n%s", strings.Join(problems, "\n"))
+		t.Fatalf("orchestrator SQL and the code that reads it disagree:\n%s", strings.Join(problems, "\n"))
 	}
 }
-
-func osDir(root string) fs.FS { return os.DirFS(root) }

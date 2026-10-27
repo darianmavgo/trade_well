@@ -1,6 +1,0 @@
-CREATE TABLE IF NOT EXISTS appserve (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  event TEXT,
-  detail TEXT,
-  occurred_at TIMESTAMP
-);

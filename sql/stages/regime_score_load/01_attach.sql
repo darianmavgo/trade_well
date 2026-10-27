@@ -1,1 +1,0 @@
-ATTACH DATABASE '__SRC_URI__' AS src

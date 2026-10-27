@@ -1,5 +1,0 @@
-CREATE TABLE IF NOT EXISTS dashboard (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  port TEXT,
-  started_at TIMESTAMP
-);

@@ -53,8 +53,6 @@ Rule 1 says not to add to `pkg/backtest/study/*` and to move calculation into SQ
 
 | Sev | Code | Violation | Fix |
 |---|---|---|---|
-| Medium | `pkg/backtest/transaction_calc/calc.go:24-240` | FIFO lot matching, commission allocation, hold days, return percent and a synthetic equity curve all computed in Go from the CSV. | Load the CSV into a table, then match lots and build the curve in SQL stages. |
-| Low | `cmd/transaction_calc/main.go` (99 lines), `cmd/markov_test/main.go` (152 lines) | Logic in `cmd/`, which breaks the thin-wrapper rule (Rule 2). `markov_test` also computes its transition matrix in Go (`stateName`, counting loop). | Move into `pkg/`; compute the matrix from the SQL `markov_train` stages. |
 | Low | `pkg/backtest/universe/universe.go` | Classification of leverage, direction and category is Go string matching over Polygon results. | Store the raw Polygon rows and classify with a SQL `CASE` stage. |
 | Low | `pkg/backtest/park_sweep/rank.go`, `report.go` | Ranking and page assembly in Go; the data is read back from SQLite. | Rank with SQL `ORDER BY` into a result table. |
 | Low | `pkg/backtest/scoreboard/main.go` | Ranking in Go over result DBs. | Same. |
@@ -73,4 +71,3 @@ The Strategy `Name()` and `Description()` text, config validation (`ValidateRow`
 2. Move `analytics` metrics to SQL and remove the duplicate CAGR in the simulator.
 3. HMM regime labels to SQL.
 4. Covered-call overlay to SQL.
-5. `transaction_calc` and `markov_test` out of `cmd/`.

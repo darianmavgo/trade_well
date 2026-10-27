@@ -434,11 +434,18 @@ go run ./cmd/validate verdict -db reports/walk_forward.db -min-oos-trades 8 -tri
 
 ### Where the SQL lives
 
-All SQL that is specific to the orchestrator is in `sql/orchestrator/<package>/<name>.sql`, one statement or stage per file, where `<package>` is the `pkg/orchestrator` package that runs it. A package reads it by name: `orchestratorsql.Q("manage_exits/close_active_trade")`, or `orchestratorsql.Dir("<package>")` for a script of stages. The backtest layer's SQL stays in `sql/stages`, `sql/strategies` and the other folders beside it.
+All SQL that is specific to the orchestrator is under `sql/orchestrator`, named for the `pkg/orchestrator` package that runs it, in two shapes (the second only where a package has a script of stages or views):
+
+| Shape | Where | Read with |
+|---|---|---|
+| The package's statements | `sql/orchestrator/<package>.sql`, one block per statement, each starting with a `-- name: <name>` line | `orchestratorsql.Q("<package>/<name>")` |
+| A script of stages, or views | `sql/orchestrator/<package>/<file>.sql`, one file per stage, run in name order | `orchestratorsql.Dir("<package>")` or `orchestratorsql.File("<package>", "<file>")` |
+
+For example `orchestratorsql.Q("manage_exits/close_active_trade")` is the block `close_active_trade` in `sql/orchestrator/manage_exits.sql`. The backtest layer's SQL stays in `sql/stages`, `sql/strategies` and the other folders beside it. There are 77 files in all: one statements file for each of 29 packages, plus the stage and view files of `live_vs_backtest_winrate`, `live_vs_backtest_sync` and `trade_history`.
 
 The SQL is **read from files, not embedded in the binary**, so editing a file takes effect on the next run. There is one rule for finding it (`sql/sqlfiles.go`): the folder named `sql` in the working directory or the nearest parent that has one. A laptop run from the repository, a test (which runs inside the repository) and a deployed App Engine instance (whose working directory holds the uploaded source) all satisfy it, with no environment variable and no other place searched. When there is no such folder the process says so and stops, for example `cannot find the sql folder: there is no folder named sql ... in the working directory /tmp or any parent`, with what to do. A deploy therefore has to upload `sql/`: `.gcloudignore` keeps it, and `deploy_gae/deploy.sh` includes it in the change hash. `ready` (and `/ready`) has an `sql_files` check that names the folder the process found and how many orchestrator SQL files are in it, so a deploy that lost them is visible before a job fails.
 
-A statement whose text is not fixed (a table name chosen at run time, an `IN` list of unknown length, an optional `WHERE`) is the one thing that stays in Go. `TestOrchestratorSQLLivesInFiles` lists every such place and fails on a new one; `TestEveryOrchestratorSQLFileExistsAndIsRead` fails on a name with no file or a file nothing reads.
+A statement whose text is not fixed (a table name chosen at run time, an `IN` list of unknown length, an optional `WHERE`) is the one thing that stays in Go. `TestOrchestratorSQLLivesInFiles` lists every such place and fails on a new one; `TestEveryOrchestratorSQLNameExistsAndIsRead` fails on a name with no SQL behind it and on a statement nothing reads.
 
 ### Trade history and the ongoing live win rate
 

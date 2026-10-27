@@ -1,1 +1,0 @@
-DELETE FROM live_vs_backtest_slippage

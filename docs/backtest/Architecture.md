@@ -255,7 +255,7 @@ It records the gates in `check_overfit_gate`.
 ## Other commands
 
 
-`universe` writes `refdata/universe.db`. `strategy` lists the registry. `transaction_calc` turns an IBKR CSV into a tear sheet. `markov_test` prints the GOOGL transition matrix. The `dataflare` and ETF commands no longer exist.
+`universe` writes `refdata/universe.db`. `strategy` lists the registry. The `dataflare` and ETF commands no longer exist.
 
 ## Engine rules that are easy to get wrong
 
