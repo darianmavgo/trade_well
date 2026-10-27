@@ -1,6 +1,6 @@
 # Correctly using the Markov strategies
 
-How to get the same Markov results in the in-sample backtest, the out-of-sample (OOS) backtest and live trading. Written from the code in `backtestgosqlite` (`pkg/markov_strategy`, `pkg/train`, `sql/stages/markov_*`, `sql/strategies/markov_model`) and `trade_orchestrator` (`scripts/export_strategies.sh`, `pkg/strategies`, `pkg/scan_market`, `pkg/ready`). The code and SQL were read; none of the commands below were run while writing this, so run the checks in section 7 on your own data.
+How to get the same Markov results in the in-sample backtest, the out-of-sample (OOS) backtest and live trading. Written from the code in `backtestgosqlite` (`pkg/backtest/markov_strategy`, `pkg/backtest/train`, `sql/stages/markov_*`, `sql/strategies/markov_model`) and `trade_orchestrator` (`scripts/export_strategies.sh`, `pkg/orchestrator/strategies`, `pkg/orchestrator/scan_market`, `pkg/orchestrator/ready`). The code and SQL were read; none of the commands below were run while writing this, so run the checks in section 7 on your own data.
 
 ## 1. What the model is
 
@@ -66,7 +66,7 @@ A limit that does not fill is a trade live never made. The backtest models that 
 
 ### 3.4 What `slippage_pct` is
 
-An adverse price move on each fill, as a fraction of the fill price. A long entry pays `price * (1 + slippage_pct)`; every exit (take-profit, stop, time-up) sells at `price * (1 - slippage_pct)`. It is charged once per side, so a round trip costs about twice the value; `0.001` is 0.1% per side. It stands in for the bid/ask spread and market impact. It is not a commission (`CommissionPerShare`) and not a financing cost (`cash_yield`). Code: `slip()` in `backtestgosqlite/pkg/sim/run.go`.
+An adverse price move on each fill, as a fraction of the fill price. A long entry pays `price * (1 + slippage_pct)`; every exit (take-profit, stop, time-up) sells at `price * (1 - slippage_pct)`. It is charged once per side, so a round trip costs about twice the value; `0.001` is 0.1% per side. It stands in for the bid/ask spread and market impact. It is not a commission (`CommissionPerShare`) and not a financing cost (`cash_yield`). Code: `slip()` in `backtestgosqlite/pkg/backtest/sim/run.go`.
 
 ## 4. Recipe: results that match in-sample, OOS and live
 
@@ -96,7 +96,7 @@ Then train the models for the symbols you will trade, with that date:
 
 `-from <date>` also exists and limits the first session the counts may learn from. Leave it off unless you mean to.
 
-Note: `backtestgosqlite/README.md` says only `train tree` has `-through`. That is out of date. `train markov` has `-through` and `-from` (`pkg/train/markov.go`).
+Note: `backtestgosqlite/README.md` says only `train tree` has `-through`. That is out of date. `train markov` has `-through` and `-from` (`pkg/backtest/train/markov.go`).
 
 If the symbol list is empty, `train markov` trains every `signal_symbol` in `markov_strategy`. That is thousands of symbols (about 13,000 rows). Always pass `-symbols`.
 
@@ -171,9 +171,9 @@ sqlite3 data/markov_models.db \
   "select symbol, first_date, last_date, trained_through, bars from markov_model_meta order by symbol"
 
 # The bundle that will ship
-sqlite3 ../trade_orchestrator/pkg/strategies/deploy/markov_models.db \
+sqlite3 ../trade_orchestrator/pkg/orchestrator/strategies/deploy/markov_models.db \
   "select symbol, last_date, trained_through from markov_model_meta"
-sqlite3 ../trade_orchestrator/pkg/strategies/deploy/strategies.db \
+sqlite3 ../trade_orchestrator/pkg/orchestrator/strategies/deploy/strategies.db \
   "select * from bundle_meta"
 
 # Backtest result integrity incl. model cutoff and signal = prob_bull - prob_bear
@@ -207,9 +207,9 @@ Recomputing the signal for one date by hand is also a good check: take the saved
 | Training stages | `backtestgosqlite/sql/stages/markov_train/` |
 | Live extension stages | `backtestgosqlite/sql/stages/markov_extend/` |
 | Entry rule and trace | `backtestgosqlite/sql/strategies/markov_model/` |
-| Strategy, `Prepare` | `backtestgosqlite/pkg/markov_strategy/strategy.go` |
-| `train markov`, `ExtendMarkov` | `backtestgosqlite/pkg/train/markov.go`, `markov_extend.go` |
-| Holdout window | `backtestgosqlite/pkg/backtest/holdout.go`, `pkg/storage/sqlite.go` (`InSampleEnd`) |
+| Strategy, `Prepare` | `backtestgosqlite/pkg/backtest/markov_strategy/strategy.go` |
+| `train markov`, `ExtendMarkov` | `backtestgosqlite/pkg/backtest/train/markov.go`, `markov_extend.go` |
+| Holdout window | `backtestgosqlite/pkg/backtest/backtest/holdout.go`, `pkg/backtest/storage/sqlite.go` (`InSampleEnd`) |
 | Bundle export | `trade_orchestrator/scripts/export_strategies.sh` |
-| Readiness checks | `trade_orchestrator/pkg/ready/ready.go` (`modelsCheck`) |
+| Readiness checks | `trade_orchestrator/pkg/orchestrator/ready/ready.go` (`modelsCheck`) |
 | Background | `backtestgosqlite/docs/MarkovModel.md` (the original plan) |

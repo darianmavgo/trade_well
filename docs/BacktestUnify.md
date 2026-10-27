@@ -6,7 +6,7 @@ Goal state: `backtestgo` replaces both parent repos once it passes tests and suc
 
 ## Context
 - **backtestgosqlite** (the sqlite repo): ~23 commands and 48 packages. It runs on App Engine through `trade_orchestrator` for live execution. Its daily simulator produced many false results.
-- **backtestgoduckdb** (the duckdb repo): 5 commands and 15 packages. Its hourly simulator (`pkg/sim`) is the most valuable improvement to the strategy work. Its pain point is file locks: `pkg/store/store.go:25-125` kills the PID holding a lock, and `market_history_split` writes 7,458 per-symbol files to dodge locks.
+- **backtestgoduckdb** (the duckdb repo): 5 commands and 15 packages. Its hourly simulator (`pkg/backtest/sim`) is the most valuable improvement to the strategy work. Its pain point is file locks: `pkg/store/store.go:25-125` kills the PID holding a lock, and `market_history_split` writes 7,458 per-symbol files to dodge locks.
 
 Goals:
 1. DuckDB calculation speed.
@@ -81,8 +81,8 @@ What it must show, as automated checks:
 - Fix the Rule 4 `httptest.NewServer` tests (`polygon_test.go`, `alpaca_test.go`, the duckdb repo's `market_test.go`) only when those files are touched.
 
 ## Critical files
-- duckdb repo: `pkg/pipeline/pipeline.go` (`OpenWork`, the attach pattern), `pkg/backtestcmd/backtestcmd.go`, `pkg/sim/run.go` and `orders.go`, `pkg/results/*`, `sql/stages/**/*.duckql`, `pkg/store/store.go` (delete)
-- sqlite repo: `pkg/storage/sqlite.go`, `pkg/refdb/export.go` and `export_models.go`, `pkg/runner/download.go`, `pkg/strategy/sql_strategy.go`, `sql/embed.go`
+- duckdb repo: `pkg/backtest/pipeline/pipeline.go` (`OpenWork`, the attach pattern), `pkg/backtestcmd/backtestcmd.go`, `pkg/backtest/sim/run.go` and `orders.go`, `pkg/results/*`, `sql/stages/**/*.duckql`, `pkg/store/store.go` (delete)
+- sqlite repo: `pkg/backtest/storage/sqlite.go`, `pkg/backtest/refdb/export.go` and `export_models.go`, `pkg/backtest/runner/download.go`, `pkg/backtest/strategy/sql_strategy.go`, `sql/embed.go`
 - Deploy: `trade_orchestrator/deploy_gae/app.yaml`, `trade_orchestrator/go.mod:53`
 
 ## Verification
@@ -109,7 +109,7 @@ Done in `backtestgo/` (not committed):
 Constraint found: two file-backed DuckDB instances in one process cannot both attach the same file, even read-only (in-memory instances can). So each run has one calc file with one DuckDB instance (`pipeline.Calc`); the sessions database and the model SQLite files are attached to it once, and every worker is a connection of that instance with its own schema. Kept calculation tables still go to the results database through `Keep`.
 
 Left to do before the parents can be retired:
-1. **Execution side for App Engine** (SQLite only, no cgo): `trade_orchestrator` imports `pkg/strategy`, `models`, `calendar`, `stratreg`, `appenv` from the sqlite repo. These need to be ported into `backtestgo` behind a pure-Go build, the orchestrator's `replace` repointed, and a test version deployed. Signal parity between `.sql` (SQLite) and `.duckql` (DuckDB) must be tested for every strategy family.
+1. **Execution side for App Engine** (SQLite only, no cgo): `trade_orchestrator` imports `pkg/backtest/strategy`, `models`, `calendar`, `stratreg`, `appenv` from the sqlite repo. These need to be ported into `backtestgo` behind a pure-Go build, the orchestrator's `replace` repointed, and a test version deployed. Signal parity between `.sql` (SQLite) and `.duckql` (DuckDB) must be tested for every strategy family.
 2. **Parity across families** (streak, markov, tree, rotation, portfolios), not only hold.
 3. `gridsearch`, `train` end-to-end runs on real data, then the remaining commands.
 4. Re-run the market migration in append mode once the duckdb repo's downloader is stopped (it is still adding bars), then stop it.

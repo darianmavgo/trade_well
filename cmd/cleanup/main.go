@@ -24,7 +24,7 @@ const usage = `usage: cleanup report|runs|sql|tables|jobs|bins|refs|data|dead|al
   tables  list tables and views in the operational database that no schema creates (-remove -yes drops them)
   jobs    list job_run rows whose job has no pkg/orchestrator package (-remove -yes deletes them)
   bins    list executables outside bin/ and bin/ files with no cmd/ behind them (-remove deletes them)
-  refs    list docs, scripts and yaml that name a cmd, pkg path, /cron job or env var that is gone (changes nothing)
+  refs    list docs, scripts and yaml that name a cmd, pkg path, /cron job or env var that is gone (-remove rewrites pkg paths that moved under pkg/backtest, pkg/orchestrator or pkg/schwaber)
   data    list data/ and refdata/ entries no Go or shell file mentions (changes nothing)
   dead    list Go packages no main package imports (changes nothing)
   all     runs, then losing strategies (needs -keep), orphan rows, old versions, report-only scans, then refresh strategy_last_backtest
@@ -65,7 +65,7 @@ func main() {
 	fs.BoolVar(&cfg.Failed, "failed", false, "runs: also delete runs where no step finished")
 	fs.BoolVar(&cfg.Vacuum, "vacuum", false, "all: rewrite result DBs that are mostly free pages")
 	fs.BoolVar(&cfg.RemoveSQL, "remove-sql", false, "sql: same as -remove")
-	fs.BoolVar(&cfg.Remove, "remove", false, "sql, tables, jobs, bins: delete what was found")
+	fs.BoolVar(&cfg.Remove, "remove", false, "sql, tables, jobs, bins, refs: delete or rewrite what was found")
 	orchDB := fs.String("orch-db", "", "tables, jobs: SQLite file to use instead of the Turso database")
 	yes := fs.Bool("yes", false, "all, tables, jobs: confirm that it deletes data")
 	fs.Parse(args)

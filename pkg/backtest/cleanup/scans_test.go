@@ -175,3 +175,33 @@ func TestDataAndDead(t *testing.T) {
 		t.Fatalf("orphans = %+v, %v", orphans, err)
 	}
 }
+
+func TestRefsFixMovedPkgPaths(t *testing.T) {
+	root := t.TempDir()
+	putFile(t, root, "pkg/backtest/strategy/s.go", "package strategy", 0o644)
+	putFile(t, root, "pkg/orchestrator/risk/r.go", "package risk", 0o644)
+	putFile(t, root, "docs/a.md", "uses pkg/strategy and pkg/orchestrator/risk\nold pkg/nothing here\nkeep me\n", 0o644)
+	putFile(t, root, "run.sh", "echo pkg/nothing\n", 0o755)
+	var out bytes.Buffer
+	cfg := Config{Root: root, Out: &out, Remove: true, DryRun: true}
+	if _, err := Refs(context.Background(), cfg); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(filepath.Join(root, "docs/a.md"))
+	if !strings.Contains(string(b), "uses pkg/strategy and") || !strings.Contains(string(b), "pkg/nothing") {
+		t.Fatalf("dry run changed the file: %s", b)
+	}
+	cfg.DryRun = false
+	out.Reset()
+	if _, err := Refs(context.Background(), cfg); err != nil {
+		t.Fatal(err)
+	}
+	b, _ = os.ReadFile(filepath.Join(root, "docs/a.md"))
+	want := "uses pkg/backtest/strategy and pkg/orchestrator/risk\nkeep me\n" // the pkg/nothing line is gone
+	if sh, _ := os.ReadFile(filepath.Join(root, "run.sh")); string(sh) != "echo pkg/nothing\n" {
+		t.Fatalf("a script line was deleted: %q", sh)
+	}
+	if string(b) != want {
+		t.Fatalf("got %q want %q\n%s", b, want, out.String())
+	}
+}

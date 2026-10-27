@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The GOOGL pipeline. All the logic is the pipeline command (pkg/pipeline), which
+# The GOOGL pipeline. All the logic is the pipeline command (pkg/backtest/pipeline), which
 # runs every stage in one numbered run folder under data/reports and keeps to the
 # symbols and strategies it was started with. Extra arguments go to it, for example:
 #   scripts/googl_pipeline.sh -skip-network

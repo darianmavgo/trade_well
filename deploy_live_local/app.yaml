@@ -3,6 +3,6 @@
 #
 # No env_variables: configuration is the single GCS object gs://<bucket>/config/env,
 # read by the app itself at startup (schwaber config.Bootstrap), exactly as on App
-# Engine. Edit it with deploy_gae/config.sh. A test (pkg/strategies TestAppYAMLHasNoEnv)
+# Engine. Edit it with deploy_gae/config.sh. A test (pkg/orchestrator/strategies TestAppYAMLHasNoEnv)
 # fails if an app.yaml listed there gains an env_variables block.
 runtime: go126

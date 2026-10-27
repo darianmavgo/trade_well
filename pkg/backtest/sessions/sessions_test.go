@@ -157,3 +157,48 @@ func TestDeriveBackfillsSessionsBeforeTheFirstOne(t *testing.T) {
 		t.Fatalf("session rows = %d, want 5", count)
 	}
 }
+
+// Every symbol is visited, and one whose hourly bars all predate its latest session is skipped.
+func TestDeriveVisitsEverySymbolAndSkipsFinishedOnes(t *testing.T) {
+	db, err := storage.OpenSQLite(filepath.Join(t.TempDir(), "market_history_hourly.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := storage.EnsureBarTable(db, "backtest_start"); err != nil {
+		t.Fatal(err)
+	}
+	add := func(sym, at, tf string) {
+		t.Helper()
+		if _, err := db.Exec(`INSERT INTO backtest_start (symbol, Date, timeframe, open, high, low, close, volume) VALUES (?, ?, ?, 100, 101, 99, 100, 10)`, sym, at, tf); err != nil {
+			t.Fatal(err)
+		}
+	}
+	add("AAA", "2024-10-09 15:00:00", "1h")
+	add("BBB", "2024-10-09 15:00:00", "1h")
+	add("CCC", "2024-10-09", "1d") // daily rows only
+	if n, err := Derive(db, "backtest_start"); err != nil || n != 2 {
+		t.Fatalf("first derive = %d, %v; want 2 sessions (AAA, BBB)", n, err)
+	}
+	// AAA trades on; BBB's hourly bars all predate its latest session.
+	add("AAA", "2024-10-10 15:00:00", "1h")
+	add("BBB", "2024-10-11", "1d")
+	// A marker that a re-derive of BBB would overwrite.
+	if _, err := db.Exec(`UPDATE backtest_start SET close = 555 WHERE symbol = 'BBB' AND timeframe = '1d' AND Date = '2024-10-09'`); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := Derive(db, "backtest_start"); err != nil || n != 2 {
+		t.Fatalf("second derive = %d, %v; want 2 (AAA's two sessions, nothing for BBB)", n, err)
+	}
+	var marker float64
+	if err := db.Get(&marker, `SELECT close FROM backtest_start WHERE symbol = 'BBB' AND timeframe = '1d' AND Date = '2024-10-09'`); err != nil || marker != 555 {
+		t.Fatalf("BBB was re-derived: close = %v, %v", marker, err)
+	}
+	var days []string
+	if err := db.Select(&days, `SELECT substr(Date, 1, 10) FROM backtest_start WHERE symbol = 'AAA' AND timeframe = '1d' ORDER BY Date`); err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(days) != "[2024-10-09 2024-10-10]" {
+		t.Fatalf("AAA sessions %v", days)
+	}
+}

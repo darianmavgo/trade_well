@@ -27,7 +27,7 @@ We will build and validate this initially using **GOOGL** daily history before g
    `Signal = prob_bull - prob_bear`
 3. **Persist Signals:** Insert these daily predictions into a table (e.g., `markov_signals(date, symbol, current_state, prob_bull, prob_bear, signal)`).
 
-## Phase 4: Strategy Integration (`pkg/strategy`)
+## Phase 4: Strategy Integration (`pkg/backtest/strategy`)
 **Objective:** Consume the SQLite Markov signals natively in a trading strategy.
 1. **SQL Strategy Pipeline:** Create a new pipeline (e.g., `sql/strategies/markov_googl/`) that queries the `markov_signals` table.
 2. **Entry/Exit Rules:** Generate `LONG` or `SHORT` rows in the `signals` table based on the Markov `Signal` crossing a threshold (e.g., `Signal > 0.0`).

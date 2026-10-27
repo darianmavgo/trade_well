@@ -1170,6 +1170,24 @@ const DefaultHoldoutMonths = 12
 // minInSampleDays is the shortest in-sample window worth reporting.
 const minInSampleDays = 365
 
+// latestSessionDate is the newest daily session date (YYYY-MM-DD) in table, or "" when there is
+// none. It asks the index for the benchmark ETFs first and only walks every symbol when none of
+// them has a session, because MAX over the whole table reads every row.
+func latestSessionDate(db *sqlx.DB, table string) (string, error) {
+	var last string
+	q := fmt.Sprintf(`SELECT COALESCE(MAX(substr(Date,1,10)),'') FROM %s WHERE symbol IN ('SPY','QQQ','VOO') AND timeframe = '1d' AND length(Date) = 10`, table)
+	if err := db.Get(&last, q); err != nil || last != "" {
+		return last, err
+	}
+	q = fmt.Sprintf(`WITH RECURSIVE s(sym) AS (
+		SELECT MIN(symbol) FROM %[1]s
+		UNION ALL
+		SELECT (SELECT MIN(symbol) FROM %[1]s WHERE symbol > s.sym) FROM s WHERE sym IS NOT NULL)
+	SELECT COALESCE(MAX((SELECT substr(MAX(Date),1,10) FROM %[1]s WHERE symbol = s.sym AND timeframe = '1d' AND length(Date) = 10)),'') FROM s WHERE sym IS NOT NULL`, table)
+	err := db.Get(&last, q)
+	return last, err
+}
+
 // InSampleEnd returns the last in-sample date for a holdout of months before
 // the newest daily bar (or before last, when non-empty). ok is false when the
 // history from start is too short to split, in which case the caller uses all
@@ -1187,8 +1205,7 @@ func InSampleEnd(dbPath, table, start, last string, months int) (end string, ok 
 		if err := ValidateTableName(table); err != nil {
 			return "", false, err
 		}
-		q := fmt.Sprintf("SELECT COALESCE(MAX(substr(Date,1,10)),'') FROM %s WHERE length(Date) = 10", table)
-		if err := db.Get(&last, q); err != nil {
+		if last, err = latestSessionDate(db, table); err != nil {
 			return "", false, err
 		}
 	}

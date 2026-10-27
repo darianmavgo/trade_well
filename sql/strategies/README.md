@@ -4,7 +4,7 @@ Every strategy is calculated here in SQL and run by Go. A folder under `sql/stra
 
 ## Directory Structure
 
-1. Register the strategy config in `pkg/strategy`.
+1. Register the strategy config in `pkg/backtest/strategy`.
 2. Add `sql/strategies/<id>/` with `.sql` files that run in name order (`01_schema.sql`, `02_calc_signals.sql`, …).
 3. `GenerateSignals` runs that pipeline when the market and calc databases are set.
 

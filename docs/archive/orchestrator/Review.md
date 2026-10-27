@@ -16,10 +16,10 @@ The pipeline works and the individual pieces are each reasonably well built for 
 ### backtestgosqlite — research & strategy evaluation
 - Clean `Strategy` interface (Go or SQL-pipeline backed), a process-wide registry, ~34 strategies (many are template variants: N-day-decline → buy a leveraged ETF).
 - `pkg/simulator`: day-by-day portfolio sim with stop-loss/take-profit/time-up exits, multiple position sizers, a shared-account mode for running strategy stacks off one cash ledger. Exit ordering is conservative (stop checked before target on the same bar), and gap-through-stop/target is modeled by comparing against the bar's open — a genuinely good realism touch.
-- `pkg/analytics`: full metrics suite (CAGR, Sharpe/Sortino, Calmar, Ulcer, Alpha/Beta vs. benchmark).
-- `cmd/livescan` reuses the exact same `GenerateSignals` code path as the backtest engine (`pkg/runner/signal_scan.go`), so signal-logic parity between backtest and live is structural. `pkg/runner/asof.go` hard-fails a live scan if the market DB's newest bar isn't current, which is a real safeguard against trading on stale data.
+- `pkg/backtest/analytics`: full metrics suite (CAGR, Sharpe/Sortino, Calmar, Ulcer, Alpha/Beta vs. benchmark).
+- `cmd/livescan` reuses the exact same `GenerateSignals` code path as the backtest engine (`pkg/backtest/runner/signal_scan.go`), so signal-logic parity between backtest and live is structural. `pkg/backtest/runner/asof.go` hard-fails a live scan if the market DB's newest bar isn't current, which is a real safeguard against trading on stale data.
 - `cmd/strateval` (added **2026-09-20**, i.e. yesterday relative to this review): IS/OOS split, Tier A/B/C/D gating (win rate, drawdown, Sharpe, trade count thresholds), a lifecycle ledger. Already needed a path bugfix and a threshold retune within a day of being added.
-- Options support is narrow but honest: `pkg/options/coveredcall.go` models one specific covered-call cycle well and documents its own limitation (priced from last-trade bars, not bid/ask).
+- Options support is narrow but honest: `pkg/backtest/options/coveredcall.go` models one specific covered-call cycle well and documents its own limitation (priced from last-trade bars, not bid/ask).
 
 ### trade_orchestrator — live orchestration (now GAE-only, Cloud Run just decommissioned)
 - Single binary, both CLI and (on GAE) an HTTP server. Cron routes: `account_state`, `scan_market`, `submit_orders`, `manage_exits`, `check_health`.
@@ -51,7 +51,7 @@ Only `handleCronAccountState` emails on failure. `scan_market`, `submit_orders`,
 - **schwaber**: `PlaceOrder` sends no client-order-ID / idempotency key to Schwab at all, and nothing durably records "I'm about to place this order" before the HTTP call. If the process is killed after Schwab accepts the order but before the response is read, re-running the same command double-places it. This is the single biggest live-order risk in schwaber.
 
 ### 4. No kill switch, no aggregate risk limits
-Across all three repos there is no max-concurrent-positions limit, no daily-loss/drawdown circuit breaker, and no market-hours/holiday calendar (`pkg/runner/asof.go` and trade_orchestrator's cron both treat every weekday as a trading session — a real holiday could either false-flag staleness or, worse, get silently accepted). The only existing kill switch is schwaber's CLI `killswitch` command, which is manual, local, and not reachable from the dashboard or triggerable automatically off a check_health CRITICAL finding — check_health is detective-only today; it writes findings, it doesn't act on them.
+Across all three repos there is no max-concurrent-positions limit, no daily-loss/drawdown circuit breaker, and no market-hours/holiday calendar (`pkg/backtest/runner/asof.go` and trade_orchestrator's cron both treat every weekday as a trading session — a real holiday could either false-flag staleness or, worse, get silently accepted). The only existing kill switch is schwaber's CLI `killswitch` command, which is manual, local, and not reachable from the dashboard or triggerable automatically off a check_health CRITICAL finding — check_health is detective-only today; it writes findings, it doesn't act on them.
 
 ### 5. Backtest realism understates live cost exactly where it matters most
 Several live-candidate strategies (`gld-decline`, `sig-voo-buy-tecl`, `sig-voo-buy-spxu`, and the new `tsll-daily-one-share`) are configured with **zero slippage and zero commission**. The simulator has no bid/ask spread model at all — every fill is priced off OHLC bar values with a flat percentage slippage. For the leveraged/inverse ETFs this stack actually trades (TECL, SPXU, TQQQ, SQQQ, TSLL), real spread and market-impact costs are almost certainly understated, which inflates exactly the strategies most likely to look good enough to greenlight.
@@ -93,7 +93,7 @@ None of this argues for migrating onto a different framework — a bespoke Go/SQ
 
 **P1 — near-term correctness**
 5. Make strateval's gating enforceable: at minimum, a startup/cron check that logs (and, ideally, refuses) any `STRATEGY_ALLOWLIST` entry that isn't Tier A in the ledger.
-6. Add max-concurrent-positions, aggregate exposure, and a daily-loss circuit breaker; add a real market holiday calendar to `pkg/runner/asof.go` and trade_orchestrator's cron gating.
+6. Add max-concurrent-positions, aggregate exposure, and a daily-loss circuit breaker; add a real market holiday calendar to `pkg/backtest/runner/asof.go` and trade_orchestrator's cron gating.
 7. Add 429/5xx retry-with-backoff and a circuit breaker to schwaber's HTTP client; add filled/remaining-quantity fields to its `Order` type and react to partial fills.
 8. Delete or fix schwaber's stale systemd deploy files referencing nonexistent subcommands.
 

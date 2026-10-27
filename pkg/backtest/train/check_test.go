@@ -13,8 +13,8 @@ func TestCheckLeaksFlagsTreesTrainedPastCutoff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	market.MustExec(`CREATE TABLE backtest_start (symbol TEXT, Date TEXT)`)
-	market.MustExec(`INSERT INTO backtest_start VALUES ('AAA','2026-10-02')`)
+	market.MustExec(`CREATE TABLE backtest_start (symbol TEXT, Date TEXT, timeframe TEXT)`)
+	market.MustExec(`INSERT INTO backtest_start VALUES ('AAA','2026-10-02','1d')`)
 	market.Close()
 
 	trees, err := storage.OpenSQLite(filepath.Join(dir, "t.db"))

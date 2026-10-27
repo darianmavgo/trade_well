@@ -17,6 +17,34 @@ type StaleRef struct {
 	File string // relative to the app folder
 	Line int
 	Text string
+	From string // text to replace on that line, when the right replacement is certain
+	To   string
+}
+
+// Deletable reports whether Refs -remove drops the whole line: a markdown line
+// that names something that is gone. Scripts and config are never line-deleted,
+// since removing a line of code would break them.
+func (r StaleRef) Deletable() bool { return !r.Fixable() && filepath.Ext(r.File) == ".md" }
+
+// Fixable reports whether Refs -remove can rewrite this mention.
+func (r StaleRef) Fixable() bool { return r.From != "" }
+
+// layers are the folders under pkg/ that the flattened repos became.
+var layers = []string{"backtest", "orchestrator", "schwaber"}
+
+// relocated finds the one layer folder that holds pkg/<rel>, the way a path
+// written before the repos were flattened (pkg/strategy) maps to pkg/backtest/strategy.
+func relocated(root, rel string) (string, bool) {
+	var hit []string
+	for _, l := range layers {
+		if pkgExists(root, l+"/"+rel) {
+			hit = append(hit, l)
+		}
+	}
+	if len(hit) != 1 {
+		return "", false
+	}
+	return hit[0], true
 }
 
 var (
@@ -72,14 +100,22 @@ func ScanRefs(ctx context.Context, cfg Config) ([]StaleRef, error) {
 		}
 		rel, _ := filepath.Rel(cfg.Root, p)
 		for i, line := range strings.Split(string(b), "\n") {
-			add := func(f string, a ...any) { refs = append(refs, StaleRef{rel, i + 1, fmt.Sprintf(f, a...)}) }
+			add := func(f string, a ...any) {
+				refs = append(refs, StaleRef{File: rel, Line: i + 1, Text: fmt.Sprintf(f, a...)})
+			}
 			for _, m := range cmdRef.FindAllStringSubmatch(line, -1) {
 				if !isCmd[m[1]] && !notACmd[m[1]] {
 					add("names bin/cmd %q but there is no cmd/%s", m[1], m[1])
 				}
 			}
 			for _, m := range pkgRef.FindAllStringSubmatch(line, -1) {
-				if !pkgExists(cfg.Root, m[1]) {
+				if pkgExists(cfg.Root, m[1]) {
+					continue
+				}
+				if l, ok := relocated(cfg.Root, m[1]); ok {
+					refs = append(refs, StaleRef{File: rel, Line: i + 1, From: "pkg/" + m[1], To: "pkg/" + l + "/" + m[1],
+						Text: fmt.Sprintf("names pkg/%s, now pkg/%s/%s", m[1], l, m[1])})
+				} else {
 					add("names pkg/%s which does not exist", m[1])
 				}
 			}
@@ -89,6 +125,9 @@ func ScanRefs(ctx context.Context, cfg Config) ([]StaleRef, error) {
 				}
 			}
 			for _, m := range envAssign.FindAllStringSubmatch(line, -1) {
+				if filepath.Ext(p) == ".sh" {
+					break // a NAME= in a script is usually a shell variable, not configuration
+				}
 				if !strings.Contains(goText, m[1]) {
 					add("sets %s which no Go file mentions", m[1])
 				}
@@ -139,15 +178,86 @@ func goSources(ctx context.Context, root string) (string, error) {
 	return sb.String(), err
 }
 
-// Refs prints the stale references and returns how many it found.
+// Refs prints the stale references and returns how many it found. With
+// cfg.Remove set and cfg.DryRun not, it rewrites the ones that have one right
+// answer (a pkg path that moved under pkg/backtest, pkg/orchestrator or
+// pkg/schwaber). The rest name something that is gone, so a person decides
+// whether to delete the sentence or point it elsewhere.
 func Refs(ctx context.Context, cfg Config) (int, error) {
 	refs, err := ScanRefs(ctx, cfg)
 	if err != nil {
 		return 0, err
 	}
+	fixable, deletable := 0, 0
 	for _, r := range refs {
-		fmt.Fprintf(cfg.Out, "%s:%d: %s\n", r.File, r.Line, r.Text)
+		mark := ""
+		if r.Fixable() {
+			fixable++
+			mark = " [fixable]"
+		} else if r.Deletable() {
+			deletable++
+			mark = " [line deletable]"
+		}
+		fmt.Fprintf(cfg.Out, "%s:%d: %s%s\n", r.File, r.Line, r.Text, mark)
 	}
-	fmt.Fprintf(cfg.Out, "found: %d stale references\n", len(refs))
+	verb := "found"
+	if cfg.Remove && !cfg.DryRun {
+		files, err := fixRefs(cfg.Root, refs)
+		if err != nil {
+			return len(refs), err
+		}
+		verb = fmt.Sprintf("rewrote %d paths and deleted %d lines in %d files; found", fixable, deletable, files)
+	} else if cfg.Remove {
+		verb = fmt.Sprintf("would rewrite %d paths and delete %d lines; found", fixable, deletable)
+	}
+	fmt.Fprintf(cfg.Out, "%s: %d stale references, %d need a person (script or config lines)\n", verb, len(refs), len(refs)-fixable-deletable)
 	return len(refs), nil
+}
+
+// fixRefs applies every fixable reference to its line and returns how many files changed.
+func fixRefs(root string, refs []StaleRef) (int, error) {
+	byFile := map[string][]StaleRef{}
+	for _, r := range refs {
+		if r.Fixable() || r.Deletable() {
+			byFile[r.File] = append(byFile[r.File], r)
+		}
+	}
+	changed := 0
+	for file, fixes := range byFile {
+		path := filepath.Join(root, file)
+		info, err := os.Stat(path)
+		if err != nil {
+			return changed, err
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return changed, err
+		}
+		lines := strings.Split(string(b), "\n")
+		drop := map[int]bool{}
+		for _, f := range fixes {
+			if f.Deletable() {
+				drop[f.Line-1] = true
+			}
+		}
+		for _, f := range fixes {
+			if !f.Fixable() || drop[f.Line-1] {
+				continue
+			}
+			// Only the whole path: pkg/strategy must not rewrite the start of pkg/strategy/family.
+			re := regexp.MustCompile(`(` + regexp.QuoteMeta(f.From) + `)([^a-z0-9_/]|$)`)
+			lines[f.Line-1] = re.ReplaceAllString(lines[f.Line-1], f.To+"${2}")
+		}
+		kept := lines[:0:0]
+		for i, l := range lines {
+			if !drop[i] {
+				kept = append(kept, l)
+			}
+		}
+		if err := os.WriteFile(path, []byte(strings.Join(kept, "\n")), info.Mode().Perm()); err != nil {
+			return changed, err
+		}
+		changed++
+	}
+	return changed, nil
 }

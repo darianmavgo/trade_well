@@ -14,14 +14,14 @@ Everything in this document is built and tested as of 2026-10-23. Commands were 
 | Step | What | Where |
 |---|---|---|
 | 1 | Backfill QQQ daily bars (2010 onward) | `backtestgosqlite` `daily_bars` |
-| 2 | HMM math: fit, forward filter | `backtestgosqlite/pkg/hmm` |
+| 2 | HMM math: fit, forward filter | `backtestgosqlite/pkg/backtest/hmm` |
 | 3 | SQL input stage (return, realized volatility) | `sql/stages/hmm_inputs` |
 | 4 | Train with a cutoff, write model tables | `train hmm` |
 | 5 | Compare state counts, out-of-sample report | `train hmm compare`, `train hmm report` |
 | 6 | Daily update with frozen parameters | `train hmm extend` (`ExtendHMM`) |
 | 7 | Live extension | `hmm_strategy.Prepare` in the evening scan; `trade_orchestrator` `modelstate` keeps the predictions in Turso |
 | 8 | Bundle export and `/ready` check | `scripts/export_strategies.sh`, check `hmm_model` |
-| 9 | Strategy family `hmm` and two QQQ strategies | `backtestgosqlite/pkg/hmm_strategy`, `sql/strategies/hmm_strategy`, section 6 |
+| 9 | Strategy family `hmm` and two QQQ strategies | `backtestgosqlite/pkg/backtest/hmm_strategy`, `sql/strategies/hmm_strategy`, section 6 |
 
 Three things are not automated on purpose: **training** (a deliberate command, never part of the daily job or of `train all`), **deploying** the refreshed bundle (run `scripts/export_strategies.sh`, then `go mod vendor`, then deploy), and **trading** the regime (the two `hmm` strategies are not in `STRATEGY_ALLOWLIST`; section 6).
 
@@ -81,7 +81,7 @@ Free parameters: `k = (N−1) + N(N−1) + N·D + N·D(D+1)/2 = 2 + 6 + 6 + 9 = 
 
 ### 2.3 Fitting: Baum-Welch (expectation-maximization)
 
-`pkg/hmm` `Fit` runs EM on the training bars `x_1 … x_T`. Each iteration:
+`pkg/backtest/hmm` `Fit` runs EM on the training bars `x_1 … x_T`. Each iteration:
 
 1. **Forward pass.** With emission likelihoods `b_t(i) = N(x_t; μ_i, Σ_i)`:
    - `α̃_1(i) ∝ π_i b_1(i)`
@@ -101,7 +101,7 @@ Free parameters: `k = (N−1) + N(N−1) + N·D + N·D(D+1)/2 = 2 + 6 + 6 + 9 = 
 EM only finds a local maximum, so `Fit` runs a deterministic quantile start (states initialised from return terciles) plus 4 seeded random restarts and keeps the highest LL. The same data and seed always give the same model.
 
 Guards (the fit is refused, not silently weakened):
-- fewer than `10 × k` bars (230 for N = 3, D = 2) in `pkg/hmm`, and fewer than `-min-bars` (default 1,000, about four years) in-sample sessions in `train hmm`;
+- fewer than `10 × k` bars (230 for N = 3, D = 2) in `pkg/backtest/hmm`, and fewer than `-min-bars` (default 1,000, about four years) in-sample sessions in `train hmm`;
 - any non-finite observation;
 - any state that owns under 2% of the bars (`ErrDegenerate`).
 
@@ -126,7 +126,7 @@ The prediction for day *t* is the **filtered** probability:
 `p_t(i) = P(S_t = i | x_1 … x_t)`
 
 It uses only observations up to and including day *t*. Two things must never be used for a live regime:
-- the smoothed posterior `γ` or the Viterbi path from the fit. These use bars *after* *t*, so a label that looks right in a chart was not knowable that day. `pkg/study/hmm_regime.go` (the old prototype) used Viterbi over all history, which is why its results should not be trusted for trading.
+- the smoothed posterior `γ` or the Viterbi path from the fit. These use bars *after* *t*, so a label that looks right in a chart was not knowable that day. `pkg/backtest/study/hmm_regime.go` (the old prototype) used Viterbi over all history, which is why its results should not be trusted for trading.
 - parameters refit on data including the day being predicted.
 
 Two outputs per day:
@@ -134,7 +134,7 @@ Two outputs per day:
 - **Regime as of day t:** `p_t` (3 probabilities), and `regime_t = argmax_i p_t(i)`.
 - **Next session:** `q_{t+1}(j) = Σ_i p_t(i) A_ij`, i.e. `q_{t+1} = p_t · A`. This is a prediction: it's a forecast of what regime tomorrow's bar will be, built from today's filtered state and the transition matrix.
 
-`pkg/hmm` `Filter` returns both (`Probs` and `Next`). A unit test checks no look-ahead: appending later bars leaves every earlier row unchanged.
+`pkg/backtest/hmm` `Filter` returns both (`Probs` and `Next`). A unit test checks no look-ahead: appending later bars leaves every earlier row unchanged.
 
 ### 2.6 Daily update (frozen parameters)
 
@@ -167,7 +167,7 @@ Files: bars in `data/daily_bars.db`; model in `data/hmm_models.db` (override wit
 
 ```bash
 cd backtestgosqlite
-go test ./pkg/hmm ./pkg/dailybars ./pkg/train
+go test ./pkg/backtest/hmm ./pkg/backtest/dailybars ./pkg/backtest/train
 ```
 
 The tests use seeded synthetic series with known regimes and a temp SQLite. They check: sorted labels; recovered means; probabilities summing to 1; no look-ahead; the SQL inputs against an independent Go calculation; that bars after `-through` never change the fit; and that **extending a model gives exactly the rows a full train with the same cutoff gives**.
@@ -215,7 +215,7 @@ Flags: `-symbols` (default QQQ), `-states` (2 to 6), `-through`, `-from`, `-hold
 
 ### 3.7 The deployed scan  (trade_orchestrator)
 
-There is no separate daily job. The evening `scan_market` brings the model up to date through each `hmm` strategy's `Prepare`, and `trade_orchestrator/pkg/modelstate` keeps what that needs in Turso, so nothing is downloaded twice:
+There is no separate daily job. The evening `scan_market` brings the model up to date through each `hmm` strategy's `Prepare`, and `trade_orchestrator/pkg/orchestrator/modelstate` keeps what that needs in Turso, so nothing is downloaded twice:
 
 1. **Bars (`daily_bars_live`).** `modelstate.EnsureBars` compares Turso's newest QQQ bar with the last completed session. If it is current, nothing is downloaded. Otherwise it downloads from Yahoo only from 14 days before the newest stored bar, straight into Turso, and appends the new days. If Yahoo now gives a different adjusted close for a day already stored (a dividend or split rescales an adjusted history), it downloads the whole history from 2010 again and replaces the stored one. A first run with nothing stored downloads the full history once. `modelstate.BuildDailyBarsWorkingCopyFromTurso` then builds the instance's `daily_bars.db` from Turso. That file is only a working copy for the model's SQL stages, and it is rebuilt only when it differs from Turso.
 2. **Predictions (`hmm_prediction_live`, `hmm_state_prob_live`).** `modelstate.HydrateHMMModelAssetFromTurso` copies the stored predictions that are newer than the instance's model file into it and moves its `last_date` forward. The file is rebuilt from the bundle on every cold start, so this is how an instance learns which sessions are already predicted.
@@ -237,7 +237,7 @@ cd backtestgosqlite
 ./bin/daily_bars && ./bin/train hmm compare && ./bin/train hmm && ./bin/train hmm report
 
 cd ../trade_orchestrator
-scripts/export_strategies.sh      # re-exports the bundle, including data/hmm_models.db -> pkg/strategies/deploy/hmm_models.db
+scripts/export_strategies.sh      # re-exports the bundle, including data/hmm_models.db -> pkg/orchestrator/strategies/deploy/hmm_models.db
 # then build, test and deploy as usual (there is no vendor/ step any more)
 ```
 
@@ -303,7 +303,7 @@ What this says:
 
 ## 6. Trading the regime: the `hmm` strategy family  (BUILT)
 
-A new row-backed strategy family, `hmm`, in `backtestgosqlite` (`pkg/hmm_strategy`, SQL in `sql/strategies/hmm_strategy`, table `hmm_strategy` in `refdata/strategies.db`). It only reads the model that `train hmm` saved; it never trains or refits.
+A new row-backed strategy family, `hmm`, in `backtestgosqlite` (`pkg/backtest/hmm_strategy`, SQL in `sql/strategies/hmm_strategy`, table `hmm_strategy` in `refdata/strategies.db`). It only reads the model that `train hmm` saved; it never trains or refits.
 
 ### 6.1 The rows
 

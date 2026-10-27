@@ -61,6 +61,6 @@ stops, and `/ready` reports it as bad.
 
 ## Schedule
 
-The schedule is `cron.yaml` (America/New_York). `pkg/job_runs/schedule.go` mirrors it and a test parses
+The schedule is `cron.yaml` (America/New_York). `pkg/orchestrator/job_runs/schedule.go` mirrors it and a test parses
 the file and fails on any difference, so edit both together. Jobs and their routes are listed in the
 repo `README.md`.

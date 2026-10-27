@@ -78,7 +78,7 @@ case "$cmd" in
     set_kv "$WORK" SCHWAB_TOKEN_PATH /tmp/trade_orchestrator/token.json
     set_kv "$WORK" SCHWAB_CALLBACK_URL https://mavgo.com/schwabcallback
     # Every entry must resolve in this build, or every job stops. A strategy that is a database row
-    # (streak, markov, tree, hold) must be in pkg/strategies/deploy/strategies.db, made with
+    # (streak, markov, tree, hold) must be in pkg/orchestrator/strategies/deploy/strategies.db, made with
     # `strategy export -models-out` in backtestgosqlite (which also bundles its trained markov/tree models). mara_tree and pdd_tree are not bundled yet.
     # This line only seeds a NEW config object. The live value is in the object itself:
     #   deploy_gae/config.sh set STRATEGY_ALLOWLIST="<same value>"

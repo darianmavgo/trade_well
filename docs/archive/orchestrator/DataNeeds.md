@@ -17,7 +17,7 @@ populates one of them.
 every run.
 
 `account_state` **never writes to `active_trades` or `staged_orders`** (confirmed
-directly in `pkg/account_state` — the only mention of those two
+directly in `pkg/orchestrator/account_state` — the only mention of those two
 tables in that file is a comment).
 
 ## Per-job dependency

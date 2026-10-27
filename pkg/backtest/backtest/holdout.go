@@ -14,6 +14,8 @@ import (
 	"github.com/darianmavgo/trade_well/pkg/backtest/runner"
 	"github.com/darianmavgo/trade_well/pkg/backtest/sessions"
 	"github.com/darianmavgo/trade_well/pkg/backtest/storage"
+	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
+	"github.com/darianmavgo/trade_well/pkg/backtest/stratreg"
 )
 
 // DefaultHoldoutMonths is how much of the end of history a plain run or a
@@ -82,7 +84,7 @@ func Run(conf Config) error {
 		}
 		defer pprof.StopCPUProfile()
 	}
-	ensureSessions(conf.Db)
+	ensureSessions(conf.Db, sessionSymbols(conf))
 	conf, err := prepareRun(conf)
 	if err != nil {
 		return err
@@ -182,14 +184,49 @@ func prepareRun(conf Config) (Config, error) {
 	return conf, nil
 }
 
+// sessionSymbols returns the symbols a plain or stack run reads, with the benchmark ETFs that
+// pick the held-out window, so only those get fresh session rows. It returns nil, meaning every
+// symbol, for any other mode and for any strategy that cannot name the symbols it reads.
+func sessionSymbols(conf Config) []string {
+	if conf.Mode != "" || conf.List || conf.SignalsOnly {
+		return nil
+	}
+	ids := strings.FieldsFunc(strings.Join(append([]string{conf.Strategy, conf.Primary, conf.Secondary}, conf.Args...), ","),
+		func(r rune) bool { return r == ',' || r == '+' || r == ' ' })
+	if len(ids) == 0 {
+		return nil
+	}
+	stratreg.RegisterAll(appenv.Folder(), conf.Db)
+	var strats []strategy.Strategy
+	for _, id := range ids {
+		s, ok := strategy.Get(id)
+		if !ok {
+			return nil
+		}
+		if _, sql := s.(*strategy.SQLPipelineStrategy); sql { // reads symbols its SQL does not name
+			return nil
+		}
+		if rp, ok := s.(strategy.RequiredSymbolsProvider); !ok || len(rp.RequiredSymbols()) == 0 {
+			return nil
+		}
+		strats = append(strats, s)
+	}
+	syms := runner.RequiredSymbolsFor(strats, conf.Symbol)
+	if da := strings.ToUpper(strings.TrimSpace(conf.DefaultAsset)); da != "" {
+		syms = append(syms, da)
+	}
+	return append(syms, "SPY", "QQQ", "VOO")
+}
+
 // ensureSessions brings the derived session rows of the hourly database up to
 // date before a run reads them. A database that is not there is left alone.
-func ensureSessions(marketDB string) {
+// A nil only derives every symbol.
+func ensureSessions(marketDB string, only []string) {
 	path := appenv.BarDB(marketDB, "1h")
 	if _, err := os.Stat(path); err != nil {
 		return
 	}
-	if _, err := sessions.Ensure(path); err != nil {
+	if _, err := sessions.EnsureSymbols(path, only); err != nil {
 		log.Printf("Warning: deriving sessions in %s: %v", path, err)
 	}
 }

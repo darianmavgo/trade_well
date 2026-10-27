@@ -303,7 +303,7 @@ if [ "$DEPLOY_APP" = "1" ]; then
   echo "   • upload set: ${UPLOAD_FILES} files (see .gcloudignore)"
 
   # Before anything is uploaded: does the strategy bundle compiled into THIS source resolve every
-  # entry of the live STRATEGY_ALLOWLIST? A row missing from pkg/strategies/deploy/strategies.db
+  # entry of the live STRATEGY_ALLOWLIST? A row missing from pkg/orchestrator/strategies/deploy/strategies.db
   # stops every job on App Engine, so refuse to deploy it. (SKIP_READY_CHECK=1 skips this.)
   if [ "${SKIP_READY_CHECK:-0}" != "1" ]; then
     echo "   • checking the bundle against the live STRATEGY_ALLOWLIST (orchestrator ready --static)..."

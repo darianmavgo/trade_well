@@ -41,7 +41,7 @@ The bundle now holds the clean stack `streak-voo-buy-tecl+markov_model_amd+marko
 
 `STRATEGY_ALLOWLIST` lives in the config object, `gs://<bucket>/config/env`, not in a file: `deploy_gae/config.sh` only seeds a new object, and it now seeds `streak-voo-buy-tecl+markov_model_amd+markov_model_lite+markov_model_mull,tsll-daily-one-share`. The object that is live is unchanged, and local runs read it too. To make the clean stack live, set it there with `deploy_gae/config.sh set STRATEGY_ALLOWLIST="streak-voo-buy-tecl+markov_model_amd+markov_model_lite+markov_model_mull,tsll-daily-one-share"` and then deploy this build. The previous entry `sig-voo-buy-tecl+mara_tree+pdd_tree` does not resolve in this build: `sig-voo-buy-tecl` is now `streak-voo-buy-tecl`, and the tree strategies (`mara_tree`, `pdd_tree`) are not bundled. Because every job resolves the whole allowlist, an entry that does not resolve stops all of them, including `manage_exits`, so change the object and deploy together.
 
-`STACK_SCAN_LIVE=1 go test ./pkg/strategies -run TestCleanStackScansEndToEnd -v` runs the cron route's scan on the stack from an empty folder, with real downloads and training. It never touches Schwab and sends no email.
+`STACK_SCAN_LIVE=1 go test ./pkg/orchestrator/strategies -run TestCleanStackScansEndToEnd -v` runs the cron route's scan on the stack from an empty folder, with real downloads and training. It never touches Schwab and sends no email.
 
 ---
 

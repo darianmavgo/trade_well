@@ -47,6 +47,12 @@ func Regular(utc string) (date string, ok bool) {
 // rows. A symbol is only read from two days before its latest session onward, so
 // a run on up-to-date data reads almost nothing. It returns the rows written.
 func Derive(db *sqlx.DB, table string) (int, error) {
+	return DeriveSymbols(db, table, nil)
+}
+
+// DeriveSymbols is Derive for the named symbols only, so a run that reads two
+// symbols does not visit the other thousands. nil derives every symbol.
+func DeriveSymbols(db *sqlx.DB, table string, only []string) (int, error) {
 	if table == "" {
 		table = "backtest_start"
 	}
@@ -56,9 +62,11 @@ func Derive(db *sqlx.DB, table string) (int, error) {
 	if err := storage.EnsureBarTable(db, table); err != nil {
 		return 0, err
 	}
-	var symbols []string
-	if err := db.Select(&symbols, fmt.Sprintf(`SELECT DISTINCT symbol FROM %s WHERE timeframe = '1h' ORDER BY symbol`, table)); err != nil {
-		return 0, err
+	symbols := only
+	if symbols == nil {
+		if err := db.Select(&symbols, symbolsQuery(table)); err != nil {
+			return 0, err
+		}
 	}
 	written := 0
 	for _, sym := range symbols {
@@ -69,6 +77,18 @@ func Derive(db *sqlx.DB, table string) (int, error) {
 		written += n
 	}
 	return written, nil
+}
+
+// symbolsQuery lists the distinct symbols of table by hopping from one symbol to the next on
+// the (symbol, timeframe, Date) index. SELECT DISTINCT would read every row of a table with
+// tens of millions of hourly bars. A symbol with only daily rows is listed too; reading its
+// hourly rows finds none.
+func symbolsQuery(table string) string {
+	return fmt.Sprintf(`WITH RECURSIVE s(sym) AS (
+		SELECT MIN(symbol) FROM %[1]s
+		UNION ALL
+		SELECT (SELECT MIN(symbol) FROM %[1]s WHERE symbol > s.sym) FROM s WHERE sym IS NOT NULL)
+	SELECT sym FROM s WHERE sym IS NOT NULL`, table)
 }
 
 type hourRow struct {
@@ -107,6 +127,17 @@ func deriveSymbol(db *sqlx.DB, table, sym string) (int, error) {
 			}
 		}
 	}
+	if last != nil && from != "" {
+		// No hourly bar after the latest session's date means every hourly bar is already in a
+		// session (and the gap check above found nothing to backfill), so skip the read and write.
+		var lastHour *string
+		if err := db.Get(&lastHour, fmt.Sprintf(`SELECT MAX(Date) FROM %s WHERE symbol = ? AND timeframe = '1h'`, table), sym); err != nil {
+			return 0, err
+		}
+		if lastHour == nil || (len(*lastHour) >= 10 && (*lastHour)[:10] < (*last)[:10]) {
+			return 0, nil
+		}
+	}
 	var rows []hourRow
 	if err := db.Select(&rows, fmt.Sprintf(`SELECT CAST(Date AS TEXT) AS Date, open, high, low, close, volume FROM %s
 		WHERE symbol = ? AND timeframe = '1h' AND length(Date) = 19 AND Date >= ? ORDER BY Date`, table), sym, from); err != nil {
@@ -141,10 +172,15 @@ func deriveSymbol(db *sqlx.DB, table, sym string) (int, error) {
 // Ensure opens the database at path and derives its sessions. A path that does
 // not exist is an error, not an empty database.
 func Ensure(path string) (int, error) {
+	return EnsureSymbols(path, nil)
+}
+
+// EnsureSymbols is Ensure for the named symbols only; nil derives every symbol.
+func EnsureSymbols(path string, only []string) (int, error) {
 	db, err := storage.OpenSQLite(path)
 	if err != nil {
 		return 0, err
 	}
 	defer db.Close()
-	return Derive(db, "backtest_start")
+	return DeriveSymbols(db, "backtest_start", only)
 }

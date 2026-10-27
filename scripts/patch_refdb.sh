@@ -21,4 +21,4 @@ CREATE TABLE IF NOT EXISTS tree_strategy (\
 	win_rate         REAL,\
 	total_trades     INTEGER\
 );\
-' pkg/refdb/refdb.go
+' pkg/backtest/refdb/refdb.go
