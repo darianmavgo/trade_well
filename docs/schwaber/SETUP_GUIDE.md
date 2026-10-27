@@ -34,12 +34,6 @@ Schwaber does not read a `.env` file. It reads its settings from the config obje
    ```bash
    deploy_gae/config.sh set SCHWAB_APP_KEY=your_actual_app_key SCHWAB_APP_SECRET=your_actual_app_secret \
      SCHWAB_CALLBACK_URL=https://127.0.0.1 SCHWAB_TOKEN_PATH=token.json
-
-   # Optional: if you know your Roth IRA account number (e.g. 12345678)
-   deploy_gae/config.sh set SCHWAB_ROTH_ACCOUNT_NUMBER=12345678
-
-   # Default to dry-run mode (set to false only for live executions)
-   deploy_gae/config.sh set DRY_RUN_DEFAULT=true
    ```
 
    Build the CLI first with `make build`; it is `./bin/schwaber`.
@@ -73,9 +67,9 @@ Run the interactive setup wizard:
 
 ---
 
-## Step 5: Verify Your Accounts & Roth IRA
+## Step 5: Verify Your Accounts
 
-Run the account inspector to verify connection and identify your Roth IRA:
+Run the account inspector to verify the connection and see your linked accounts:
 
 ```bash
 ./bin/schwaber accounts
@@ -86,30 +80,16 @@ To see existing holdings in your accounts:
 ./bin/schwaber accounts --positions
 ```
 
-If multiple IRAs are detected or your Roth IRA is not automatically flagged as default, copy its account number and set it in the config object:
+The account numbers you want the orchestrator to trade go in `SCHWAB_ACCOUNT_NUMBERS` (comma separated):
 ```bash
-deploy_gae/config.sh set SCHWAB_ROTH_ACCOUNT_NUMBER=12345678
+deploy_gae/config.sh set SCHWAB_ACCOUNT_NUMBERS=12345678,87654321
 ```
 
 ---
 
-## Step 6: Test Pre-Trade Guardrails (Dry-Run)
+## Placing orders
 
-Before executing live orders, test with `--dry-run`:
-
-```bash
-# Preview buying 1 share of VOO (dry-run mode)
-./bin/schwaber buy -symbol VOO -qty 1 --dry-run
-
-# Preview a limit buy order
-./bin/schwaber buy -symbol SCHD -qty 10 -price 80.00 --dry-run
-```
-
-The system will:
-1. Check your Roth IRA cash balance and buying power.
-2. Refuse a buy that exceeds buying power, or a sell of more shares than you hold.
-3. Display a rich preview table with estimated costs.
-4. Output the exact Schwab API JSON payload without submitting anything to the market.
+The `schwaber` CLI no longer places orders (the `buy`, `sell`, `bracket`, `orders` and `cancel` commands were removed on 2026-10-27). Orders are staged and submitted by the orchestrator jobs; preview them with `./bin/orchestrator stage_orders --dry-run` and `./bin/orchestrator submit_orders --dry-run`.
 
 ---
 

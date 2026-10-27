@@ -49,7 +49,7 @@ data/reports/          one SQLite file per run, plus HTML
 
 `cliutils.GetDefaultMarketDB` returns `MarketDB()`. `backtest`, `study`, and `livescan` use that helper. `market_history` and the batch tools call `MarketDB()` directly.
 
-`strateval`'s ledger is special. It does not use `ReportFile`, because a deploy `.env` can set `APP_FOLDER` to a Linux path. Order: `STRATEGIES_DB`, then `STRATEVAL_DB`, then `<module root>/reports/strategies.db` found by walking up to `go.mod`.
+`strateval`'s ledger is `strategies.db` in the run folder, `$APP_FOLDER/data/reports/<run>/` (`-run-id`); the `-db` flag names another file. There are no environment overrides.
 
 ## Market data
 

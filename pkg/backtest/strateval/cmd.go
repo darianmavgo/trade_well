@@ -27,16 +27,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func defaultLedgerDB() string {
-	// Do NOT use appenv.ReportFile here: sourcing trade_orchestrator's .env
-	// often sets APP_FOLDER=/mnt/data (Linux deploy path), which breaks on a Mac.
-	// Without one of these the ledger is strategies.db in the run folder (see Run).
-	if v := strings.TrimSpace(os.Getenv("STRATEGIES_DB")); v != "" {
-		return v
-	}
-	return strings.TrimSpace(os.Getenv("STRATEVAL_DB"))
-}
-
 // Config holds the settings of a strateval run; subcommands use the subset they need.
 type Config struct {
 	Db            string  // -db
@@ -63,7 +53,7 @@ type Config struct {
 // DefaultConfig returns the CLI defaults.
 func DefaultConfig() Config {
 	return Config{
-		Db:            defaultLedgerDB(),
+		Db:            "", // empty: strategies.db in the run folder under $APP_FOLDER/data/reports (see Run)
 		Allowlist:     os.Getenv("STRATEGY_ALLOWLIST"),
 		RunId:         "",
 		MarketDb:      appenv.MarketDB(),
@@ -96,7 +86,7 @@ func Main() {
 	conf := DefaultConfig()
 	d := conf
 	conf.Subcommand = cliutils.PopSubcommand(map[string]string{"report": "report", "status": "status", "sync-deployed": "sync-deployed", "path": "path"})
-	flag.StringVar(&conf.Db, "db", d.Db, "strategies SQLite ledger (default: strategies.db in the run folder, or $STRATEGIES_DB)")
+	flag.StringVar(&conf.Db, "db", d.Db, "strategies SQLite ledger (default: strategies.db in the run folder, $APP_FOLDER/data/reports/<run>/)")
 	flag.StringVar(&conf.Allowlist, "allowlist", d.Allowlist, "comma-separated STRATEGY_ALLOWLIST")
 	flag.IntVar(&conf.RunFolder, "run-id", d.RunFolder, "run folder under data/reports for the ledger and artifacts. An evaluation without it starts a new run, and the other subcommands use the latest")
 	flag.StringVar(&conf.MarketDb, "market-db", d.MarketDb, "market bars SQLite")

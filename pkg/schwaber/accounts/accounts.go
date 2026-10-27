@@ -34,12 +34,6 @@ func Run(ctx context.Context, out io.Writer, cfg *config.Config, opts Options) e
 		return clicolor.ErrReported
 	}
 
-	rothAcc, _ := tc.GetRothAccount(ctx)
-	rothNum := ""
-	if rothAcc != nil {
-		rothNum = rothAcc.AccountNumber
-	}
-
 	fmt.Fprintf(out, "\n%s%s=== Linked Schwab Accounts ===%s\n", clicolor.Bold, clicolor.Cyan, clicolor.Reset)
 	fmt.Fprintf(out, "%-12s | %-22s | %-8s | %18s | %18s\n", "Account #", "Designation", "Type", "Cash Avail to Trade", "Total Account Value")
 	fmt.Fprintln(out, strings.Repeat("-", 90))
@@ -54,9 +48,9 @@ func Run(ctx context.Context, out io.Writer, cfg *config.Config, opts Options) e
 			continue
 		}
 
-		designation := "Brokerage"
-		if sec.AccountNumber == rothNum {
-			designation = fmt.Sprintf("%s★ ROTH IRA (Default)%s", clicolor.Yellow, clicolor.Reset)
+		designation := sec.Nickname
+		if designation == "" {
+			designation = "Brokerage"
 		}
 
 		cash := trader.GetBuyingPower(sec)

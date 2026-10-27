@@ -21,7 +21,6 @@ type AlpacaDataSource struct {
 	KeyID      string
 	Secret     string
 	BaseURL    string
-	Feed       string // "sip" (consolidated tape, default; needs a paid data plan) or "iex" (free plan, one exchange)
 	HTTPClient *http.Client
 
 	// RetryWait is how long to sleep after an HTTP 429 (default 20s). A 429 is
@@ -41,25 +40,21 @@ type alpacaBarsResponse struct {
 	NextPageToken string `json:"next_page_token"`
 }
 
-// NewAlpacaDataSource builds the source. Empty keyID/secret fall back to
-// ALPACA_KEY / ALPACA_SECRET, and an empty feed to ALPACA_FEED, then "sip".
-func NewAlpacaDataSource(keyID, secret, feed string, client *http.Client) *AlpacaDataSource {
+// alpacaFeed is the Alpaca data feed every request asks for: sip, the consolidated tape (it needs a
+// paid Alpaca data plan). It is not configurable.
+const alpacaFeed = "sip"
+
+// NewAlpacaDataSource builds the source. Empty keyID/secret fall back to ALPACA_KEY / ALPACA_SECRET.
+func NewAlpacaDataSource(keyID, secret string, client *http.Client) *AlpacaDataSource {
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
 	}
 	if strings.TrimSpace(keyID) == "" || strings.TrimSpace(secret) == "" {
 		keyID, secret = ResolveAlpacaKeys()
 	}
-	feed = strings.ToLower(strings.TrimSpace(feed))
-	if feed == "" {
-		feed = strings.ToLower(appenv.Get("ALPACA_FEED"))
-	}
-	if feed == "" {
-		feed = "sip"
-	}
 	return &AlpacaDataSource{
 		KeyID: strings.TrimSpace(keyID), Secret: strings.TrimSpace(secret),
-		BaseURL: "https://data.alpaca.markets", Feed: feed, HTTPClient: client,
+		BaseURL: "https://data.alpaca.markets", HTTPClient: client,
 	}
 }
 
@@ -129,7 +124,7 @@ func (a *AlpacaDataSource) Fetch(ctx context.Context, req FetchRequest) ([]model
 		q.Set("start", start.UTC().Format(time.RFC3339))
 		q.Set("end", end.UTC().Format(time.RFC3339))
 		q.Set("adjustment", "split")
-		q.Set("feed", a.Feed)
+		q.Set("feed", alpacaFeed)
 		q.Set("sort", "asc")
 		q.Set("limit", "10000")
 		if pageToken != "" {
@@ -172,7 +167,7 @@ func (a *AlpacaDataSource) Fetch(ctx context.Context, req FetchRequest) ([]model
 			case http.StatusUnauthorized:
 				return nil, fmt.Errorf("alpaca authentication failed (HTTP 401): check ALPACA_KEY / ALPACA_SECRET")
 			case http.StatusForbidden:
-				return nil, fmt.Errorf("alpaca access forbidden (HTTP 403) for %s on feed %q: %s", sym, a.Feed, string(body))
+				return nil, fmt.Errorf("alpaca access forbidden (HTTP 403) for %s on feed %q: %s", sym, alpacaFeed, string(body))
 			default:
 				return nil, fmt.Errorf("alpaca API HTTP %d for %s: %s", resp.StatusCode, sym, string(body))
 			}

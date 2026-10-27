@@ -17,8 +17,6 @@ A robust, safety-first Go trading toolkit and data engine for the **Charles Schw
   - Pre-trade cash & buying power verification (prevents overdrafts).
   - Short-selling prevention for Roth IRA accounts.
   - Limit price collar warnings (>15% deviation).
-  - Dry-run simulation mode (`--dry-run`).
-- 🎯 **Roth IRA Auto-Targeting**: Automatically resolves your Roth IRA account hash from your linked Schwab accounts.
 - 📊 **Real-Time Market Data**: Fetches real-time equity and ETF quotes directly from Schwab Market Data endpoints.
 
 ---
@@ -42,8 +40,6 @@ A bare `go build ./cmd/schwaber` writes `./schwaber` into the current directory;
 deploy_gae/config.sh set SCHWAB_APP_KEY=your_app_key_here SCHWAB_APP_SECRET=your_app_secret_here \
   SCHWAB_CALLBACK_URL=https://127.0.0.1 SCHWAB_TOKEN_PATH=token.json
 deploy_gae/config.sh set TURSO_DATABASE_URL=libsql://<db>.turso.io TURSO_AUTH_TOKEN=<token>
-# Optional: your Roth IRA account number
-deploy_gae/config.sh set SCHWAB_ROTH_ACCOUNT_NUMBER=12345678
 ```
 
 `deploy_gae/config.sh keys` lists the variable names stored (never values).
@@ -84,48 +80,18 @@ turso db shell <db> "SELECT symbol, long_quantity, average_price, market_value, 
 ### 3. Inspect Accounts & Holdings
 
 ```bash
-# View account overview and verify your Roth IRA
+# View account overview
 ./bin/schwaber accounts
 
 # View open positions, average price, market value, and day P/L
 ./bin/schwaber accounts --positions
 ```
 
-### 4. Place Orders
-
-```bash
-# Dry Run: Validate buying 5 shares of VOO at $450.00 limit without placing the order
-./bin/schwaber buy -symbol VOO -qty 5 -price 450.00 --dry-run
-
-# Live Execution: Buy 1 share of VOO at market price
-./bin/schwaber buy -symbol VOO -qty 1
-
-# Place a Good-Til-Cancelled limit sell order
-./bin/schwaber sell -symbol AAPL -qty 5 -price 250.00
-
-# Place a 1st-Triggers-OCO Bracket Order (Entry + Profit Target + Stop Loss)
-./bin/schwaber bracket -symbol SOFI -qty 1 -entry 10.00 -profit 11.50 -stop 9.00 --dry-run
-./bin/schwaber bracket -symbol SOFI -qty 1 -entry 10.00 -profit 11.50 -stop 9.00
-```
-
-### 5. Fetch Market Quotes
+### 4. Fetch Market Quotes
 
 ```bash
 ./bin/schwaber quote VOO
 ./bin/schwaber quote AAPL
-```
-
-### 6. View Order History & Cancel
-
-```bash
-# List all orders in the last 30 days
-./bin/schwaber orders
-
-# Filter by working orders
-./bin/schwaber orders -status WORKING
-
-# Cancel an open order
-./bin/schwaber cancel <ORDER_ID>
 ```
 
 ---
@@ -167,14 +133,12 @@ There is one binary, `cmd/schwaber`, a thin dispatcher over `pkg/`. `--debug` (o
 | `schwaber auth` | One-time OAuth setup through `oauthcli`; saves `token.json`. Accepts a pasted redirect URL or code as an argument. |
 | `schwaber listall` | Reads every linked account (balances, positions, 60 days of orders, transactions, preferences) into Turso through `accountstore`, and prints a summary. |
 | `schwaber accounts [--positions]` | Shows accounts, balances, and (with `--positions`) holdings and day P/L. |
-| `schwaber buy` / `sell` | Places a single equity or ETF order (market, or limit with `-price`). |
-| `schwaber bracket` | Places a 1st-triggers-OCO bracket: entry, take-profit and stop-loss. |
 | `schwaber quote <SYMBOL>` | Fetches a real-time quote. |
-| `schwaber orders [-status S]` | Lists recent orders, optionally by status. |
-| `schwaber cancel <ORDER_ID>` | Cancels an open order. |
 | `schwaber killswitch [TICKERS] [--dry-run] [-y] [-account N]` | Market-sells open long positions across linked accounts (all by default, or only the tickers given). It cancels open orders first, to avoid OCO-child rejections. Run it by hand; nothing schedules it. |
 
-`cmd/schwaber` is a thin wrapper: it parses flags and calls the matching package: `pkg/schwaber/listall`, `pkg/schwaber/accounts`, `pkg/schwaber/quote`, `pkg/schwaber/orders` (buy, sell, bracket, orders, cancel) and `pkg/schwaber/killswitch`. Those packages take an `io.Writer` (and an `io.Reader` where they prompt) and never exit the process; `pkg/schwaber/clicolor` holds the shared colors and banner.
+The manual order commands (`buy`, `sell`, `bracket`, `orders`, `cancel`) were removed on 2026-10-27. They picked one account through `SCHWAB_ROTH_ACCOUNT_NUMBER` or IRA auto-detection; orders are now placed only by the orchestrator jobs, which target `SCHWAB_ACCOUNT_NUMBERS`.
+
+`cmd/schwaber` is a thin wrapper: it parses flags and calls the matching package: `pkg/schwaber/listall`, `pkg/schwaber/accounts`, `pkg/schwaber/quote` and `pkg/schwaber/killswitch`. Those packages take an `io.Writer` (and an `io.Reader` where they prompt) and never exit the process; `pkg/schwaber/clicolor` holds the shared colors and banner.
 
 ## Order idempotency (`pkg/schwaber/orderintent`)
 

@@ -4,8 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/darianmavgo/trade_well/pkg/backtest/appenv"
-	"github.com/darianmavgo/trade_well/pkg/backtest/cliutils"
 	"io"
 	"log"
 	"net/http"
@@ -15,6 +13,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/darianmavgo/trade_well/pkg/backtest/appenv"
+	"github.com/darianmavgo/trade_well/pkg/backtest/cliutils"
 
 	"github.com/darianmavgo/trade_well/pkg/backtest/datasource"
 	"github.com/darianmavgo/trade_well/pkg/backtest/refdb"
@@ -101,20 +102,20 @@ func expandSymbolLists(settingsDB string, tokens []string) ([]string, error) {
 // Config holds every setting of a download run. Zero values mean "unset";
 // DefaultConfig returns the CLI defaults.
 type Config struct {
-	DB, SettingsDB, Source, PolygonKey  string
-	AlpacaKey, AlpacaSecret, AlpacaFeed string // alpaca source: key id, secret, feed (sip or iex)
-	Symbols, Table                      string
-	Limit, Years                        int
-	Start, End, Timeframe, TargetTable  string
-	Force                               bool
-	UniverseDB                          string // universe.db read by UnleveragedETFs
-	UnleveragedETFs                     bool   // symbols = every active ETF with no leverage, most traded first
-	Status                              bool   // only report what the target database holds and what is left to pull
-	Concurrency                         int
-	OTM                                 string    // polygon-options: comma-separated % OTM
-	Rate                                int       // polygon: API calls per minute, 0 = unthrottled
-	MaxCalls                            int       // polygon-options
-	Out                                 io.Writer // progress output; nil discards
+	DB, SettingsDB, Source, PolygonKey string
+	AlpacaKey, AlpacaSecret            string // alpaca source: key id and secret
+	Symbols, Table                     string
+	Limit, Years                       int
+	Start, End, Timeframe, TargetTable string
+	Force                              bool
+	UniverseDB                         string // universe.db read by UnleveragedETFs
+	UnleveragedETFs                    bool   // symbols = every active ETF with no leverage, most traded first
+	Status                             bool   // only report what the target database holds and what is left to pull
+	Concurrency                        int
+	OTM                                string    // polygon-options: comma-separated % OTM
+	Rate                               int       // polygon: API calls per minute, 0 = unthrottled
+	MaxCalls                           int       // polygon-options
+	Out                                io.Writer // progress output; nil discards
 }
 
 // Summary reports what a Run did.
@@ -139,7 +140,6 @@ func bindFlags(cfg *Config, d Config) {
 	flag.StringVar(&cfg.Source, "source", d.Source, "Data source provider: alpaca (default), polygon, polygon-options or alpaca-options (option end-of-day bars into option_contracts / option_bars)")
 	flag.StringVar(&cfg.AlpacaKey, "alpaca-key", d.AlpacaKey, "Alpaca key id (or set ALPACA_KEY in environment or .env)")
 	flag.StringVar(&cfg.AlpacaSecret, "alpaca-secret", d.AlpacaSecret, "Alpaca secret (or set ALPACA_SECRET in environment or .env)")
-	flag.StringVar(&cfg.AlpacaFeed, "alpaca-feed", d.AlpacaFeed, "(alpaca) data feed: sip (consolidated, default; needs a paid data plan) or iex (free plan, one exchange); default ALPACA_FEED or sip")
 	flag.StringVar(&cfg.PolygonKey, "polygon-key", d.PolygonKey, "Polygon.io API key (or set POLYGON_API_KEY in environment or .env)")
 	flag.StringVar(&cfg.Symbols, "symbols", d.Symbols, "Comma-separated symbols to download (e.g. SPY,QQQ), or ids of symbol_lists rows in the settings DB (e.g. etf-pre-2021-unleveraged). Bare arguments work too: market_history VOO, IEF, GLD")
 	flag.StringVar(&cfg.Table, "table", d.Table, "Table name in strategies.db with symbols (fallback if no symbols specified)")
@@ -166,9 +166,6 @@ func resolveKeys(cfg *Config) {
 	}
 	if strings.TrimSpace(cfg.AlpacaKey) == "" || strings.TrimSpace(cfg.AlpacaSecret) == "" {
 		cfg.AlpacaKey, cfg.AlpacaSecret = datasource.ResolveAlpacaKeys() // ALPACA_KEY / ALPACA_SECRET / .env: CLI only
-	}
-	if strings.TrimSpace(cfg.AlpacaFeed) == "" {
-		cfg.AlpacaFeed = appenv.Get("ALPACA_FEED")
 	}
 }
 
@@ -414,7 +411,7 @@ func Run(ctx context.Context, cfg Config) (*Summary, error) {
 		polySource.SetRate(cfg.Rate)
 		primarySource = polySource
 	default: // alpaca
-		primarySource = datasource.NewAlpacaDataSource(cfg.AlpacaKey, cfg.AlpacaSecret, cfg.AlpacaFeed, client)
+		primarySource = datasource.NewAlpacaDataSource(cfg.AlpacaKey, cfg.AlpacaSecret, client)
 	}
 
 	now := time.Now().UTC()

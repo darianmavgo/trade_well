@@ -308,13 +308,10 @@ func parsePolygonTimeframe(tf string) (int, string) {
 	return 1, "day"
 }
 
-// ResolvePolygonAPIKey returns POLYGON_API_KEY (or POLYGON_KEY) from the
-// environment or the project .env file (see pkg/appenv).
+// ResolvePolygonAPIKey returns POLYGON_API_KEY from the environment or the project .env file
+// (see pkg/backtest/appenv). It is the only name; the old POLYGON_KEY alias is not read.
 func ResolvePolygonAPIKey() string {
-	if key := appenv.Get("POLYGON_API_KEY"); key != "" {
-		return key
-	}
-	return appenv.Get("POLYGON_KEY")
+	return appenv.Get("POLYGON_API_KEY")
 }
 
 // parseSimpleEnvFile extracts key-value pairs from a .env file without external dependencies.

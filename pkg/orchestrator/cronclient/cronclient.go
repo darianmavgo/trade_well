@@ -24,8 +24,6 @@ import (
 const (
 	// EnvURL is the deployed service's base URL, e.g. https://<project>.uc.r.appspot.com.
 	EnvURL = "ORCHESTRATOR_URL"
-	// EnvToken supplies an ID token directly, skipping gcloud.
-	EnvToken = "CRON_ID_TOKEN"
 
 	// jobTimeout matches the server's 12-minute per-job limit plus headroom.
 	jobTimeout = 13 * time.Minute
@@ -44,7 +42,7 @@ func (r *Result) OK() bool { return r.Status >= 200 && r.Status < 300 }
 type Options struct {
 	// BaseURL overrides ORCHESTRATOR_URL / the project-derived default.
 	BaseURL string
-	// Token overrides CRON_ID_TOKEN / `gcloud auth print-identity-token`.
+	// Token overrides `gcloud auth print-identity-token`.
 	Token string
 	// Query is appended to the request (e.g. dry_run=1 for stage_orders).
 	Query url.Values
@@ -76,17 +74,14 @@ func gcloudProject(out string) (string, bool) {
 	return p, p != "" && p != "(unset)"
 }
 
-// IdentityToken returns a Google ID token for the signed-in user: CRON_ID_TOKEN
-// if set, else `gcloud auth print-identity-token`. gcloud is the one external
+// IdentityToken returns a Google ID token for the signed-in user from
+// `gcloud auth print-identity-token`. gcloud is the one external
 // process here on purpose: Google's Go libraries mint ID tokens only for
 // service accounts, not for the user login this is meant to use.
 func IdentityToken(ctx context.Context) (string, error) {
-	if t := strings.TrimSpace(os.Getenv(EnvToken)); t != "" {
-		return t, nil
-	}
 	out, err := exec.CommandContext(ctx, "gcloud", "auth", "print-identity-token").Output()
 	if err != nil {
-		return "", fmt.Errorf("gcloud auth print-identity-token failed (run `gcloud auth login`, or set %s): %w", EnvToken, err)
+		return "", fmt.Errorf("gcloud auth print-identity-token failed (run `gcloud auth login`): %w", err)
 	}
 	t := strings.TrimSpace(string(out))
 	if t == "" {

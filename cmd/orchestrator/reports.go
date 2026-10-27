@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/darianmavgo/trade_well/pkg/backtest/appenv"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/appconfig"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/backfill_fills"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/check_health"
@@ -98,7 +99,7 @@ func printReportStatus(res live_vs_backtest_report.Result) {
 // rates /live_vs_backtest_winrate compares live trades against. With --dry-run nothing is copied or written.
 func runBacktestSync(args []string) {
 	fs := flag.NewFlagSet("live_vs_backtest_sync", flag.ExitOnError)
-	reports := fs.String("reports-dir", os.Getenv("BACKTEST_REPORTS"), "backtestgosqlite reports folder (data/reports); default $BACKTEST_REPORTS")
+	reports := fs.String("reports-dir", appenv.Reports(), "backtest reports folder (data/reports under APP_FOLDER)")
 	dest := fs.String("dest", "", "archive folder (default: live_vs_backtest_deployeds in the OS temp folder (trade_orchestrator/))")
 	dryRun := fs.Bool("dry-run", false, "Show which run would be kept for each strategy; copy and write nothing")
 	fs.Parse(args)
@@ -228,7 +229,7 @@ func runLiveVsBacktestWinrate(args []string) {
 	}
 	opt := live_vs_backtest_winrate.Options{RefDB: *ref}
 	if opt.RefDB == "" {
-		opt.RefDB = filepath.Join(os.Getenv("APP_FOLDER"), "refdata", "strategies.db")
+		opt.RefDB = appenv.RefDB()
 	}
 	opt.IDs = strategy_status.Members(os.Getenv("STRATEGY_ALLOWLIST"))
 	if *export != "" {

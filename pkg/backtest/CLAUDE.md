@@ -66,7 +66,7 @@ In `models.Signal`, `TakeProfit` and `StopLoss` are absolute dollar prices (`150
 - Walk-forward and stack results depend on the market DB window: a stack found by screening many strategies on the full history is in-sample. Keep a held-out final period and report it separately (see `docs/omnifunds_benchmark.md` for the bar to beat).
 - Hourly bars are the only bars downloaded (Alpaca or Polygon). Daily simulation reads session rows with `length(Date) = 10` that `pkg/sessions` derives from the hourly bars in the same table; there is no daily market database and no Yahoo or Stooq path for backtests. Do not add one. One narrow exception, approved by the owner: `daily_bars` (`pkg/dailybars`) keeps QQQ's long daily history from Yahoo in its own `data/daily_bars.db` for the HMM (`train hmm`); signals and the simulator never read it, and it never writes the hourly database.
 - Result DBs are written per run: `data/reports/<id>.db`, then `<id>_2.db`, `<id>_3.db`. Do not assume a fixed filename.
-- `strateval`'s ledger is `strategies.db` in the run folder (`-run-id`); `STRATEGIES_DB`, then `STRATEVAL_DB`, override it. `walk_forward.db` and `gridsearch.db` also live in the run folder, so a run never sees another run's results.
+- `strateval`'s ledger is `strategies.db` in the run folder (`-run-id`, under `$APP_FOLDER/data/reports/`); `-db` overrides it. `walk_forward.db` and `gridsearch.db` also live in the run folder, so a run never sees another run's results.
 - `data/` (except `README.md` and `ignore_over50MB.sh`), `bin/` and `reports/*.html` are gitignored; `data/` also has its own `.git`. Do not commit databases or binaries.
 
 ## Before you finish

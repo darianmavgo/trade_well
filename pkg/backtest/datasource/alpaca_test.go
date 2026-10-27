@@ -25,7 +25,7 @@ func TestAlpacaFetchPagesAndHeaders(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	a := NewAlpacaDataSource("id", "sec", "", srv.Client())
+	a := NewAlpacaDataSource("id", "sec", srv.Client())
 	a.BaseURL = srv.URL
 	bars, err := a.Fetch(context.Background(), FetchRequest{
 		Symbol: "spy", Timeframe: "1h",
@@ -47,15 +47,5 @@ func TestAlpacaTimeframe(t *testing.T) {
 		if got := alpacaTimeframe(in); got != want {
 			t.Errorf("alpacaTimeframe(%q) = %q, want %q", in, got, want)
 		}
-	}
-}
-
-func TestAlpacaFeedDefaultsToSIP(t *testing.T) {
-	t.Setenv("ALPACA_FEED", "")
-	if a := NewAlpacaDataSource("id", "sec", "", nil); a.Feed != "sip" {
-		t.Errorf("default feed = %q, want sip", a.Feed)
-	}
-	if a := NewAlpacaDataSource("id", "sec", "IEX", nil); a.Feed != "iex" {
-		t.Errorf("explicit feed = %q, want iex", a.Feed)
 	}
 }

@@ -88,7 +88,7 @@ func RunDownloadContext(ctx context.Context, targetDb, targetTable string, symbo
 	}
 
 	client := &http.Client{Timeout: 60 * time.Second}
-	source := datasource.NewAlpacaDataSource("", "", "", client)
+	source := datasource.NewAlpacaDataSource("", "", client)
 
 	now := time.Now().UTC()
 	start := now.AddDate(-years, 0, 0)

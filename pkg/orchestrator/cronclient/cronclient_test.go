@@ -45,10 +45,3 @@ func TestGcloudProject(t *testing.T) {
 		}
 	}
 }
-
-func TestIdentityTokenFromEnv(t *testing.T) {
-	t.Setenv(EnvToken, " abc ")
-	if tok, err := IdentityToken(context.Background()); err != nil || tok != "abc" {
-		t.Fatalf("tok=%q err=%v", tok, err)
-	}
-}

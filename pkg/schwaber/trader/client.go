@@ -50,27 +50,8 @@ func NewTraderClient(ctx context.Context, cfg *config.Config) (*TraderClient, er
 	}, nil
 }
 
-// GetRothAccount automatically discovers and returns the Roth IRA account.
-func (tc *TraderClient) GetRothAccount(ctx context.Context) (*ResolvedAccount, error) {
-	linked, err := tc.Client.ListLinkedAccounts(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list linked accounts: %w", err)
-	}
-
-	// Fetch full accounts
-	var fullAccounts []schwab.Account
-	for _, la := range linked {
-		acc, err := tc.Client.GetAccount(ctx, la.HashValue, "positions")
-		if err == nil {
-			fullAccounts = append(fullAccounts, *acc)
-		}
-	}
-
-	return ResolveRothAccount(linked, fullAccounts, tc.Config.RothAccountNumber)
-}
-
 // GetAccounts resolves a specific, explicitly targeted set of Schwab accounts
-// by account number. Unlike GetRothAccount it performs no auto-detection: every
+// by account number. It performs no auto-detection: every
 // requested account number must be found among the linked accounts, or the
 // call fails and names exactly which account numbers were not found.
 func (tc *TraderClient) GetAccounts(ctx context.Context, targets []string) ([]*ResolvedAccount, error) {

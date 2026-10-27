@@ -8,12 +8,12 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/darianmavgo/trade_well/pkg/backtest/appenv"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/live_vs_backtest_winrate"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/strategy_status"
 )
@@ -38,12 +38,7 @@ func (s *Server) handleLiveVsBacktestWinrate(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "ERROR: database unavailable: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	opt := live_vs_backtest_winrate.Options{RefDB: os.Getenv("LIVE_VS_BACKTEST_REFDB"), MaxAge: pageReuseFor}
-	if opt.RefDB == "" {
-		if folder := os.Getenv("APP_FOLDER"); folder != "" {
-			opt.RefDB = filepath.Join(folder, "refdata", "strategies.db")
-		}
-	}
+	opt := live_vs_backtest_winrate.Options{RefDB: appenv.RefDB(), MaxAge: pageReuseFor} // $APP_FOLDER/refdata/strategies.db; a missing file is ignored
 	opt.IDs = strategy_status.Members(os.Getenv("STRATEGY_ALLOWLIST"))
 	days := 3
 	if v := r.URL.Query().Get("days"); v != "" {
@@ -203,7 +198,7 @@ func headline(r live_vs_backtest_winrate.Row) string {
 	}
 	switch r.Verdict {
 	case live_vs_backtest_winrate.NoBacktest:
-		return "No backtest win rate for this strategy yet. Run orchestrator live_vs_backtest_sync -reports-dir <backtestgosqlite/data/reports>, then orchestrator live_vs_backtest_winrate -export-baseline pkg/live_vs_backtest_winrate/baseline.json and rebuild." + held
+		return "No backtest win rate for this strategy yet. Run orchestrator live_vs_backtest_sync (it reads $APP_FOLDER/data/reports), then orchestrator live_vs_backtest_winrate -export-baseline pkg/orchestrator/live_vs_backtest_winrate/baseline.json and rebuild." + held
 	case live_vs_backtest_winrate.TooEarly:
 		return fmt.Sprintf("%d of %d closed live decisions needed before this can be judged.", r.LiveDecisions, live_vs_backtest_winrate.MinLive) + held
 	}

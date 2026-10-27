@@ -15,7 +15,7 @@ import (
 // lags a night behind, so a deployment with no hourly data can still decide on the session that
 // just ended. A bar for a session that has not closed is dropped.
 func AlpacaDailyBars(ctx context.Context, symbol string, years int) ([]models.Bar, error) {
-	src := datasource.NewAlpacaDataSource("", "", "", &http.Client{Timeout: 60 * time.Second})
+	src := datasource.NewAlpacaDataSource("", "", &http.Client{Timeout: 60 * time.Second})
 	now := time.Now().UTC()
 	bars, err := src.Fetch(ctx, datasource.FetchRequest{
 		Symbol: symbol, StartDate: now.AddDate(-years, 0, 0), EndDate: now, Timeframe: "1d",

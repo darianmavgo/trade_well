@@ -32,8 +32,8 @@ func RunCommand(ctx context.Context, out io.Writer, opts CommandOptions) error {
 		for _, j := range opts.Jobs {
 			fmt.Fprintf(out, "  %s\n", j)
 		}
-		fmt.Fprintln(out, "\nNeeds CRON_ALLOWED_EMAILS on the server to include your Google email, and either")
-		fmt.Fprintln(out, "`gcloud auth login` here or CRON_ID_TOKEN set. Equivalent to:")
+		fmt.Fprintln(out, "\nNeeds CRON_ALLOWED_EMAILS on the server to include your Google email, and")
+		fmt.Fprintln(out, "`gcloud auth login` here. Equivalent to:")
 		fmt.Fprintln(out, `  curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" https://<project>.uc.r.appspot.com/cron/<job>`)
 		if len(pos) == 1 {
 			return nil

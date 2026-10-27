@@ -13,6 +13,7 @@ version** of the default service.
 |------|---------|
 | `app.yaml` | Go 1.26 Standard service, max 1 instance. No `env_variables` (a test enforces it): configuration is the GCS object below |
 | `config.sh` | The app's whole configuration is `gs://<bucket>/config/env` (replaces Secret Manager, `app.yaml` env and `.env`): `migrate`, `keys`, `list`, `edit`, `set`, `unset`, `pull`, `push` |
+| `clean_deploy_env.sh` | Scans the code and deploy scripts for every environment variable they read, pulls the live config object, drops the variables nothing refers to and uploads the result (the old object stays as `config/env.prev`). `--dry-run` shows the removals without changing anything; `--scan-only` and `--from-file F [--out G]` work offline. Names only are ever printed. |
 | `cron.yaml` | Market-hours schedule → `/cron/*` |
 | `dispatch.yaml`, `index.yaml` | Routing and datastore index config |
 | `live_vs_backtest_report.yaml`, `deploy_live_vs_backtest_report.sh` | The separate `live-vs-backtest-report` service |

@@ -123,9 +123,7 @@ Notes:
 | `APP_FOLDER` | `.` | repository root. `data/`, `refdata/` and `data/reports/` are fixed subfolders of it |
 | `POLYGON_API_KEY` | empty | Polygon equity and option downloads, `universe` |
 | `ALPACA_KEY`, `ALPACA_SECRET` | empty | Alpaca bar downloads (`market_history -source alpaca`) |
-| `ALPACA_FEED` | `sip` | Alpaca feed: `sip` (consolidated tape, needs a paid data plan) or `iex` (free plan, one exchange) |
 | `STRATEGY_ALLOWLIST` | empty | `strateval` live-list snapshot |
-| `STRATEGIES_DB` or `STRATEVAL_DB` | empty | overrides the strateval ledger path (otherwise `strategies.db` in the run folder) |
 
 Default files:
 
@@ -197,10 +195,10 @@ Pull hourly bars into SQLite and derive the daily sessions from them. The source
 ./bin/market_history -source alpaca-options -symbols UPRO,SPXU
 ./bin/market_history -source polygon -timeframe 1h -unleveraged-etfs -concurrency 1   # hours of runtime at 5 calls/min
 ./bin/market_history -source polygon -timeframe 1h -unleveraged-etfs -status       # what is pulled, what is left
-./bin/market_history -source alpaca -timeframe 1h -symbols SPY,QQQ -years 5          # Alpaca hourly bars (keys from .env; consolidated sip feed; -alpaca-feed iex on the free plan)
+./bin/market_history -source alpaca -timeframe 1h -symbols SPY,QQQ -years 5          # Alpaca hourly bars (keys from .env; always the consolidated sip feed, which needs a paid Alpaca data plan)
 ```
 
-Hourly and minute bars go to `data/market_history_hourly.db` / `data/market_history_minute.db`, and coverage is checked there first, so a rerun asks the source (Polygon or Alpaca) only for the missing days. Alpaca defaults to the consolidated `sip` feed; with the free plan it answers 403, so pass `-alpaca-feed iex`, which reports one exchange's volume and prices, leaves hours with no IEX trade empty, and differs from consolidated bars.
+Hourly and minute bars go to `data/market_history_hourly.db` / `data/market_history_minute.db`, and coverage is checked there first, so a rerun asks the source (Polygon or Alpaca) only for the missing days. Alpaca always uses the consolidated `sip` feed, which needs a paid Alpaca data plan; on the free plan it answers 403 (the IEX feed is no longer selectable).
 
 **`market_history update -strategy <id>`** keeps the bars of one strategy's symbols complete. It takes the symbols from the strategy (candidates, regime symbol, benchmark; `a+b+c` stacks work), checks with the same completeness test as `strategy coverage` which of them have sessions with no bars, and downloads only those. Defaults: `-timeframe 1h`, `-source alpaca`, `-start 2021-01-01`, no `-limit`. A symbol with a gap is fetched again over the whole window and replaces bars stored at the same time, because a normal run fills only the two ends of a symbol's range, never a gap inside it. Alpaca returns up to 10,000 bars a request and the source pages itself. `-strategy` is required; `-dry-run` lists the symbols with gaps and downloads nothing; the other flags are the download flags above (`-symbols` is ignored).
 
@@ -482,7 +480,7 @@ In-sample / out-of-sample ledger. It does not edit `STRATEGY_ALLOWLIST` or live 
 
 **Reads:** `data/market_history_hourly.db`, table `backtest_start`. Allowlist from `-allowlist` or `STRATEGY_ALLOWLIST` (comma-separated ids).
 
-**Writes:** `strategies.db` (`strategies`, `strategy_evals`, `deployments`) in a run folder, `data/reports/<run_id>/`, unless `STRATEGIES_DB` or `STRATEVAL_DB` is set. `-run-id N` uses run N and without it an evaluation starts a new run (`report`, `status`, `path` use the latest). `report` and `status` take `-strategy` to show only those ids. Scratch artifacts under `strateval_runs/` in the same folder. Held-out window `-oos-months 12`. Capital `$100,000`. Start `2021-01-01`. Tier A gates: at least 12 OOS trades, win rate 0.55, max drawdown 0.15.
+**Writes:** `strategies.db` (`strategies`, `strategy_evals`, `deployments`) in a run folder, `$APP_FOLDER/data/reports/<run_id>/`, unless `-db` names another file. `-run-id N` uses run N and without it an evaluation starts a new run (`report`, `status`, `path` use the latest). `report` and `status` take `-strategy` to show only those ids. Scratch artifacts under `strateval_runs/` in the same folder. Held-out window `-oos-months 12`. Capital `$100,000`. Start `2021-01-01`. Tier A gates: at least 12 OOS trades, win rate 0.55, max drawdown 0.15.
 
 ```bash
 ./bin/strateval -list

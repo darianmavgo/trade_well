@@ -39,7 +39,7 @@ func TestCleanDeployEnvKeepsWhatIsNeeded(t *testing.T) {
 	in := filepath.Join(dir, "in.env")
 	outFile := filepath.Join(dir, "out.env")
 	body := "# comment\nSTRATEGY_ALLOWLIST=a+b,c\nTZ=America/New_York\nSCHWAB_APP_SECRET=secret-value-1\n" +
-		"SCHWAB_CLIENT_SECRET=old-secret-value\nZZ_NOT_USED_ANYWHERE_12345=gone-value\n\nDRY_RUN_DEFAULT=true\nDRY_RUN_DEFAULT=false\nlower_case_key=odd-value\n"
+		"SCHWAB_CLIENT_SECRET=old-secret-value\nZZ_NOT_USED_ANYWHERE_12345=gone-value\n\nSCHWAB_DEBUG=true\nSCHWAB_DEBUG=false\nlower_case_key=odd-value\n"
 	if err := os.WriteFile(in, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -57,12 +57,12 @@ func TestCleanDeployEnvKeepsWhatIsNeeded(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := "\n" + string(gotBytes)
-	for _, want := range []string{"\nSTRATEGY_ALLOWLIST=a+b,c", "\nTZ=America/New_York", "\nSCHWAB_APP_SECRET=secret-value-1", "\nDRY_RUN_DEFAULT=false\n", "\nlower_case_key=odd-value"} {
+	for _, want := range []string{"\nSTRATEGY_ALLOWLIST=a+b,c", "\nTZ=America/New_York", "\nSCHWAB_APP_SECRET=secret-value-1", "\nSCHWAB_DEBUG=false\n", "\nlower_case_key=odd-value"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("cleaned env lost %q:\n%s", strings.TrimSpace(want), gotBytes)
 		}
 	}
-	for _, gone := range []string{"SCHWAB_CLIENT_SECRET", "ZZ_NOT_USED_ANYWHERE_12345", "# comment", "DRY_RUN_DEFAULT=true"} {
+	for _, gone := range []string{"SCHWAB_CLIENT_SECRET", "ZZ_NOT_USED_ANYWHERE_12345", "# comment", "SCHWAB_DEBUG=true"} {
 		if strings.Contains(got, gone) {
 			t.Errorf("cleaned env still has %q:\n%s", gone, gotBytes)
 		}

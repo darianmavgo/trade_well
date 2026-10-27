@@ -105,3 +105,16 @@ func TestPolygonSetRate(t *testing.T) {
 		t.Errorf("0/min = %v, want unthrottled", p.MinInterval)
 	}
 }
+
+// POLYGON_API_KEY is the one name for the key; the old POLYGON_KEY alias is not read.
+func TestResolvePolygonAPIKeyUsesOnlyPolygonAPIKey(t *testing.T) {
+	t.Setenv("POLYGON_API_KEY", "")
+	t.Setenv("POLYGON_KEY", "old-alias-value")
+	if got := ResolvePolygonAPIKey(); got != "" {
+		t.Fatalf("POLYGON_KEY must not be read, got %q", got)
+	}
+	t.Setenv("POLYGON_API_KEY", "the-key")
+	if got := ResolvePolygonAPIKey(); got != "the-key" {
+		t.Fatalf("got %q, want POLYGON_API_KEY's value", got)
+	}
+}
