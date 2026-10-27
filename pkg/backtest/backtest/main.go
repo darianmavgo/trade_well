@@ -688,8 +688,8 @@ func runOnce(conf Config) error {
 		if len(toRun) < 2 || serr != nil || len(lacking) == 0 || len(have) == 0 {
 			return fmt.Errorf("Market data resolution error: %v", err)
 		}
-		fmt.Printf("⚠️  Market data: %v\n   Skipping %d strategies that need %d symbols with no bars (%s); running the other %d.\n\n",
-			err, len(lacking), len(missing), strings.Join(firstN(missing, 8), " "), len(have))
+		fmt.Printf("⚠️  Skipping %d strategies that need %d symbols with no bars in the market data (%s); running the other %d.\n\n",
+			len(lacking), len(missing), strings.Join(firstN(missing, 8), " "), len(have))
 		toRun = have
 	}
 

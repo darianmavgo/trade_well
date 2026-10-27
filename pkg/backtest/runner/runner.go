@@ -14,6 +14,7 @@ import (
 	"github.com/darianmavgo/trade_well/pkg/backtest/models"
 	"github.com/darianmavgo/trade_well/pkg/backtest/storage"
 	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
+	"github.com/jmoiron/sqlx"
 	"github.com/olekukonko/tablewriter"
 	_ "modernc.org/sqlite"
 )
