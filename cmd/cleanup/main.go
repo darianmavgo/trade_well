@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"flag"
 	"fmt"
 	"os"
@@ -12,9 +11,7 @@ import (
 
 	"github.com/darianmavgo/trade_well/pkg/backtest/appenv"
 	"github.com/darianmavgo/trade_well/pkg/backtest/cleanup"
-	"github.com/darianmavgo/trade_well/pkg/orchestrator/schemas"
 	"github.com/darianmavgo/trade_well/pkg/schwaber/dbutil"
-	_ "modernc.org/sqlite"
 )
 
 const usage = `usage: cleanup report|runs|sql|tables|jobs|bins|refs|data|dead|all [flags]
@@ -28,7 +25,7 @@ const usage = `usage: cleanup report|runs|sql|tables|jobs|bins|refs|data|dead|al
   data    list data/ and refdata/ entries no Go or shell file mentions (changes nothing)
   dead    list Go packages no main package imports (changes nothing)
   all     runs, then losing strategies (needs -keep), orphan rows, old versions, report-only scans, then refresh strategy_last_backtest
-Every mode takes -dry-run. tables and jobs use the Turso database (TURSO_DATABASE_URL, TURSO_AUTH_TOKEN) or the SQLite file in -orch-db.
+Every mode takes -dry-run. tables and jobs use the Turso database (TURSO_DATABASE_URL, TURSO_AUTH_TOKEN).
 Workers are kept between 10 and 32.`
 
 var modes = map[string]bool{"report": true, "runs": true, "sql": true, "tables": true, "jobs": true,
@@ -66,7 +63,6 @@ func main() {
 	fs.BoolVar(&cfg.Vacuum, "vacuum", false, "all: rewrite result DBs that are mostly free pages")
 	fs.BoolVar(&cfg.RemoveSQL, "remove-sql", false, "sql: same as -remove")
 	fs.BoolVar(&cfg.Remove, "remove", false, "sql, tables, jobs, bins, refs: delete or rewrite what was found")
-	orchDB := fs.String("orch-db", "", "tables, jobs: SQLite file to use instead of the Turso database")
 	yes := fs.Bool("yes", false, "all, tables, jobs: confirm that it deletes data")
 	fs.Parse(args)
 
@@ -97,7 +93,7 @@ func main() {
 		if cfg.Remove {
 			needYes("rows or tables in the operational database")
 		}
-		err = onDB(ctx, cfg, *orchDB, mode)
+		err = onDB(ctx, cfg, mode)
 	case "all":
 		needYes("files")
 		err = cleanup.All(ctx, cfg)
@@ -111,15 +107,9 @@ func main() {
 	}
 }
 
-// onDB runs tables or jobs against the operational database.
-func onDB(ctx context.Context, cfg cleanup.Config, file, mode string) error {
-	var db *sql.DB
-	var err error
-	if file != "" {
-		db, err = sql.Open("sqlite", file)
-	} else {
-		db, err = dbutil.Open("")
-	}
+// onDB runs tables or jobs against the operational database (Turso).
+func onDB(ctx context.Context, cfg cleanup.Config, mode string) error {
+	db, err := dbutil.Open("")
 	if err != nil {
 		return err
 	}
@@ -133,38 +123,10 @@ func onDB(ctx context.Context, cfg cleanup.Config, file, mode string) error {
 		_, err = cleanup.Jobs(ctx, cfg, db, known)
 		return err
 	}
-	known, err := schemaTables(ctx)
+	known, err := cleanup.SchemaTables(cfg.Root)
 	if err != nil {
 		return err
 	}
 	_, err = cleanup.Tables(ctx, cfg, db, known)
 	return err
-}
-
-// schemaTables is every table and view the orchestrator's schemas create: it
-// runs EnsureAll on an empty in-memory database and lists what appeared.
-func schemaTables(ctx context.Context) ([]string, error) {
-	mem, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		return nil, err
-	}
-	defer mem.Close()
-	mem.SetMaxOpenConns(1) // every connection to :memory: is its own database
-	if err := schemas.EnsureAll(mem); err != nil {
-		return nil, err
-	}
-	rows, err := mem.QueryContext(ctx, `SELECT name FROM sqlite_master WHERE type IN ('table','view')`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var names []string
-	for rows.Next() {
-		var n string
-		if err := rows.Scan(&n); err != nil {
-			return nil, err
-		}
-		names = append(names, n)
-	}
-	return names, rows.Err()
 }

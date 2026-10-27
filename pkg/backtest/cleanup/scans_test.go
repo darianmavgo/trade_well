@@ -217,3 +217,13 @@ func TestReplacePath(t *testing.T) {
 		}
 	}
 }
+
+func TestSchemaTables(t *testing.T) {
+	root := t.TempDir()
+	putFile(t, root, "sql/orchestrator/a.sql", "-- name: x\nCREATE TABLE IF NOT EXISTS job_run (id)\n;\nCREATE INDEX i ON job_run(id);\n", 0o644)
+	putFile(t, root, "sql/orchestrator/b/01.sql", "DROP VIEW IF EXISTS v_one;\nCREATE VIEW v_one AS SELECT 1;\n  create table winrate_x as select 1;\n", 0o644)
+	got, err := SchemaTables(root)
+	if err != nil || strings.Join(got, ",") != "job_run,v_one,winrate_x" {
+		t.Fatalf("SchemaTables = %v, %v", got, err)
+	}
+}

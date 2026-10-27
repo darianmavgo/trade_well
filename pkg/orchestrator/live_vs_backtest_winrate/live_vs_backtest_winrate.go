@@ -303,7 +303,7 @@ func Compare(ctx context.Context, db *sql.DB, opt Options) ([]Row, error) {
 		full, nil string
 	}{
 		{func() (bool, error) { return hasTable(ctx, db, "live_vs_backtest_winrate") }, "02_slice_backtest.sql", "02_slice_backtest_empty.sql"},
-		{func() (bool, error) { return hasTable(ctx, db, "manage_exit") }, "04_slice_decisions.sql", "04_slice_decisions_empty.sql"},
+		{func() (bool, error) { return hasTable(ctx, db, "trade_history") }, "04_slice_decisions.sql", "04_slice_decisions_empty.sql"},
 		{func() (bool, error) { return hasTable(ctx, db, "manage_exit") }, "04_slice_holding.sql", "04_slice_holding_empty.sql"},
 		{func() (bool, error) { return hasTable(ctx, db, "live_vs_backtest_trade") }, "05_slice_model.sql", "05_slice_model_empty.sql"},
 	} {
@@ -513,7 +513,7 @@ func Recent(ctx context.Context, db *sql.DB, days int, maxAge time.Duration) ([]
 		return nil, err
 	}
 	stage := "20_slice_recent.sql"
-	if ok, err := hasTable(ctx, db, "manage_exit"); err != nil {
+	if ok, err := hasTable(ctx, db, "trade_history"); err != nil {
 		return nil, err
 	} else if !ok {
 		stage = "20_slice_recent_empty.sql"

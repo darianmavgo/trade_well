@@ -1,16 +1,31 @@
 package dashboard
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/darianmavgo/trade_well/pkg/orchestrator/account_state"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/live_vs_backtest_trades"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/live_vs_backtest_winrate"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/manage_exits"
+	"github.com/darianmavgo/trade_well/pkg/orchestrator/trade_history"
 )
+
+// captureTrades copies the closed manage_exit rows that really traded into trade_history, as the
+// exit manager does; the win-rate page reads trade_history.
+func captureTrades(t *testing.T, srv *Server) {
+	t.Helper()
+	if err := account_state.EnsureSchema(srv.db); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := trade_history.Capture(context.Background(), srv.db, false); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestLiveVsBacktestWinratePageIsHTMLByDefaultAndJSONOnRequest(t *testing.T) {
 	srv, h := checkHealthServer(t)
@@ -31,8 +46,8 @@ func TestLiveVsBacktestWinratePageIsHTMLByDefaultAndJSONOnRequest(t *testing.T) 
 		if i < 3 {
 			pnl = 2
 		}
-		if _, err := srv.db.Exec(`INSERT INTO manage_exit (account_number, symbol, strategy_name, strategy_id, entry_order_id, status, pnl, pnl_pct, entry_price, target_profit_price, stop_loss_price, quantity, entry_time, max_trading_days)
-			VALUES ('1', 'PDD', 'pdd_tree', 'pdd_tree', ?, 'CLOSED_TARGET', ?, ?, 10, 11, 9, 1, ?, 1)`, fmt.Sprint("o", i), pnl, pnl, fmt.Sprintf("2026-09-%02d 13:30:00 +0000 +0000", i+1)); err != nil {
+		if _, err := srv.db.Exec(`INSERT INTO manage_exit (account_number, symbol, strategy_name, strategy_id, entry_order_id, exit_order_id, entry_fill_price, exit_fill_price, status, pnl, pnl_pct, exit_time, entry_price, target_profit_price, stop_loss_price, quantity, entry_time, max_trading_days)
+			VALUES ('1', 'PDD', 'pdd_tree', 'pdd_tree', ?, ?, 10, 11, 'CLOSED_TARGET', ?, ?, ?, 10, 11, 9, 1, ?, 1)`, fmt.Sprint("o", i), fmt.Sprint("x", i), pnl, pnl, fmt.Sprintf("2026-09-%02d 20:00:00 +0000 +0000", i+1), fmt.Sprintf("2026-09-%02d 13:30:00 +0000 +0000", i+1)); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := srv.db.Exec(`INSERT INTO live_vs_backtest_trade (strategy_id, symbol, as_of_date, live_outcome, live_return_pct, model_outcome, model_return_pct, built_at)
@@ -40,6 +55,7 @@ func TestLiveVsBacktestWinratePageIsHTMLByDefaultAndJSONOnRequest(t *testing.T) 
 			t.Fatal(err)
 		}
 	}
+	captureTrades(t, srv)
 
 	w := getStatus(h, "/live_vs_backtest_winrate")
 	body := w.Body.String()
@@ -179,15 +195,23 @@ func TestLiveVsBacktestWinratePageListsRecentStopLosses(t *testing.T) {
 		{"74234603", now.AddDate(0, 0, -1), "CLOSED_PROFIT", "TARGET", 55},
 		{"74234603", now.AddDate(0, 0, -20), "CLOSED_STOP_LOSS", "STOP_LOSS", -9999},
 	} {
-		if _, err := srv.db.Exec(`INSERT INTO manage_exit (account_number, symbol, strategy_name, strategy_id, entry_order_id, status, exit_reason_code, exit_time,
+		if _, err := srv.db.Exec(`INSERT INTO manage_exit (account_number, symbol, strategy_name, strategy_id, entry_order_id, exit_order_id, entry_fill_price, exit_fill_price, status, exit_reason_code, exit_time,
 			entry_price, exit_price, quantity, pnl, pnl_pct, target_profit_price, stop_loss_price, entry_time, max_trading_days)
-			VALUES (?, 'AMUU', 'markov_model_amuu', 'markov_model_amuu', ?, ?, ?, ?, 271.76, 217.41, 10, ?, -20, 300, 217, 'x', 1)`,
-			c.acct, fmt.Sprint("o", i), c.status, c.code, c.when.Format("2006-01-02 15:04:05 +0000 +0000"), c.pnl); err != nil {
+			VALUES (?, 'AMUU', 'markov_model_amuu', 'markov_model_amuu', ?, ?, 271.76, 217.41, ?, ?, ?, 271.76, 217.41, 10, ?, -20, 300, 217, 'x', 1)`,
+			c.acct, fmt.Sprint("o", i), fmt.Sprint("x", i), c.status, c.code, c.when.Format("2006-01-02 15:04:05 +0000 +0000"), c.pnl); err != nil {
 			t.Fatal(err)
 		}
 	}
+	// Closed, but the broker's fills were never recorded: not a trade that happened, so not listed.
+	if _, err := srv.db.Exec(`INSERT INTO manage_exit (account_number, symbol, strategy_name, strategy_id, entry_order_id, exit_order_id, status, exit_reason_code, exit_time,
+		entry_price, exit_price, quantity, pnl, pnl_pct, target_profit_price, stop_loss_price, entry_time, max_trading_days)
+		VALUES ('99990000', 'AMUU', 'markov_model_amuu', 'markov_model_amuu', 'unfilled', 'unfilled-x', 'CLOSED_STOP_LOSS', 'STOP_LOSS', ?, 271.76, 217.41, 10, -777, -20, 300, 217, 'x', 1)`,
+		now.Format("2006-01-02 15:04:05 +0000 +0000")); err != nil {
+		t.Fatal(err)
+	}
+	captureTrades(t, srv)
 	body := getStatus(h, "/live_vs_backtest_winrate").Body.String()
-	for _, want := range []string{"Closed trades, last 3 days", "2 stop losses", "<b>0/1</b>", "4 account fills", "STOP LOSS", "...0011", "...4603", "-2445.75", "$271.76", "$217.41", "ET</td>", "not the real prices", "limit, not the fill", "order price, not the fill", "orchestrator backfill_fills"} {
+	for _, want := range []string{"Closed trades, last 3 days", "2 stop losses", "<b>0/1</b>", "4 account fills", "STOP LOSS", "...0011", "...4603", "-2445.75", "$271.76", "$217.41", "ET</td>"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("page missing %q", want)
 		}
@@ -196,6 +220,9 @@ func TestLiveVsBacktestWinratePageListsRecentStopLosses(t *testing.T) {
 	cmp, detail, chart := strings.Index(body, "Greenlit (1)"), strings.Index(body, "Closed trades, last 3 days"), strings.Index(body, `<svg class="chart"`)
 	if cmp < 0 || detail < 0 || chart < 0 || !(cmp < detail && detail < chart) {
 		t.Errorf("order wrong: comparison %d, detail %d, chart %d", cmp, detail, chart)
+	}
+	if strings.Contains(body, "-777") || strings.Contains(body, "0000</td>") {
+		t.Error("a closed row with no recorded fills is listed")
 	}
 	if strings.Contains(body, "-9999") {
 		t.Error("a trade closed 20 days ago is in the 3-day list")
@@ -220,12 +247,13 @@ func TestLiveVsBacktestWinratePageShowsRecordedFillsAndDoesNotFlagThem(t *testin
 	if err := manage_exits.EnsureSchema(srv.db); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := srv.db.Exec(`INSERT INTO manage_exit (account_number, symbol, strategy_name, strategy_id, entry_order_id, status, exit_reason_code, exit_time,
+	if _, err := srv.db.Exec(`INSERT INTO manage_exit (account_number, symbol, strategy_name, strategy_id, entry_order_id, exit_order_id, status, exit_reason_code, exit_time,
 		entry_price, entry_fill_price, exit_price, exit_fill_price, quantity, pnl, pnl_pct, target_profit_price, stop_loss_price, entry_time, max_trading_days)
-		VALUES ('75124906', 'AMUU', 'markov_model_amuu', 'markov_model_amuu', 'e1', 'CLOSED_STOP_LOSS', 'STOP_LOSS', ?,
+		VALUES ('75124906', 'AMUU', 'markov_model_amuu', 'markov_model_amuu', 'e1', 'e1-x', 'CLOSED_STOP_LOSS', 'STOP_LOSS', ?,
 		271.76, 256.69, 213.27, 213.27, 45, -1947.9, -16.9, 300, 217, 'x', 1)`, time.Now().UTC().Format("2006-01-02 15:04:05 +0000 +0000")); err != nil {
 		t.Fatal(err)
 	}
+	captureTrades(t, srv)
 	body := getStatus(h, "/live_vs_backtest_winrate").Body.String()
 	for _, want := range []string{"$256.69", "$213.27", "-16.9%", "-1947.90"} {
 		if !strings.Contains(body, want) {

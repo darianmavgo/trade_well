@@ -11,8 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/darianmavgo/trade_well/pkg/orchestrator/account_state"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/live_vs_backtest_trades"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/manage_exits"
+	"github.com/darianmavgo/trade_well/pkg/orchestrator/trade_history"
 	_ "modernc.org/sqlite"
 )
 
@@ -33,6 +35,18 @@ func mustExec(t *testing.T, db *sql.DB, q string, args ...any) {
 	}
 }
 
+// capture copies the closed manage_exit rows that really traded into trade_history, as the exit
+// manager does at the end of a run. The win-rate comparison reads trade_history, not manage_exit.
+func capture(t *testing.T, db *sql.DB) {
+	t.Helper()
+	if err := account_state.EnsureSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := trade_history.Capture(context.Background(), db, false); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // addLive writes n closed live trades, wins of them with positive pnl, and the same n replayed
 // by the backtest engine with modelWins winners.
 func addLive(t *testing.T, db *sql.DB, id string, n, wins, modelWins int) {
@@ -45,11 +59,12 @@ func addLive(t *testing.T, db *sql.DB, id string, n, wins, modelWins int) {
 		if i < modelWins {
 			model = 0.02
 		}
-		mustExec(t, db, `INSERT INTO manage_exit (account_number, symbol, strategy_name, strategy_id, entry_order_id, status, pnl, pnl_pct, exit_date, entry_price, target_profit_price, stop_loss_price, quantity, entry_time, max_trading_days)
-			VALUES ('1', 'X', ?, ?, ?, 'CLOSED_TARGET', ?, ?, ?, 10, 11, 9, 1, ?, 1)`, id, id, fmt.Sprintf("%s-%d", id, i), pnl, pnl, fmt.Sprintf("2026-09-%02d 13:30:00 +0000 +0000", i+1), fmt.Sprintf("2026-09-%02d 13:30:00 +0000 +0000", i+1))
+		mustExec(t, db, `INSERT INTO manage_exit (account_number, symbol, strategy_name, strategy_id, entry_order_id, exit_order_id, entry_fill_price, exit_fill_price, status, pnl, pnl_pct, exit_date, exit_time, entry_price, target_profit_price, stop_loss_price, quantity, entry_time, max_trading_days)
+			VALUES ('1', 'X', ?, ?, ?, ?, 10, 11, 'CLOSED_TARGET', ?, ?, ?, ?, 10, 11, 9, 1, ?, 1)`, id, id, fmt.Sprintf("%s-%d", id, i), fmt.Sprintf("%s-%d-x", id, i), pnl, pnl, fmt.Sprintf("2026-09-%02d", i+1), fmt.Sprintf("2026-09-%02d 20:00:00 +0000 +0000", i+1), fmt.Sprintf("2026-09-%02d 13:30:00 +0000 +0000", i+1))
 		mustExec(t, db, `INSERT INTO live_vs_backtest_trade (strategy_id, symbol, as_of_date, live_outcome, live_return_pct, model_outcome, model_return_pct, built_at)
 			VALUES (?, 'X', ?, 'CLOSED', ?, 'CLOSED', ?, 'now')`, id, fmt.Sprintf("2026-09-%02d", i+1), pnl, model)
 	}
+	capture(t, db)
 }
 
 func byID(rows []Row) map[string]Row {
@@ -324,15 +339,16 @@ func TestRecentListsStopLossesFromYesterdayAndThisMorning(t *testing.T) {
 		return time.Now().UTC().AddDate(0, 0, -days).Format("2006-01-02") + " 13:30:22 +0000 +0000"
 	}
 	add := func(id, status, code, exit string, acct string, pnl float64) {
-		mustExec(t, db, `INSERT INTO manage_exit (account_number, symbol, strategy_name, strategy_id, entry_order_id, status, exit_reason_code, exit_time,
+		mustExec(t, db, `INSERT INTO manage_exit (account_number, symbol, strategy_name, strategy_id, entry_order_id, exit_order_id, entry_fill_price, exit_fill_price, status, exit_reason_code, exit_time,
 			entry_price, exit_price, quantity, pnl, pnl_pct, target_profit_price, stop_loss_price, entry_time, max_trading_days)
-			VALUES (?, 'AMUU', 'amuu', 'amuu', ?, ?, ?, ?, 271.76, 217.41, 10, ?, -20, 300, 217, 'x', 1)`, acct, id, status, code, exit, pnl)
+			VALUES (?, 'AMUU', 'amuu', 'amuu', ?, ?, 271.76, 217.41, ?, ?, ?, 271.76, 217.41, 10, ?, -20, 300, 217, 'x', 1)`, acct, id, id+"-x", status, code, exit, pnl)
 	}
 	add("a", "CLOSED_STOP_LOSS", "STOP_LOSS", at(0), "111", -543)
 	add("b", "CLOSED_PROFIT", "TARGET", at(1), "222", 120)
 	add("c", "CLOSED_STOP_LOSS", "STOP_LOSS", at(10), "333", -50) // too old
 	add("d", "CANCELLED", "ORDER_FAILED", at(0), "444", 0)        // never traded
 	add("e", "OPEN", "", "", "555", 0)
+	capture(t, db)
 
 	got, err := Recent(ctx, db, 2, 0)
 	if err != nil {
@@ -365,10 +381,11 @@ func TestLiveWinRateCountsDecisionsNotAccountFills(t *testing.T) {
 		t.Fatal(err)
 	}
 	add := func(acct, symbol, entry string, pnl float64) {
-		mustExec(t, db, `INSERT INTO manage_exit (account_number, symbol, strategy_name, strategy_id, entry_order_id, status, exit_time, pnl, pnl_pct,
+		mustExec(t, db, `INSERT INTO manage_exit (account_number, symbol, strategy_name, strategy_id, entry_order_id, exit_order_id, entry_fill_price, exit_fill_price, status, exit_time, pnl, pnl_pct,
 			entry_price, target_profit_price, stop_loss_price, quantity, entry_time, max_trading_days)
-			VALUES (?, ?, 'amuu', 'amuu', ?, 'CLOSED_STOP_LOSS', ?, ?, -20, 10, 11, 9, 1, ?, 1)`,
-			acct, symbol, acct+symbol+entry, entry+" 20:00:00 +0000 +0000", pnl, entry+" 13:30:13 +0000 +0000")
+			VALUES (?, ?, 'amuu', 'amuu', ?, ?, 10, 9, 'CLOSED_STOP_LOSS', ?, ?, -20, 10, 11, 9, 1, ?, 1)`,
+			acct, symbol, acct+symbol+entry, acct+symbol+entry+"-x", entry+" 20:00:00 +0000 +0000", pnl, entry+" 13:30:13 +0000 +0000")
+		capture(t, db)
 	}
 	for _, a := range []string{"1", "2", "3"} { // one stop loss, three accounts
 		add(a, "AMUU", "2026-10-14", -100)
@@ -512,6 +529,7 @@ func TestCompareAnswersFromMemoryWithinMaxAge(t *testing.T) {
 	}
 	// Change the data underneath: only a new calculation could notice.
 	mustExec(t, orch, `DELETE FROM manage_exit`)
+	mustExec(t, orch, `DELETE FROM trade_history`)
 	mustExec(t, orch, `DELETE FROM live_vs_backtest_trade`)
 	again, err := Compare(ctx, orch, opt)
 	if err != nil || byID(again)["remembered"].LiveDecisions != 12 {
@@ -544,5 +562,26 @@ func TestRememberedAnswerHoldsItsDatabase(t *testing.T) {
 	results.Unlock()
 	if !ok || entry.db != orch {
 		t.Fatalf("the remembered answer does not hold its database: %+v", entry)
+	}
+}
+
+// A closed manage_exit row that never filled is not a trade: it is not in trade_history, so it is
+// not a live decision (it used to count as a loss).
+func TestLiveWinRateIgnoresClosedRowsThatNeverTraded(t *testing.T) {
+	ctx := context.Background()
+	db := open(t, "orch.db")
+	if err := manage_exits.EnsureSchema(db); err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, db, `INSERT INTO manage_exit (account_number, symbol, strategy_name, strategy_id, entry_order_id, exit_order_id, status, exit_time, pnl, pnl_pct,
+		entry_price, target_profit_price, stop_loss_price, quantity, entry_time, max_trading_days)
+		VALUES ('1', 'AMUU', 'amuu', 'amuu', 'e1', 'x1', 'CLOSED_EXPIRED', '2026-10-14 20:00:00 +0000 +0000', 0, 0, 10, 11, 9, 1, '2026-10-14 13:30:13 +0000 +0000', 1)`)
+	capture(t, db)
+	rows, err := Compare(ctx, db, Options{IDs: []string{"amuu"}})
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("rows = %v, %v", rows, err)
+	}
+	if r := rows[0]; r.LiveDecisions != 0 || r.LiveFills != 0 {
+		t.Errorf("a never-filled closed row counted as a live decision: %+v", r)
 	}
 }

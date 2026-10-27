@@ -4,9 +4,42 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 )
+
+var createRe = regexp.MustCompile(`(?im)^\s*CREATE\s+(?:TEMP\s+|TEMPORARY\s+)?(?:TABLE|VIEW)\s+(?:IF\s+NOT\s+EXISTS\s+)?[\x60"\[]?([A-Za-z_][A-Za-z0-9_]*)`)
+
+// SchemaTables lists the tables and views the orchestrator's SQL creates: every
+// CREATE TABLE or CREATE VIEW name in the .sql files under <root>/sql/orchestrator.
+// A table a run made under a run-suffixed name (winrate_live__r2026...) is not in
+// the list, so a leftover one shows up as unknown.
+func SchemaTables(root string) ([]string, error) {
+	seen := map[string]bool{}
+	err := filepath.WalkDir(filepath.Join(root, "sql", "orchestrator"), func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || filepath.Ext(p) != ".sql" {
+			return err
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		for _, m := range createRe.FindAllStringSubmatch(string(b), -1) {
+			seen[m[1]] = true
+		}
+		return nil
+	})
+	names := make([]string, 0, len(seen))
+	for n := range seen {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names, err
+}
 
 // ExtraTable is a table or view in a database that no schema creates.
 type ExtraTable struct {
@@ -28,8 +61,7 @@ func engineOwned(name string) bool {
 func quoteIdent(name string) string { return `"` + strings.ReplaceAll(name, `"`, `""`) + `"` }
 
 // ScanTables lists the tables and views in db whose name is not in known.
-// known is what the caller's schemas create (the orchestrator runs its
-// EnsureAll on an empty database and passes the names it made). Shadow tables
+// known is what the schemas create (see SchemaTables). Shadow tables
 // of a virtual table (fts and the like) show up as extras: judge the list.
 func ScanTables(ctx context.Context, db *sql.DB, known []string) ([]ExtraTable, error) {
 	keep := map[string]bool{}
