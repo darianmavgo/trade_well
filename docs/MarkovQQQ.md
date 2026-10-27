@@ -19,7 +19,7 @@ Everything in this document is built and tested as of 2026-10-23. Commands were 
 | 4 | Train with a cutoff, write model tables | `train hmm` |
 | 5 | Compare state counts, out-of-sample report | `train hmm compare`, `train hmm report` |
 | 6 | Daily update with frozen parameters | `train hmm extend` (`ExtendHMM`) |
-| 7 | Daily job | `trade_orchestrator` `regime_predict` (CLI, `/cron/regime_predict`, 17:00 ET Mon-Fri) |
+| 7 | Live extension | `hmm_strategy.Prepare` in the evening scan; `trade_orchestrator` `modelstate` keeps the predictions in Turso |
 | 8 | Bundle export and `/ready` check | `scripts/export_strategies.sh`, check `hmm_model` |
 | 9 | Strategy family `hmm` and two QQQ strategies | `backtestgosqlite/pkg/hmm_strategy`, `sql/strategies/hmm_strategy`, section 6 |
 
@@ -34,14 +34,14 @@ cd /Users/darianhickman/Documents/trade_well/backtestgosqlite
 go build -o ./bin ./cmd/daily_bars
 
 ./bin/daily_bars -dry-run          # downloads and reports; writes nothing
-./bin/daily_bars                   # replaces QQQ's history in data/daily_bars.db
+./bin/daily_bars                   # brings data/daily_bars.db up to date; downloads only what is missing (-full: everything again)
 ```
 
 - Defaults: `-symbols QQQ`, `-start 2010-01-01`, `-db data/daily_bars.db`.
 - Source: Yahoo daily bars (dividend- and split-adjusted `adj_close`). Each row records its `source`.
 - It writes only `data/daily_bars.db`, table `daily_bar(symbol, date, close, adj_close, volume, source)`. The 19 GB hourly database is never touched.
 - It keeps bars up to the last completed session only. A bar for a session still in progress is dropped, because it would change by the close.
-- **Every run replaces the whole history.** An adjusted series is rescaled each time a dividend is paid, so merging old and new rows would put two different price scales in one series.
+- **A run downloads only what is missing.** A symbol already current through the last completed session is not downloaded. Otherwise the download starts 14 days before the newest stored bar and is compared with the days already held (`Reconcile`). An adjusted series is rescaled each time a dividend is paid, so if the source now gives a different `adj_close` for a held day, merging old and new rows would put two price scales in one series; the whole history from `-start` is then downloaded again and replaces the stored one. `-full` forces that.
 
 Check it (as of 2026-10-22: 4,227 bars, 2010-01-04 to 2026-10-22):
 
@@ -176,7 +176,7 @@ The tests use seeded synthetic series with known regimes and a temp SQLite. They
 
 ```bash
 ./bin/daily_bars -dry-run     # download and report, write nothing
-./bin/daily_bars              # replace QQQ's history in data/daily_bars.db
+./bin/daily_bars              # download what is missing into data/daily_bars.db
 ```
 
 ### 3.3 Compare state counts  (read-only)
@@ -213,22 +213,22 @@ Flags: `-symbols` (default QQQ), `-states` (2 to 6), `-through`, `-from`, `-hold
 
 `extend` refuses a symbol with no saved model, and refuses if the bars now start on a different date than the model was fit from (a sign the history changed: retrain).
 
-### 3.7 The deployed job  (trade_orchestrator)
+### 3.7 The deployed scan  (trade_orchestrator)
 
-```bash
-cd trade_orchestrator
-go build -o ./bin ./cmd/orchestrator
-./bin/orchestrator regime_predict --dry-run   # downloads to a scratch folder; writes nothing
-./bin/orchestrator regime_predict             # live: extends the model, saves to regime_prediction
-```
+There is no separate daily job. The evening `scan_market` brings the model up to date through each `hmm` strategy's `Prepare`, and `trade_orchestrator/pkg/modelstate` keeps what that needs in Turso, so nothing is downloaded twice:
 
-It is also `GET /cron/regime_predict[?dry_run=1]`, scheduled 17:00 ET Mon-Fri in `deploy_gae/cron.yaml` and in `job_runs.Schedule`. It refreshes QQQ's bars itself, so it needs no `daily_bars` step. It **fails** (and records nothing) if the newest QQQ bar is older than the last completed session, rather than report an old regime as current. The first output line is what `job_runs` keeps:
+1. **Bars (`daily_bars_live`).** `modelstate.EnsureBars` compares Turso's newest QQQ bar with the last completed session. If it is current, nothing is downloaded. Otherwise it downloads from Yahoo only from 14 days before the newest stored bar, straight into Turso, and appends the new days. If Yahoo now gives a different adjusted close for a day already stored (a dividend or split rescales an adjusted history), it downloads the whole history from 2010 again and replaces the stored one. A first run with nothing stored downloads the full history once. `modelstate.BuildDailyBarsWorkingCopyFromTurso` then builds the instance's `daily_bars.db` from Turso. That file is only a working copy for the model's SQL stages, and it is rebuilt only when it differs from Turso.
+2. **Predictions (`hmm_prediction_live`, `hmm_state_prob_live`).** `modelstate.HydrateHMMModelAssetFromTurso` copies the stored predictions that are newer than the instance's model file into it and moves its `last_date` forward. The file is rebuilt from the bundle on every cold start, so this is how an instance learns which sessions are already predicted.
+3. **`Prepare`.** It compares the model's last date with the last completed session. If they match it returns at once. If sessions are missing it extends the model from the working copy of the bars; the bars are already current, so it downloads nothing.
+4. **After the scan**, `modelstate.PersistHMMModelAssetToTurso` stores the sessions `Prepare` added. Rows are keyed by the model's `trained_at`, so a retrained model never reads the old model's predictions.
 
-```
-OK regime_predict symbol=QQQ as_of=2026-10-22 regime=2 (98%) next=2 (94%) new_sessions=1 trained_through=2025-10-22
-```
+All of this runs only on Turso (App Engine, or a laptop with `TURSO_DATABASE_URL`) and is reported in the scan's details (`daily_bars_live: downloaded N missing bar(s) into Turso`, `hmm_prediction: loaded N stored session(s)`). A failure is reported and `Prepare` then tries its own download; if that fails too the scan fails (`PREPARE_FAILED`) rather than use a stale regime. Without Turso, `Prepare` downloads into `daily_bars.db` itself, and `dailybars.Run` still downloads only what is missing.
 
-The App Engine instance's model file is ephemeral (it restarts from the bundled copy), so the durable answer is the `regime_prediction` table in the orchestrator database: one row per `symbol, as_of_date` with `regime`, `regime_prob`, `probs`, `next_regime`, `next_regime_prob`, `next_probs` (JSON arrays by state).
+The Markov (non-hmm) strategies get the same treatment for their model file: `modelstate.HydrateMarkovModelAssetFromTurso` loads the extension rows stored in `markov_extension_live` before the scan (moving `last_date`, `bars` and `trained_through` forward as `ExtendMarkov` would), and `modelstate.PersistMarkovModelAssetToTurso` stores what `Prepare` added. A Markov symbol with no model fails `Prepare` with the `train markov` command to run; it never trains one from the bars the instance holds.
+
+The data source is Yahoo only: the model was fit on Yahoo's adjusted closes, and mixing vendors would put two price scales in one series (the `source` column records it). Alpaca and Polygon are not used for these bars.
+
+The earlier `regime_predict` job and its `regime_prediction` table were removed. The table may still exist in Turso with its old rows; nothing reads or writes it.
 
 ### 3.8 Retrain and redeploy
 
@@ -296,10 +296,10 @@ What this says:
 - **Regimes are not stationary.** A model trained to 2025-10 has never seen the future's regimes.
 - **Labels are return ranks, and the data says that is a weak ordering.** See 2.2 and the results in section 4: the fitted regimes differ by volatility, and the two upper states have the same mean return. The `hmm` strategies avoid the problem by finding the stressed state by volatility, so a swap on refit does not change their signals (tested). Anything else that reads the state numbers is still exposed. Ordering the stored states by volatility is still an open choice.
 - **BIC does not pick a state count here.** See section 4.
-- **Yahoo dependency.** The daily job downloads QQQ's whole history from an unofficial endpoint each run. If it fails the job fails (it does not publish a stale regime), and `check_health` reports the missed run. The instance keeps `daily_bars.db` and the extended model in ephemeral storage; only the `regime_prediction` row is durable.
+- **Yahoo dependency.** When a session is not yet predicted, `Prepare` downloads QQQ's whole history from an unofficial endpoint. If that fails the scan fails (`PREPARE_FAILED`) and the hmm strategies produce no signals; a stale regime is never used. The instance keeps `daily_bars.db` and the extended model in ephemeral storage; the predictions are durable in Turso (`hmm_prediction_live`).
 - **Two strategies use the regime, and neither is live.** See section 6. They are not in `STRATEGY_ALLOWLIST`, and their backtests are a smoke test, not evidence of an edge.
 - **Rule exception.** The EM fit is Go, not SQL slice tables, because Baum-Welch is iterative. The inputs (return, volatility) and the out-of-sample report are SQL stages (`hmm_inputs`, `hmm_report`), and results go to named tables.
-- **Not a trade signal by itself.** `regime_predict` places and sizes nothing. Only an `hmm` strategy in the allowlist can trade the regime, and that is a deliberate live-trading change.
+- **Not a trade signal by itself.** The stored predictions place and size nothing. Only an `hmm` strategy in the allowlist can trade the regime, and that is a deliberate live-trading change.
 
 ## 6. Trading the regime: the `hmm` strategy family  (BUILT)
 
@@ -327,7 +327,7 @@ The exits are starting points, not tuned (gridsearch can vary hold, take-profit 
 2. **Causal only.** The probability is the forward-filtered one for the session's close (`hmm_state_prob`), never the smoothed or Viterbi path.
 3. **Entry is the next session's open** (`NextDayOpenEntry`), because the regime is known only at the signal session's close. Orders are market orders.
 4. **A backtest only reads the model.** With no model it returns no signals, says to run `train hmm`, and creates nothing. A test confirms the model file is byte-identical after a run.
-5. **Live scan.** `Prepare` downloads the symbol's daily bars and runs `ExtendHMM` with the parameters frozen at `trained_through` (the same way the out-of-sample backtest scores later sessions). Each instance does this itself, so the strategy does not depend on the instance's ephemeral model file or on the 17:00 `regime_predict` job.
+5. **Live scan.** `Prepare` downloads the symbol's daily bars and runs `ExtendHMM` with the parameters frozen at `trained_through` (the same way the out-of-sample backtest scores later sessions). On App Engine the orchestrator loads the predictions already stored in Turso into the instance's model file first (`modelstate`, section 3.7), so only sessions nobody has predicted are computed, and it stores what `Prepare` adds.
 
 Pipeline stages (one per file, slice tables): `01_schema`, `02_stress_state`, `03_stress_prob`, `04_stress_lag`, `05_generate_trades`, `06_trace` (the `signal_trace` rows a live scan shows beside ENTER or NO_SIGNAL).
 

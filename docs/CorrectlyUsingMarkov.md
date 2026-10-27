@@ -138,7 +138,7 @@ The job is `scan_market`: the `/cron/scan_market` entry in `deploy_gae/cron.yaml
    - reads the last bar date of the signal symbol and caps it at the last completed session (a bar for the open session never enters the model);
    - if the model's `last_date` is already that date, does nothing;
    - if the model is behind, runs `ExtendMarkov`, which scores the missing sessions with counts frozen at `trained_through`;
-   - if there is no model at all, trains one using `MARKOV_TRAIN_THROUGH` / `MARKOV_TRAIN_FROM` if set (already in `Prepare`). Avoid this in production: it fits on whatever one year of bars the instance downloaded, which is not the model you backtested. Export the bundle so there is always a model.
+   - if there is no model at all, fails with the command that makes one (`train markov -symbols X`, then export the bundle). It never fits a model from the bars the instance holds, because that is not the model you backtested.
 3. The Markov SQL pipeline applies the rule in section 2 and the scan stages the resulting orders.
 4. `signal_trace` records, for the latest five sessions, why the strategy did or did not enter, with `trained_through` and `scored_live` in its `facts`. `scored_live = true` means the session was scored by the frozen extension, not by training.
 
