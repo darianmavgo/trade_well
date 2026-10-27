@@ -562,20 +562,6 @@ func AutoRegisterSQLStrategies(rootDir string, defaultDBPath ...string) {
 				CommissionPerShare: 0.0001,
 			}
 
-			// Specific default config tuning for recognized strategies
-			switch dirName {
-			case "voo_up3":
-				// Matches VOOUp3Strategy's own defaults.
-				cfg.AllocationPct = 0.65
-				cfg.TargetPct = 1.05
-				cfg.TakeProfitPct = 0.05
-				cfg.StopLossPct = 0.94
-				cfg.HoldingWindow = 8
-				cfg.PositionCap = 1
-				cfg.CashYieldAnnual = 0.045
-				cfg.DeclineDays = 3 // VOOUp3Strategy's default GainDays
-			}
-
 			NewSQLPipelineStrategy(id, name, desc, pipelinePath, cfg)
 		}
 	}

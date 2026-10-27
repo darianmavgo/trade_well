@@ -17,7 +17,7 @@ func TestPipelineSQLIsReadFromDiskRelativeToTheRepository(t *testing.T) {
 	}
 	t.Chdir(t.TempDir())
 
-	for _, id := range []string{"tree_strategy", "streak_strategy", "voo_up3"} {
+	for _, id := range []string{"tree_strategy", "streak_strategy", "hold_strategy"} {
 		dir := "sql/strategies/" + id
 		entries, err := readPipelineDir(dir)
 		if err != nil {

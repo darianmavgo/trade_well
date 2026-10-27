@@ -50,7 +50,7 @@ func TestDetectAndDownloadMissingData_Disabled(t *testing.T) {
 	}
 	db.Close()
 
-	comboStrat := strategy.NewVOOUp3Strategy()
+	comboStrat := strategy.NewPark("TECL")
 	err = runner.DetectAndDownloadMissingData(dbPath, tableName, []strategy.Strategy{comboStrat}, "", false, 5)
 	if err == nil {
 		t.Fatalf("expected error when autoDownload=false and data missing, got nil")

@@ -30,8 +30,10 @@ func TestAllStrategiesHaveAllocationPct(t *testing.T) {
 func TestSQLPipelinesRegisterOnlyWithGoStrategy(t *testing.T) {
 	AutoRegisterSQLStrategies("../../..", "../../../data/market_history.db")
 
-	// voo_up3 still has voo_up3.go
-	if _, ok := Get("voo_up3-sql"); !ok {
-		t.Errorf("voo_up3-sql should be registered (owned by a strategy)")
+	// Every family folder is run by its family, not registered by itself as a "-sql" strategy.
+	for _, dir := range []string{"streak_strategy", "hold_strategy", "tree_strategy", "price_action_reclaim_strategy"} {
+		if _, ok := Get(dir + "-sql"); ok {
+			t.Errorf("%s-sql is registered, but no strategy in this package owns the folder", dir)
+		}
 	}
 }
