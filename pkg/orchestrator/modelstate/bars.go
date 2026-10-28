@@ -17,7 +17,7 @@ import (
 
 // A model is extended from daily bars that go back to its first fitted session (QQQ: 2010), far
 // more than the hourly market database keeps. Those bars live in Turso (daily_bars_live), the
-// download goes straight there, and the instance's daily_bars.db is only a working copy built
+// download goes straight there, and the instance's market_history_daily.db is only a working copy built
 // from it for the model's SQL stages.
 
 // barsBatch rows per INSERT: six columns x 150 rows stays under SQLite's variable limit, and each
@@ -25,7 +25,7 @@ import (
 const barsBatch = 150
 
 // EnsureBarsSchema creates the table the daily bars are stored in. Its columns are those of
-// daily_bar in daily_bars.db.
+// daily_bar in market_history_daily.db.
 func EnsureBarsSchema(db *sql.DB) error {
 	_, err := db.Exec(orchestratorsql.Q("modelstate/ensure_bars_schema"))
 	if err != nil {

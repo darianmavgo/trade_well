@@ -192,7 +192,7 @@ func TestHydrateBarsRebuildsOnlyWhenTheWorkingCopyDiffers(t *testing.T) {
 	if err := storeBars(ctx, turso, "QQQ", []models.Bar{b("2026-10-20", 1), b("2026-10-21", 2)}, true); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(t.TempDir(), "daily_bars.db")
+	path := filepath.Join(t.TempDir(), "market_history_daily.db")
 	if n, err := BuildDailyBarsWorkingCopyFromTurso(ctx, turso, path, []string{"QQQ"}); err != nil || n != 1 {
 		t.Fatalf("first hydrate: %d %v", n, err)
 	}

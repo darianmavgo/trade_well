@@ -16,6 +16,7 @@ import (
 
 	"github.com/darianmavgo/trade_well/pkg/backtest/appenv"
 	"github.com/darianmavgo/trade_well/pkg/backtest/cliutils"
+	"github.com/darianmavgo/trade_well/pkg/backtest/dailybars"
 
 	"github.com/darianmavgo/trade_well/pkg/backtest/datasource"
 	"github.com/darianmavgo/trade_well/pkg/backtest/refdb"
@@ -173,9 +174,13 @@ func resolveKeys(cfg *Config) {
 func Main() {
 	d := DefaultConfig()
 	cfg := d
-	sub := cliutils.PopSubcommand(map[string]string{"update": "update", "sessions": "sessions"})
+	sub := cliutils.PopSubcommand(map[string]string{"update": "update", "sessions": "sessions", "daily": "daily"})
 	if sub == "update" {
 		updateMain()
+		return
+	}
+	if sub == "daily" {
+		dailybars.Main()
 		return
 	}
 	if sub == "sessions" {

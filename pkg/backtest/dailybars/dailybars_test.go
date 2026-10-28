@@ -30,7 +30,7 @@ func TestCompletedDropsTodayDuplicatesAndBadBars(t *testing.T) {
 }
 
 func TestReplaceSwapsOneSymbolOnly(t *testing.T) {
-	db, err := Open(filepath.Join(t.TempDir(), "daily_bars.db"))
+	db, err := Open(filepath.Join(t.TempDir(), "market_history_daily.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestReconcileDetectsARestatedHistory(t *testing.T) {
 }
 
 func TestAppendKeepsOlderDaysAndReplacesARepeatedOne(t *testing.T) {
-	db, err := Open(filepath.Join(t.TempDir(), "daily_bars.db"))
+	db, err := Open(filepath.Join(t.TempDir(), "market_history_daily.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestAppendKeepsOlderDaysAndReplacesARepeatedOne(t *testing.T) {
 // A symbol already current through the last completed session is not downloaded: Run does no
 // network call for it (there is none in this test to make).
 func TestRunDownloadsNothingForACurrentSymbol(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "daily_bars.db")
+	path := filepath.Join(t.TempDir(), "market_history_daily.db")
 	db, err := Open(path)
 	if err != nil {
 		t.Fatal(err)

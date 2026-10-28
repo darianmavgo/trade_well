@@ -57,7 +57,7 @@ func newWorld(t *testing.T) world {
 	t.Setenv("APP_FOLDER", app)
 	bars := synthBars(2600, 7)
 
-	barsDB := filepath.Join(t.TempDir(), "daily_bars.db")
+	barsDB := filepath.Join(t.TempDir(), "market_history_daily.db")
 	db, err := dailybars.Open(barsDB)
 	if err != nil {
 		t.Fatal(err)

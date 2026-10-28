@@ -116,9 +116,9 @@ func MarketDB() string { return HourlyDB() }
 func HourlyDB() string { return filepath.Join(Data(), "market_history_hourly.db") }
 
 // DailyBarsDB is long-history daily closes for the few symbols a model needs more years of
-// than the hourly database holds (written by daily_bars; the hourly database is never touched).
+// than the hourly database holds (written by market_history daily; the hourly database is never touched).
 // It is not a market database: signals and the simulator still read only MarketDB.
-func DailyBarsDB() string { return filepath.Join(Data(), "daily_bars.db") }
+func DailyBarsDB() string { return filepath.Join(Data(), "market_history_daily.db") }
 
 // MinuteDB is the minute bars (1m, 5m, ...).
 func MinuteDB() string { return filepath.Join(Data(), "market_history_minute.db") }

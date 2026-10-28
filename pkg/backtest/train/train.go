@@ -60,7 +60,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		code := 0
 		for _, name := range sortedFamilies() {
 			if name == "hmm" {
-				continue // reads daily_bars.db, not the market database, and replaces a saved model: train it deliberately
+				continue // reads market_history_daily.db, not the market database, and replaces a saved model: train it deliberately
 			}
 			if c := families[name].run(nil, stdout, stderr); c != 0 {
 				code = c

@@ -11,7 +11,7 @@
 //	             Function names contain "Asset"; files are sqlite_strategy_asset_*.go,
 //	             sqlite_model_asset_*.go and sqlite_backtest_result_asset_*.go.
 //	WorkingCopy  a local copy of data that lives in Turso, built for backtestgosqlite's SQL
-//	             stages to read (the market file, daily_bars.db). Rebuilt from Turso; never the
+//	             stages to read (the market file, market_history_daily.db). Rebuilt from Turso; never the
 //	             record. Function names contain "WorkingCopy"; files are sqlite_working_copy_*.go.
 //
 // There is no Scratch kind. A calculation that used to run in a throwaway SQLite database now

@@ -62,7 +62,7 @@ func newETFWorld(t *testing.T) etfWorld {
 	}
 	bars := qqqBars(1600)
 
-	barsDB := filepath.Join(dir, "daily_bars.db")
+	barsDB := filepath.Join(dir, "market_history_daily.db")
 	db, err := dailybars.Open(barsDB)
 	if err != nil {
 		t.Fatal(err)
@@ -336,7 +336,7 @@ func TestHMMRegimeETFRefusesAMissingOrWrongModel(t *testing.T) {
 	// A four-state model has no calm / middle / stressed ranking.
 	dir := t.TempDir()
 	four := filepath.Join(dir, "hmm_models.db")
-	barsDB := filepath.Join(dir, "daily_bars.db")
+	barsDB := filepath.Join(dir, "market_history_daily.db")
 	db, err := dailybars.Open(barsDB)
 	if err != nil {
 		t.Fatal(err)

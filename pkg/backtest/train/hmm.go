@@ -459,7 +459,7 @@ func runHMM(args []string, stdout, stderr io.Writer) int {
   export   write a self-contained copy of the model database to -out, for trade_orchestrator to embed.`)
 		fs.PrintDefaults()
 	}
-	fs.StringVar(&cfg.BarsDB, "bars-db", appenv.DailyBarsDB(), "daily bars database (written by daily_bars)")
+	fs.StringVar(&cfg.BarsDB, "bars-db", appenv.DailyBarsDB(), "daily bars database (written by market_history daily)")
 	fs.StringVar(&cfg.ModelDB, "model-db", appenv.HMMDB(), "persisted HMM database (created if missing)")
 	fs.StringVar(&symbols, "symbols", "QQQ", "comma-separated symbols")
 	fs.StringVar(&cfg.CalcDir, "calc-dir", "", "keep the SQL slice tables here for inspection (default: scratch, removed)")

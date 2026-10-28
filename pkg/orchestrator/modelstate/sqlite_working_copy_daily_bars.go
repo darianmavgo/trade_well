@@ -1,6 +1,6 @@
 package modelstate
 
-// Everything in this file builds a WORKING COPY: daily_bars.db on this instance, made from the
+// Everything in this file builds a WORKING COPY: market_history_daily.db on this instance, made from the
 // daily bars stored in Turso (daily_bars_live) so backtestgosqlite's SQL stages can read them. Turso
 // is the record; the copy is rebuilt whenever it differs and is never read back into Turso.
 

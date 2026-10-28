@@ -64,7 +64,7 @@ func scratchDir(dir, prefix string) (string, func(), error) {
 // database with the hmm_inputs SQL stage and returns them in date order.
 func hmmObs(ctx context.Context, barsDB, calcDir, symbol string) ([]string, [][]float64, error) {
 	if fi, err := os.Stat(barsDB); err != nil || fi.Size() == 0 {
-		return nil, nil, fmt.Errorf("daily bars database %s not found or empty: run daily_bars first", barsDB)
+		return nil, nil, fmt.Errorf("daily bars database %s not found or empty: run market_history daily first", barsDB)
 	}
 	dir, cleanup, err := scratchDir(calcDir, "hmm-inputs-")
 	if err != nil {

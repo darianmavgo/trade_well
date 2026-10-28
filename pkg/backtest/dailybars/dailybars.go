@@ -1,7 +1,7 @@
 // Package dailybars keeps long-history daily bars for the few symbols a model needs more years
 // of than the hourly market database holds (the HMM on QQQ needs 2010 onward; hourly bars go
 // back about ten years and cost a decade of downloads). Bars come from the Yahoo source and
-// land in their own small database, daily_bars.db; the hourly database is never written.
+// land in their own small database, market_history_daily.db; the hourly database is never written.
 //
 // The closes are dividend- and split-adjusted by the source, and an adjusted history is
 // rescaled whenever a dividend is paid. So a run downloads only what is missing, but first
@@ -167,7 +167,7 @@ func Run(ctx context.Context, cfg Config, out io.Writer) ([]Result, error) {
 	}
 	start, err := time.Parse("2006-01-02", cfg.Start)
 	if err != nil {
-		return nil, fmt.Errorf("daily_bars: bad start %q: %w", cfg.Start, err)
+		return nil, fmt.Errorf("market_history daily: bad start %q: %w", cfg.Start, err)
 	}
 	last := calendar.LastCompletedSession(cfg.Now).Format("2006-01-02")
 
@@ -195,7 +195,7 @@ func Run(ctx context.Context, cfg Config, out io.Writer) ([]Result, error) {
 				continue
 			}
 			if newest.Valid && newest.String >= last {
-				fmt.Fprintf(out, "[daily_bars] %s: current through %s, nothing to download\n", sym, newest.String)
+				fmt.Fprintf(out, "[market_history daily] %s: current through %s, nothing to download\n", sym, newest.String)
 				results = append(results, Result{Symbol: sym, Last: newest.String})
 				continue
 			}
@@ -220,7 +220,7 @@ func Run(ctx context.Context, cfg Config, out io.Writer) ([]Result, error) {
 				if !restated {
 					bars, appended = add, true
 				} else {
-					fmt.Fprintf(out, "[daily_bars] %s: the source restated the days already held (a dividend or split), downloading the whole history again\n", sym)
+					fmt.Fprintf(out, "[market_history daily] %s: the source restated the days already held (a dividend or split), downloading the whole history again\n", sym)
 				}
 			}
 		}
@@ -257,7 +257,7 @@ func Run(ctx context.Context, cfg Config, out io.Writer) ([]Result, error) {
 		case appended:
 			verb = "appended"
 		}
-		fmt.Fprintf(out, "[daily_bars] %s: %s %d bars %s..%s\n", sym, verb, res.Bars, res.First, res.Last)
+		fmt.Fprintf(out, "[market_history daily] %s: %s %d bars %s..%s\n", sym, verb, res.Bars, res.First, res.Last)
 		results = append(results, res)
 	}
 	return results, errors.Join(errs...)
@@ -292,7 +292,7 @@ func Open(path string) (*sqlx.DB, error) {
 	}
 	if _, err := db.Exec(schema); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("daily_bars: create schema: %w", err)
+		return nil, fmt.Errorf("market_history daily: create schema: %w", err)
 	}
 	return db, nil
 }
@@ -340,19 +340,19 @@ func Append(db *sqlx.DB, symbol string, bars []models.Bar) error {
 	return tx.Commit()
 }
 
-// Main is the daily_bars command.
+// Main is the `market_history daily` subcommand (market_history.Main pops "daily" off os.Args first).
 func Main() { os.Exit(RunCLI(os.Args[1:], os.Stdout, os.Stderr)) }
 
 // RunCLI is Main without os.Args/os.Exit. It returns the exit code.
 func RunCLI(args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("daily_bars", flag.ContinueOnError)
+	fs := flag.NewFlagSet("market_history daily", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	fs.Usage = func() {
-		fmt.Fprintln(stderr, `daily_bars: download long-history daily bars (default QQQ from 2010) into daily_bars.db.
+		fmt.Fprintln(stderr, `market_history daily: download long-history daily bars (default QQQ from 2010) into market_history_daily.db.
 
 Brings each named symbol's stored history up to the last completed session, downloading only
 what is missing; it downloads the whole history again when the source restated the days already
-held (a dividend or split) or with -full. Writes only daily_bars.db, never the hourly market
+held (a dividend or split) or with -full. Writes only market_history_daily.db, never the hourly market
 database. -dry-run downloads and reports but writes nothing.`)
 		fs.PrintDefaults()
 	}
@@ -369,7 +369,7 @@ database. -dry-run downloads and reports but writes nothing.`)
 	}
 	syms := append(strings.Split(*symbols, ","), fs.Args()...)
 	if _, err := Run(context.Background(), Config{DB: *db, Symbols: syms, Start: *start, DryRun: *dry, Full: *full}, stdout); err != nil {
-		fmt.Fprintln(stderr, "daily_bars:", err)
+		fmt.Fprintln(stderr, "market_history daily:", err)
 		return 1
 	}
 	return 0

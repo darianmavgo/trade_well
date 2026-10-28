@@ -91,7 +91,7 @@ func syncModel(ctx context.Context, db *sql.DB, details *[]string) (persist func
 	if path := appenv.HMMDB(); modelFileExists(path) {
 		// The hmm model is extended from daily bars that go back to its first fitted session.
 		// They are kept in Turso and only the missing days are downloaded, straight into it; the
-		// instance's daily_bars.db is a working copy built from them.
+		// instance's market_history_daily.db is a working copy built from them.
 		if symbols, err := modelstate.ReadHMMModelAssetSymbols(path); err != nil {
 			note(fmt.Sprintf("daily_bars_live: cannot read the model's symbols: %v", err))
 		} else {

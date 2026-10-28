@@ -55,7 +55,7 @@ type hmmFiles struct{ bars, model string }
 
 func newHMMFiles(t *testing.T) hmmFiles {
 	d := t.TempDir()
-	return hmmFiles{bars: filepath.Join(d, "daily_bars.db"), model: filepath.Join(d, "hmm_models.db")}
+	return hmmFiles{bars: filepath.Join(d, "market_history_daily.db"), model: filepath.Join(d, "hmm_models.db")}
 }
 
 func (h hmmFiles) cfg(through string) HMMConfig {
@@ -292,8 +292,8 @@ func TestTrainHMMRefusesThinHistoryAndBadDates(t *testing.T) {
 		t.Fatal("a malformed -through should be an error")
 	}
 	missing := HMMConfig{BarsDB: filepath.Join(t.TempDir(), "none.db"), ModelDB: f.model}
-	if _, err := TrainHMM(context.Background(), missing); err == nil || !strings.Contains(err.Error(), "daily_bars") {
-		t.Fatalf("got %v; want an error pointing at daily_bars", err)
+	if _, err := TrainHMM(context.Background(), missing); err == nil || !strings.Contains(err.Error(), "market_history daily") {
+		t.Fatalf("got %v; want an error pointing at market_history daily", err)
 	}
 }
 

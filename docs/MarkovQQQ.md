@@ -34,16 +34,16 @@ cd /Users/darianhickman/Documents/trade_well/backtestgosqlite
 
 ```
 
-- Defaults: `-symbols QQQ`, `-start 2010-01-01`, `-db data/daily_bars.db`.
+- Defaults: `-symbols QQQ`, `-start 2010-01-01`, `-db data/market_history_daily.db`.
 - Source: Yahoo daily bars (dividend- and split-adjusted `adj_close`). Each row records its `source`.
-- It writes only `data/daily_bars.db`, table `daily_bar(symbol, date, close, adj_close, volume, source)`. The 19 GB hourly database is never touched.
+- It writes only `data/market_history_daily.db`, table `daily_bar(symbol, date, close, adj_close, volume, source)`. The 19 GB hourly database is never touched.
 - It keeps bars up to the last completed session only. A bar for a session still in progress is dropped, because it would change by the close.
 - **A run downloads only what is missing.** A symbol already current through the last completed session is not downloaded. Otherwise the download starts 14 days before the newest stored bar and is compared with the days already held (`Reconcile`). An adjusted series is rescaled each time a dividend is paid, so if the source now gives a different `adj_close` for a held day, merging old and new rows would put two price scales in one series; the whole history from `-start` is then downloaded again and replaces the stored one. `-full` forces that.
 
 Check it (as of 2026-10-22: 4,227 bars, 2010-01-04 to 2026-10-22):
 
 ```bash
-sqlite3 data/daily_bars.db "
+sqlite3 data/market_history_daily.db "
   select count(*), min(date), max(date) from daily_bar where symbol='QQQ';
   select count(*) from (select adj_close a, lag(adj_close) over (order by date) p
                         from daily_bar where symbol='QQQ')
@@ -157,7 +157,7 @@ All paths below are relative to `/Users/darianhickman/Documents/trade_well`. Bui
 cd backtestgosqlite
 ```
 
-Files: bars in `data/daily_bars.db`; model in `data/hmm_models.db` (override with `-bars-db` / `-model-db`; `APP_FOLDER` moves the whole `data/` folder). Both are git-ignored.
+Files: bars in `data/market_history_daily.db`; model in `data/hmm_models.db` (override with `-bars-db` / `-model-db`; `APP_FOLDER` moves the whole `data/` folder). Both are git-ignored.
 
 ### 3.1 Test the math  (read-only)
 
@@ -210,12 +210,12 @@ Flags: `-symbols` (default QQQ), `-states` (2 to 6), `-through`, `-from`, `-hold
 
 There is no separate daily job. The evening `scan_market` brings the model up to date through each `hmm` strategy's `Prepare`, and `trade_orchestrator/pkg/orchestrator/modelstate` keeps what that needs in Turso, so nothing is downloaded twice:
 
-1. **Bars (`daily_bars_live`).** `modelstate.EnsureBars` compares Turso's newest QQQ bar with the last completed session. If it is current, nothing is downloaded. Otherwise it downloads from Yahoo only from 14 days before the newest stored bar, straight into Turso, and appends the new days. If Yahoo now gives a different adjusted close for a day already stored (a dividend or split rescales an adjusted history), it downloads the whole history from 2010 again and replaces the stored one. A first run with nothing stored downloads the full history once. `modelstate.BuildDailyBarsWorkingCopyFromTurso` then builds the instance's `daily_bars.db` from Turso. That file is only a working copy for the model's SQL stages, and it is rebuilt only when it differs from Turso.
+1. **Bars (`daily_bars_live`).** `modelstate.EnsureBars` compares Turso's newest QQQ bar with the last completed session. If it is current, nothing is downloaded. Otherwise it downloads from Yahoo only from 14 days before the newest stored bar, straight into Turso, and appends the new days. If Yahoo now gives a different adjusted close for a day already stored (a dividend or split rescales an adjusted history), it downloads the whole history from 2010 again and replaces the stored one. A first run with nothing stored downloads the full history once. `modelstate.BuildDailyBarsWorkingCopyFromTurso` then builds the instance's `market_history_daily.db` from Turso. That file is only a working copy for the model's SQL stages, and it is rebuilt only when it differs from Turso.
 2. **Predictions (`hmm_prediction_live`, `hmm_state_prob_live`).** `modelstate.HydrateHMMModelAssetFromTurso` copies the stored predictions that are newer than the instance's model file into it and moves its `last_date` forward. The file is rebuilt from the bundle on every cold start, so this is how an instance learns which sessions are already predicted.
 3. **`Prepare`.** It compares the model's last date with the last completed session. If they match it returns at once. If sessions are missing it extends the model from the working copy of the bars; the bars are already current, so it downloads nothing.
 4. **After the scan**, `modelstate.PersistHMMModelAssetToTurso` stores the sessions `Prepare` added. Rows are keyed by the model's `trained_at`, so a retrained model never reads the old model's predictions.
 
-All of this runs only on Turso (App Engine, or a laptop with `TURSO_DATABASE_URL`) and is reported in the scan's details (`daily_bars_live: downloaded N missing bar(s) into Turso`, `hmm_prediction: loaded N stored session(s)`). A failure is reported and `Prepare` then tries its own download; if that fails too the scan fails (`PREPARE_FAILED`) rather than use a stale regime. Without Turso, `Prepare` downloads into `daily_bars.db` itself, and `dailybars.Run` still downloads only what is missing.
+All of this runs only on Turso (App Engine, or a laptop with `TURSO_DATABASE_URL`) and is reported in the scan's details (`daily_bars_live: downloaded N missing bar(s) into Turso`, `hmm_prediction: loaded N stored session(s)`). A failure is reported and `Prepare` then tries its own download; if that fails too the scan fails (`PREPARE_FAILED`) rather than use a stale regime. Without Turso, `Prepare` downloads into `market_history_daily.db` itself, and `dailybars.Run` still downloads only what is missing.
 
 The Markov (non-hmm) strategies get the same treatment for their model file: `modelstate.HydrateMarkovModelAssetFromTurso` loads the extension rows stored in `markov_extension_live` before the scan (moving `last_date`, `bars` and `trained_through` forward as `ExtendMarkov` would), and `modelstate.PersistMarkovModelAssetToTurso` stores what `Prepare` added. A Markov symbol with no model fails `Prepare` with the `train markov` command to run; it never trains one from the bars the instance holds.
 
@@ -271,7 +271,7 @@ As of the close of 2026-10-22 the model says state 2 (98%), and 94% state 2 for 
 
 Each stretch of the line takes the color of the regime the model judged QQQ to be in at that session's close (the forward-filtered call, using only data up to that day). Regimes are ranked by fitted volatility (calm 0.67%, normal 1.09%, stressed 1.99% a day), not by state number, so the colors stay put if the model is refit. The dashed line is where the model stopped learning (2025-10-22); later sessions were scored with frozen parameters. The stressed stretches line up with 2018 Q4, early 2020, 2022 and 2025.
 
-An interactive version (hover for price, date and regime; All, 10Y, 5Y and 1Y ranges; table view; dark mode) is at [`backtestgosqlite/data/reports/qqq_hmm_regimes.html`](../data/reports/qqq_hmm_regimes.html). Both charts were built once from `data/hmm_models.db` and `data/daily_bars.db` (read-only) with the data baked in, so they do not update themselves. After a retrain or a daily extend, rebuild them; there is no command for that yet.
+An interactive version (hover for price, date and regime; All, 10Y, 5Y and 1Y ranges; table view; dark mode) is at [`backtestgosqlite/data/reports/qqq_hmm_regimes.html`](../data/reports/qqq_hmm_regimes.html). Both charts were built once from `data/hmm_models.db` and `data/market_history_daily.db` (read-only) with the data baked in, so they do not update themselves. After a retrain or a daily extend, rebuild them; there is no command for that yet.
 
 What this says:
 - **Check 1 passes**: OOS log-likelihood per bar (7.66) is close to in-sample (7.75).
@@ -288,7 +288,7 @@ What this says:
 - **Regimes are not stationary.** A model trained to 2025-10 has never seen the future's regimes.
 - **Labels are return ranks, and the data says that is a weak ordering.** See 2.2 and the results in section 4: the fitted regimes differ by volatility, and the two upper states have the same mean return. The `hmm` strategies avoid the problem by finding the stressed state by volatility, so a swap on refit does not change their signals (tested). Anything else that reads the state numbers is still exposed. Ordering the stored states by volatility is still an open choice.
 - **BIC does not pick a state count here.** See section 4.
-- **Yahoo dependency.** When a session is not yet predicted, `Prepare` downloads QQQ's whole history from an unofficial endpoint. If that fails the scan fails (`PREPARE_FAILED`) and the hmm strategies produce no signals; a stale regime is never used. The instance keeps `daily_bars.db` and the extended model in ephemeral storage; the predictions are durable in Turso (`hmm_prediction_live`).
+- **Yahoo dependency.** When a session is not yet predicted, `Prepare` downloads QQQ's whole history from an unofficial endpoint. If that fails the scan fails (`PREPARE_FAILED`) and the hmm strategies produce no signals; a stale regime is never used. The instance keeps `market_history_daily.db` and the extended model in ephemeral storage; the predictions are durable in Turso (`hmm_prediction_live`).
 - **Two strategies use the regime, and neither is live.** See section 6. They are not in `STRATEGY_ALLOWLIST`, and their backtests are a smoke test, not evidence of an edge.
 - **Rule exception.** The EM fit is Go, not SQL slice tables, because Baum-Welch is iterative. The inputs (return, volatility) and the out-of-sample report are SQL stages (`hmm_inputs`, `hmm_report`), and results go to named tables.
 - **Not a trade signal by itself.** The stored predictions place and size nothing. Only an `hmm` strategy in the allowlist can trade the regime, and that is a deliberate live-trading change.
@@ -412,7 +412,7 @@ Mean log return per session, in basis points (log return is what compounds), by 
 
 ### 7.4 What it means for the `hmm` strategies
 
-The most that the evidence supports is risk control: use the stressed regime to size or skip a **leveraged long** Nasdaq fund (TQQQ, QLD, TECL, SOXL), where it halves the compounding drag. It does not support using the regime to pick direction, and the filter's out-of-sample result was negative. A test worth running before trading it is the same filter on daily bars back to 2010 (TQQQ and QLD exist from 2010 and 2006), which would add the 2011, 2015-16 and 2018 stress episodes. That needs those symbols' daily bars downloaded into `daily_bars.db`, which has not been done.
+The most that the evidence supports is risk control: use the stressed regime to size or skip a **leveraged long** Nasdaq fund (TQQQ, QLD, TECL, SOXL), where it halves the compounding drag. It does not support using the regime to pick direction, and the filter's out-of-sample result was negative. A test worth running before trading it is the same filter on daily bars back to 2010 (TQQQ and QLD exist from 2010 and 2006), which would add the 2011, 2015-16 and 2018 stress episodes. That needs those symbols' daily bars downloaded into `market_history_daily.db`, which has not been done.
 
 ## 8. `hmm-calm-soxl` against buy-and-hold SOXL (2026-10-23)
 
