@@ -583,3 +583,25 @@ func TestFlatAllocIgnoresTheSignalsOwnAllocation(t *testing.T) {
 		t.Fatalf("flat allocation should ignore the signal's 5%%, got %d shares", flat.Shares)
 	}
 }
+
+// A day limit that the entry session never reaches is dropped; with EntryGTC it keeps
+// resting, but only as long as the holding window after the entry session.
+func TestEntryGTCKeepsALimitRestingUntilItFillsWithinTheHoldingWindow(t *testing.T) {
+	bs := series(session("2025-01-02", 100, nil), session("2025-01-03", 105, nil),
+		session("2025-01-06", 105, nil), session("2025-01-07", 105, map[int]ohlc{2: {105, 105, 99, 101}}),
+		session("2025-01-08", 105, nil))
+	sigs := []Signal{sig("2025-01-02", 100)}
+
+	r := one(bs, sigs, Config{PositionCap: 1, NextDayLimitEntry: true, HoldingWindow: 3})
+	if len(r.Trades) != 0 {
+		t.Fatalf("day limit: trades = %+v, want none", r.Trades)
+	}
+	r = one(bs, sigs, Config{PositionCap: 1, NextDayLimitEntry: true, EntryGTC: true, HoldingWindow: 2})
+	if len(r.Trades) != 1 || !near(r.Trades[0].EntryPrice, 100) || r.Trades[0].Entry[:10] != "2025-01-07" {
+		t.Fatalf("GTC: trades = %+v, want one fill at 100 on 01-07", r.Trades)
+	}
+	r = one(bs, sigs, Config{PositionCap: 1, NextDayLimitEntry: true, EntryGTC: true, HoldingWindow: 1})
+	if len(r.Trades) != 0 {
+		t.Fatalf("GTC past the window: trades = %+v, want none", r.Trades)
+	}
+}

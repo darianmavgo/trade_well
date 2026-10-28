@@ -114,6 +114,15 @@ type DeclineDaysConfigurable interface {
 	SetDeclineDays(int)
 }
 
+// Entry order durations, spelled as the broker spells them.
+const (
+	EntryDurationDay = "DAY"
+	EntryDurationGTC = "GOOD_TILL_CANCEL"
+)
+
+// EntryGTC reports whether the config keeps its limit entries resting until they fill.
+func (c StrategyConfig) EntryGTC() bool { return c.EntryDuration == EntryDurationGTC }
+
 // StrategyConfig encapsulates the operational parameters for an algorithm.
 type StrategyConfig struct {
 	ID                string  `json:"id"`
@@ -150,6 +159,12 @@ type StrategyConfig struct {
 	// at the open when the open is already below it, and is dropped otherwise.
 	// Take-profit and stop come from TakeProfitPct / StopLossPct on the booked entry.
 	EntryLimitPct float64 `json:"entry_limit_pct,omitempty"`
+	// EntryDuration is how long a limit entry order lives: "" or EntryDurationDay (the
+	// default) expires it at the close of the session it is placed for; EntryDurationGTC
+	// keeps it resting until it fills. The backtest and the live pipeline both read it.
+	// A backtest GTC limit rests for at most the holding window (sessions after the
+	// entry session) and for the rest of the data when there is no window.
+	EntryDuration string `json:"entry_duration,omitempty"`
 	// SameDayExit lets a position opened on a session be stopped out or take its
 	// profit on that same session, judged on the day's low and high. The stop is
 	// checked before the target because the order of the touches is unknown.

@@ -54,8 +54,8 @@ const orderLookback = 7 * 24 * time.Hour
 // window is 60 days; stay inside it).
 const maxOrderLookback = 58 * 24 * time.Hour
 
-// lookbackStart is the start of the window checkOrderFill searches. Entries are
-// GOOD_TILL_CANCEL limits that can rest for weeks, so a fixed 7 days would lose
+// lookbackStart is the start of the window checkOrderFill searches. A strategy
+// that asks for GOOD_TILL_CANCEL entries can rest for weeks, so a fixed 7 days would lose
 // an order that fills on day 8+ ("not found") and its position would never be
 // tracked for its time-based exit. Reach back to a day before the order was
 // placed (never less than orderLookback, never past Schwab's window).
@@ -743,14 +743,14 @@ func isAmbiguousSubmitErr(err error) bool {
 	return false
 }
 
-// entryDurationFor is the entry order duration for a staged order: its own
-// (stage_orders.EntryDurationDay makes a limit that expires at the close), otherwise the
-// default the order builder picks.
+// entryDurationFor is the entry order duration for a staged order: GOOD_TILL_CANCEL when
+// the strategy asked for it (stage_orders.EntryDurationGTC), otherwise DAY, which also covers
+// rows staged before the duration was recorded.
 func entryDurationFor(so stage_orders.StagedOrder) string {
-	if so.EntryDuration == stage_orders.EntryDurationDay {
-		return trader.DurationDay
+	if so.EntryDuration == stage_orders.EntryDurationGTC {
+		return trader.DurationGTC
 	}
-	return ""
+	return trader.DurationDay
 }
 
 // riskGate is the last risk check before a buy goes to the broker. It returns "" when the order

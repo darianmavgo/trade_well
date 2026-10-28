@@ -196,7 +196,10 @@ func Run(ctx context.Context, db *sql.DB, acc *trader.ResolvedAccount, stackID s
 			continue
 		}
 		stagedStatus := StagedOrderPending
-		entryDuration := ""
+		entryDuration := EntryDurationDay
+		if strat != nil && strat.DefaultConfig().EntryGTC() {
+			entryDuration = EntryDurationGTC
+		}
 		if e.Watch {
 			stagedStatus = StagedOrderWatching
 			entryDuration = EntryDurationDay

@@ -36,6 +36,10 @@ const (
 // EntryDurationDay is the entry order duration of a limit that expires at the close.
 const EntryDurationDay = "DAY"
 
+// EntryDurationGTC is the entry order duration of a limit that rests until it fills or is
+// cancelled. A strategy asks for it with StrategyConfig.EntryDuration.
+const EntryDurationGTC = "GOOD_TILL_CANCEL"
+
 // StagedOrder is a bracket order queued by stage_orders for pkg/submit_orders
 // to re-validate and submit. Staging decouples signal detection from live
 // order placement so submission always checks current account state (cash,
@@ -59,8 +63,9 @@ type StagedOrder struct {
 	ClientOrderID   string     `json:"client_order_id,omitempty"`
 	StagedAt        time.Time  `json:"staged_at"`
 	SubmittedAt     *time.Time `json:"submitted_at,omitempty"`
-	// EntryDuration is the entry order's duration: empty for the default (a limit rests
-	// until it fills or is cancelled), EntryDurationDay for a limit that expires at the close.
+	// EntryDuration is the entry order's duration: EntryDurationDay (also what an empty
+	// value means) for a limit that expires at the close, EntryDurationGTC for one that rests
+	// until it fills or is cancelled.
 	EntryDuration string `json:"entry_duration,omitempty"`
 	// SessionDate is the session the entry is for (YYYY-MM-DD); empty when not recorded.
 	SessionDate string `json:"session_date,omitempty"`

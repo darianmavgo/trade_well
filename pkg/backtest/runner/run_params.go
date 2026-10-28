@@ -106,6 +106,14 @@ func describeStop(cfg strategy.StrategyConfig) string {
 }
 
 func describeEntry(cfg strategy.StrategyConfig) string {
+	d := describeEntryOrder(cfg)
+	if cfg.EntryGTC() && (cfg.NextDayLimitEntry || cfg.EntryLimitPct > 0) {
+		d += ", good till cancelled"
+	}
+	return d
+}
+
+func describeEntryOrder(cfg strategy.StrategyConfig) string {
 	switch {
 	case cfg.NextDayOpenEntry:
 		return "next-day market open"

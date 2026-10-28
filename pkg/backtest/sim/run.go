@@ -142,6 +142,9 @@ func RunPortfolioWith(sleeves []Sleeve, bars map[string][]Bar, sessions []string
 				exits[s.Date] = append(exits[s.Date], exitSig{s, sls[k]})
 			} else if o, ok := plan(s, sls[k].cfg, x); ok {
 				o.sl = sls[k]
+				if o.kind == limit && o.sl.cfg.EntryGTC {
+					restLimit(orders, &o, sessions, x)
+				}
 				orders[o.session] = append(orders[o.session], o)
 			}
 		}
@@ -248,7 +251,7 @@ func RunPortfolioWith(sleeves []Sleeve, bars map[string][]Bar, sessions []string
 			// 2. orders resting on this hour, alphabetically. An order is one entry: once filled it
 			//    is spent, so a position that exits does not buy again from the same signal.
 			for i, o := range todays {
-				if filled[i] {
+				if filled[i] || (o.done != nil && *o.done) {
 					continue
 				}
 				b, ok, first, last := barAt(o.sig.Symbol, t)
@@ -256,6 +259,9 @@ func RunPortfolioWith(sleeves []Sleeve, bars map[string][]Bar, sessions []string
 					continue
 				}
 				filled[i] = a.try(o, b, first, last, si, session)
+				if filled[i] && o.done != nil {
+					*o.done = true
+				}
 				if p, held := a.pos[o.sig.Symbol]; held {
 					p.current, p.lastT = b.Close, b.T
 				}
@@ -726,4 +732,25 @@ func (a *account) parkResult() ParkResult {
 		r.AvgWeight = a.parkWeight / float64(a.parkSessions)
 	}
 	return r
+}
+
+// restLimit lists a GTC limit on every later session of its symbol, up to the holding
+// window after the entry session, all sharing one done flag. The first copy is added to
+// orders[o.session] by the caller, after this gives it the flag.
+func restLimit(orders map[string][]order, o *order, sessions []string, ix *index) {
+	done := new(bool)
+	o.done = done
+	first := sort.SearchStrings(sessions, o.session)
+	last := len(sessions) - 1
+	if w := o.sl.cfg.HoldingWindow; w > 0 && w < NoHoldLimit && first+w < last {
+		last = first + w
+	}
+	for i := first + 1; i <= last; i++ {
+		if _, trades := ix.span[sessions[i]]; !trades {
+			continue
+		}
+		c := *o
+		c.session = sessions[i]
+		orders[c.session] = append(orders[c.session], c)
+	}
 }

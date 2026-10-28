@@ -75,6 +75,7 @@ func Config(cfg strategy.StrategyConfig, capital float64) sim.Config {
 	if cfg.UseTrailingStop {
 		c.TrailingStop = cfg.TrailingStopPct
 	}
+	c.EntryGTC = cfg.EntryGTC()
 	switch {
 	case cfg.EntryLimitPct > 0:
 		// The signal is dated on the entry session itself and the limit hangs off the previous close.

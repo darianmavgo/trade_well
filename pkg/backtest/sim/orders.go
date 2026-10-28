@@ -22,6 +22,9 @@ type order struct {
 	// signal set up (as a staged bracket order is) and the crisis stop fills in
 	// for a missing stop. Otherwise they come from the booked entry price.
 	anchored bool
+	// done is shared by the copies of a GTC limit that rest on later sessions: once one
+	// fills, the others are spent.
+	done *bool
 }
 
 // index holds one symbol's bars by session.

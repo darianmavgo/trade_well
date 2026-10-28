@@ -69,6 +69,10 @@ type Config struct {
 	// The entry session is the one after the signal's, or the signal's own with EntrySameDay.
 	EntryLimitPct float64
 	EntrySameDay  bool
+	// EntryGTC keeps a buy limit resting past its entry session, session after session,
+	// until it fills or the holding window after the entry session has passed (no end
+	// but the data's when there is no window).
+	EntryGTC bool
 
 	// MaxBarVolumeShare caps an entry at this fraction of the shares traded in the hour it
 	// fills (0.05 = 5%), so a small stock cannot be bought in sizes it never traded; the
