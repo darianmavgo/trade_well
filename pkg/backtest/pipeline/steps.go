@@ -2,8 +2,6 @@ package pipeline
 
 import (
 	"fmt"
-	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -11,13 +9,11 @@ import (
 	"github.com/darianmavgo/trade_well/pkg/backtest/check_overfit"
 	"github.com/darianmavgo/trade_well/pkg/backtest/gridsearch"
 	"github.com/darianmavgo/trade_well/pkg/backtest/market_history"
-	"github.com/darianmavgo/trade_well/pkg/backtest/park_sweep"
 	"github.com/darianmavgo/trade_well/pkg/backtest/runner"
 	"github.com/darianmavgo/trade_well/pkg/backtest/scoreboard"
 	"github.com/darianmavgo/trade_well/pkg/backtest/storage"
 	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
 	"github.com/darianmavgo/trade_well/pkg/backtest/strateval"
-	"github.com/darianmavgo/trade_well/pkg/backtest/study"
 	"github.com/darianmavgo/trade_well/pkg/backtest/train"
 	"github.com/darianmavgo/trade_well/pkg/backtest/validate"
 	"github.com/darianmavgo/trade_well/pkg/backtest/walk_forward"
@@ -58,7 +54,6 @@ func allSteps() []step {
 	return []step{
 		{name: "market_history", network: true, run: stepMarketHistory},
 		{name: "market_history_options", network: true, needsKey: true, when: whenCoveredCall, run: stepMarketHistoryOptions},
-		{name: "study", when: whenHMM, run: stepStudy},
 		{name: "train", when: whenTrainable, run: stepTrain},
 		{name: "backtest", run: stepBacktest},
 		{name: "gridsearch_params", run: stepGridsearchParams},
@@ -70,7 +65,6 @@ func allSteps() []step {
 		{name: "stack", needsPrimary: true, run: stepStack},
 		{name: "stack_eval", needsPrimary: true, run: stepStackEval},
 		{name: "covered_call", network: true, needsKey: true, when: whenAskedFor, run: stepCoveredCall},
-		{name: "park_sweep", run: stepParkSweep},
 		{name: "scoreboard", run: stepScoreboard},
 		{name: "stale", run: stepStale},
 	}
@@ -185,15 +179,6 @@ func whenAskedFor(r *runCtx) string {
 	return "not part of building these strategies (name the step in -steps to run it)"
 }
 
-func whenHMM(r *runCtx) string {
-	for _, id := range r.strategies {
-		if strings.HasPrefix(id, "markov_hmm") {
-			return ""
-		}
-	}
-	return "no markov_hmm strategy in scope"
-}
-
 func whenTrainable(r *runCtx) string {
 	if len(r.inFamily("markov")) == 0 && len(r.inFamily("tree")) == 0 {
 		return "no markov or tree strategy in scope"
@@ -234,26 +219,6 @@ func stepMarketHistoryOptions(r *runCtx) error {
 	mc.Out = r.out
 	_, err := market_history.Run(r.ctx, mc)
 	return err
-}
-
-func stepStudy(r *runCtx) error {
-	var hmm []strategy.Strategy
-	for _, s := range r.inFamily("markov") {
-		if strings.HasPrefix(s.ID(), "markov_hmm") {
-			hmm = append(hmm, s)
-		}
-	}
-	var errs []error
-	for _, sym := range runner.RequiredSymbolsFor(hmm, "") {
-		sc := study.DefaultConfig()
-		sc.DB = r.cfg.MarketDB
-		sc.Study = "hmm_regime"
-		sc.Symbol = sym
-		if _, err := study.Run(sc); err != nil {
-			errs = append(errs, fmt.Errorf("hmm_regime %s: %w", sym, err))
-		}
-	}
-	return join(errs...)
 }
 
 func stepTrain(r *runCtx) error {
@@ -419,27 +384,6 @@ func stepCoveredCall(r *runCtx) error {
 }
 
 // --- compare ---
-
-func stepParkSweep(r *runCtx) error {
-	ids := park_sweep.ParseIDs(r.ids())
-	sweep := filepath.Join(r.dir, "park_sweep.db")
-	report := filepath.Join(r.dir, "park_sweep_report.db")
-	html := filepath.Join(r.dir, "park_sweep.html")
-	counts, err := park_sweep.Seed(sweep, r.cfg.RefDB, r.cfg.MarketDB, ids)
-	if err != nil {
-		return err
-	}
-	for _, c := range counts {
-		r.printf("  %-14s %6d rows   %6d pending   %6d skipped\n", c.Kind, c.Rows, c.Pending, c.Skipped)
-	}
-	if err := park_sweep.Run(sweep, r.cfg.MarketDB, runtime.NumCPU(), ids); err != nil {
-		return err
-	}
-	if err := park_sweep.Rank(sweep, ids); err != nil {
-		return err
-	}
-	return park_sweep.WriteReport(sweep, report, html, ids)
-}
 
 func stepScoreboard(r *runCtx) error {
 	var errs []error

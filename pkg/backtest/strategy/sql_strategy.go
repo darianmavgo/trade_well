@@ -163,7 +163,6 @@ func substitutePlaceholders(sqlText, id, fileName string, cfg StrategyConfig) st
 	// Trained-model databases the markov pipelines attach (read only).
 	sqlText = strings.ReplaceAll(sqlText, "__MARKOV_DB__", appenv.MarkovDB())
 	sqlText = strings.ReplaceAll(sqlText, "__TREE_DB__", appenv.TreeDB())
-	sqlText = strings.ReplaceAll(sqlText, "__HMM_DB__", appenv.ReportFile("hmm_regime.db"))
 	// The hidden Markov model database written by train hmm (the hmm family reads it).
 	sqlText = strings.ReplaceAll(sqlText, "__HMM_MODEL_DB__", appenv.HMMDB())
 

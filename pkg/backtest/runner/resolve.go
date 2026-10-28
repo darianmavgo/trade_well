@@ -21,7 +21,7 @@ func ResolveStrategies(arg, defaultID string) ([]strategy.Strategy, error) {
 	if strings.EqualFold(arg, "all") {
 		list := strategy.ListAll()
 		if len(list) == 0 {
-			return nil, fmt.Errorf("no strategies registered")
+			return nil, fmt.Errorf("no strategies in the reference database (strategies.db)")
 		}
 		return list, nil
 	}

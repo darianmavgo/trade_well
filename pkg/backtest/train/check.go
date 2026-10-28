@@ -124,7 +124,7 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "cutoff %s (last %d months held out)\ntree: %d models trained past the cutoff, saved to training_leak in %s\n",
 		cutoff, cfg.HoldoutMonths, len(leaks), cfg.Report)
-	fmt.Fprintln(stdout, "markov: walk-forward by construction, not checked. markov_hmm (study hmm_regime) fits all history and has no cutoff option.")
+	fmt.Fprintln(stdout, "markov: walk-forward by construction, not checked.")
 	if !cfg.Fix || len(leaks) == 0 {
 		return 0
 	}

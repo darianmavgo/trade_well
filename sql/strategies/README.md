@@ -16,7 +16,6 @@ sql/strategies/
 ├── tree_strategy/     one pipeline for every tree_strategy row
 ├── markov_model/      reads the persisted Markov model (see train)
 ├── hmm_strategy/      reads the persisted hidden Markov model (see train hmm)
-├── markov_hmm/        reads hmm_regime.db from study hmm_regime
 ├── hold_strategy/     one pipeline for every hold_strategy row
 └── price_action_reclaim_strategy/  one pipeline for every price_action_reclaim_strategy row (one symbol each)
 ```

@@ -73,7 +73,7 @@ Strategies that looked like they reached the goal and did not hold up are logged
 
 ## Create and polish a strategy: GOOGL walkthrough
 
-Every command in this repo, in the order you use them to take one idea from raw bars to a live signal. `pipeline` runs all of these for you in one scoped run, and `scripts/googl_pipeline.sh` is the GOOGL example. The example is GOOGL, using the rows that already exist in `refdata/strategies.db`: `streak-googl-down3`, `streak-googl-down3-googl`, `googl_tree`, `markov_model_googl` and `markov_hmm_googl`. Swap in another ticker the same way. Flags go before positional ids. Steps 2, 3, 17 and 18 are optional; the rest are the path.
+Every command in this repo, in the order you use them to take one idea from raw bars to a live signal. `pipeline` runs all of these for you in one scoped run, and `scripts/googl_pipeline.sh` is the GOOGL example. The example is GOOGL, using the rows that already exist in `refdata/strategies.db`: `streak-googl-down3`, `streak-googl-down3-googl`, `googl_tree`, and `markov_model_googl`. Swap in another ticker the same way. Flags go before positional ids. Steps 2, 3, 17 and 18 are optional; the rest are the path.
 
 | # | Stage | Command | What it does for GOOGL | Reads / writes |
 |---|---|---|---|---|
@@ -219,8 +219,8 @@ Every run prints the database it reads bars from, with size and last update, rig
 ./bin/backtest -strategylist                    # counts per family, then asks before dumping every strategy (y/N)
 ./bin/backtest -strategy streak-voo-buy-tecl -capital 100000
 ./bin/backtest -strategy streak-voo-buy-tecl,mara_tree
-./bin/backtest -strategy all
-./bin/backtest -family rotation                 # every row of one family: streak, hold, tree, markov, hmm, rotation (same as -strategy rotation; not combinable with -strategy)
+./bin/backtest -strategy all                    # every row of every family in refdata/strategies.db, and nothing registered only in Go
+./bin/backtest -family rotation                 # every row of one family: streak, hold, tree, markov, hmm, rotation, price_action_reclaim (same as -strategy rotation; not combinable with -strategy)
 ./bin/backtest -strategy markov                 # every row of one family: streak, hold, tree or markov
 ./bin/backtest -strategy markov -run-id 7       # continue run 7: strategies already done in it are skipped
 ./bin/backtest -primary streak-voo-buy-tecl -secondary mara_tree,pdd_tree -capital 100000
@@ -391,23 +391,6 @@ Re-run strategies with the highest-resilience row the sweep recorded in the run 
 
 ---
 
-## park_sweep
-
-Run every row of `streak_strategy` and `markov_strategy` with leftover cash parked in one symbol. The lists, the window, and the results stay in SQLite. The park symbol for the default config is GOOGL.
-
-**Reads:** `refdata/strategies.db` (`streak_strategy`, `markov_strategy`) and `data/market_history_hourly.db`.
-
-**Writes:** `data/reports/park_googl.db` (`sweep_config`, `park_asset`, `sweep_strategy`, `strategy_run`). Nothing is inserted into the settings tables, and no per-strategy file is written under `data/reports/`.
-
-```bash
-```
-
-`-strategy a,b,c` limits seed, run, rank and report to those ids (case-insensitive). Only `streak_strategy` and `markov_strategy` ids qualify, and any other id is printed and skipped. `report` writes `data/reports/park_googl_report.db` and `data/reports/park_googl.html` from the sweep. The database holds every strategy row. The page shows the park buy-and-hold, every done streak, and the 25 Markov rows with the highest edge.
-
-`sweep_config` holds the window (`2021-10-01` through `2026-10-01`), capital (`100000`), and park symbol (`GOOGL`). `allocation_pct` NULL uses each row's own allocation. A symbol that does not cover the window is stored as `skipped`. `run` retries `failed` and `running` rows and leaves `done` rows. `rank` prints whatever is already `done`. `-db`, `-market-db`, `-settings-db`, and `-concurrency` override the defaults.
-
----
-
 ## scoreboard
 
 Backtest every registered strategy that lacks a usable result, then rank them.
@@ -479,7 +462,7 @@ Runs every stage for a set of stocks as one controlled run: download the bars, t
 ./bin/pipeline -symbol GOOGL                      # every stage for GOOGL, in a new run
 ./bin/pipeline -symbol GOOGL,AAPL -skip-network   # two stocks, no downloads
 ./bin/pipeline -symbol GOOGL -strategy streak-googl-down3,googl_tree
-./bin/pipeline -family streak -limit 50 -skip-network -skip park_sweep   # the first 50 streak rows
+./bin/pipeline -family streak -limit 50 -skip-network              # the first 50 streak rows
 ./bin/pipeline -run-id 17                         # resume run 17 and skip the steps it finished
 ./bin/pipeline -steps backtest,validate -run-id 17 -redo
 ./bin/pipeline -list-steps
@@ -491,9 +474,9 @@ Runs every stage for a set of stocks as one controlled run: download the bars, t
 
 **State.** `pipeline.db` in the run folder has `pipeline_run`, `pipeline_scope` and `pipeline_step` (name, status, times, error). A failed step is recorded and the run goes on. The exit code is 1 if any step failed, and `pipeline -run-id N` retries the failed ones.
 
-**Downloads.** The pipeline downloads only what the scope reads: the run's symbols, every symbol its strategies declare, and each strategy's benchmark (the same `runner.RequiredSymbolsFor` the backtest uses), plus the park symbol when `stack_eval` is going to run. A symbol already in the market database is topped up with the bars it is missing, and one that is current is not fetched at all. Option history is downloaded only for the underlyings of covered-call strategies in scope, which no GOOGL strategy is. Steps with nothing to do for the scope are skipped with the reason printed: `market_history_options` (no covered-call strategy), `study` (no `markov_hmm` strategy), `train` (no markov or tree strategy), and `covered_call`, which only runs when you name it. Naming a step in `-steps` always runs it.
+**Downloads.** The pipeline downloads only what the scope reads: the run's symbols, every symbol its strategies declare, and each strategy's benchmark (the same `runner.RequiredSymbolsFor` the backtest uses), plus the park symbol when `stack_eval` is going to run. A symbol already in the market database is topped up with the bars it is missing, and one that is current is not fetched at all. Option history is downloaded only for the underlyings of covered-call strategies in scope, which no GOOGL strategy is. Steps with nothing to do for the scope are skipped with the reason printed: `market_history_options` (no covered-call strategy), `train` (no markov or tree strategy), and `covered_call`, which only runs when you name it. Naming a step in `-steps` always runs it.
 
-**Steps**, in order, each named like its command: `market_history`, `market_history_options` (needs `POLYGON_API_KEY`), `study` (`hmm_regime`), `train` (markov and tree), `backtest`, `gridsearch_params`, `gridsearch`, `gridsearch_promote`, `gridsearch_apply`, `validate`, `strateval`, `stack`, `stack_eval`, `covered_call` (needs option bars), `park_sweep`, `scoreboard`, `stale`. `-steps` and `-skip` choose some of them.
+**Steps**, in order, each named like its command: `market_history`, `market_history_options` (needs `POLYGON_API_KEY`), `train` (markov and tree), `backtest`, `gridsearch_params`, `gridsearch`, `gridsearch_promote`, `gridsearch_apply`, `validate`, `strateval`, `stack`, `stack_eval`, `covered_call` (needs option bars), `scoreboard`, `stale`. `-steps` and `-skip` choose some of them.
 
 | Flag | Default | Meaning |
 |---|---|---|
@@ -509,7 +492,7 @@ Runs every stage for a set of stocks as one controlled run: download the bars, t
 | `-steps`, `-skip`, `-redo` | all steps | which steps run, and rerun finished ones |
 | `-skip-network` | off | leave out the downloading steps |
 
-`scripts/googl_pipeline.sh` is a one-line wrapper for `pipeline -symbol GOOGL`. Not yet in the pipeline: `markov_test` (its logic is still in `cmd/`) and `universe` and `livescan`, which are not part of building a strategy. `hmm_regime.db` is still written to `data/reports/` and shared between runs, because the `markov_hmm` strategies read it from there. `park_sweep` uses its own configured park symbol (GOOGL).
+`scripts/googl_pipeline.sh` is a one-line wrapper for `pipeline -symbol GOOGL`. Not yet in the pipeline: `markov_test` (its logic is still in `cmd/`) and `universe` and `livescan`, which are not part of building a strategy.
 
 ## backtest export_views
 
@@ -597,7 +580,6 @@ Average daily share volume (ADTV) of every symbol in the market database, over o
 | `streak`, `hold` | nothing to train: these strategies have no fitted model, their parameters are the row's columns in `refdata/strategies.db` |
 | `all` | every family above, in name order |
 
-`markov_hmm_*` strategies read `data/reports/hmm_regime.db`, which `study hmm_regime` writes; that is a study, not a `train` family.
 
 **markov.** A bar is bull at +5% or more over 20 bars, bear at -5% or less, otherwise sideways. For each date the model stores the walk-forward chance that the next bar is bull or bear, using only transitions known by that date. The calculation is SQL (`sql/stages/markov_train`, one slice table per stage). **Reads:** `data/market_history_hourly.db`, and `refdata/strategies.db` (`markov_strategy.signal_symbol`) when no symbols are given. Symbols already in the model are replaced. A symbol with fewer than 21 bars gets no model. A markov strategy whose signal symbol has no model produces no signals and logs which `train markov` command to run.
 

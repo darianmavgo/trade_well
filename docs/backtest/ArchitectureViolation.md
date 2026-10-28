@@ -2,17 +2,16 @@
 
 Rule 1 (`../CLAUDE.md`): Go controls execution, SQL does the calculation, and every stage persists in a slice table. This file lists what a scan of `pkg/` and `cmd/` found that calculates in Go, or whose result never lands in SQLite. Nothing here has been changed. Line numbers are from the scan date, 2026-10-04.
 
-Not every file was read in full. Entries for `etf_study.go`, `sp500_lead_lag.go`, `market_clustering.go`, `march_april_voo_gld_uten.go`, `market_context/`, `universe`, `park_sweep` and `scoreboard` come from loop and math counts, not a line-by-line read; confirm before acting on them.
+Not every file was read in full. Entries for `etf_study.go`, `sp500_lead_lag.go`, `market_clustering.go`, `march_april_voo_gld_uten.go`, `market_context/`, `universe` and `scoreboard` come from loop and math counts, not a line-by-line read; confirm before acting on them.
 
 Severity: **High** = a signal, feature or model input is computed in Go. **Medium** = a result metric or study is computed in Go and only the output is stored. **Low** = date or ledger arithmetic, or logic placed in `cmd/`.
 
 ## Strategies
 
-All 65,600 strategies get their signals from SQL: the five row families run one shared pipeline each (`sql/strategies/streak_strategy`, `tree_strategy`, `markov_model`, `markov_hmm`, `hold_strategy`) and the handful in `pkg/backtest/strategy` run `every_bar`, `annual_winner`, `price_action_reclaim` and `voo_up3`. No `GenerateSignals` loops over bars to decide an entry. Exceptions:
+All 65,600 strategies get their signals from SQL: the five row families run one shared pipeline each (`sql/strategies/streak_strategy`, `tree_strategy`, `markov_model`, `hold_strategy`) and the handful in `pkg/backtest/strategy` run `every_bar`, `annual_winner`, `price_action_reclaim` and `voo_up3`. No `GenerateSignals` loops over bars to decide an entry. Exceptions:
 
 | Sev | Strategy / code | Violation | Fix |
 |---|---|---|---|
-| High | `markov_hmm_*` rows (`sql/strategies/markov_hmm`) | Signals read `hmm.hmm_regime_history` from `data/reports/hmm_regime.db`, which `study hmm_regime` fills with a Go Baum-Welch/Viterbi fit (`pkg/backtest/study/hmm_regime.go:71,183,334-389`). The returns, emission probabilities and regime labels are computed in Go and handed to SQL as finished data. | Compute log returns and regime labels in SQL slice tables; keep only the parameter fit in `train hmm`, saving the model like `train markov`. |
 | Medium | `*-covered-call` ids (`dividend_covered_call.go`) | Return no signals; the whole overlay (strike choice, premium, assignment, roll) is simulated in Go (`pkg/backtest/options/coveredcall.go:85` `SimulateCoveredCall`, `dates.go`, `dividends.go`). The result is not captured in slice tables. | Move strike selection, premium and monthly roll into `sql/` stages writing a covered-call ledger table. |
 | Low | `<dir>-sql` ids (`sql_strategy.go:500-536`) | Duplicate registry entries for a folder that already has an owner. They exist only because the code once had a Go-versus-SQL split. | Remove `AutoRegisterSQLStrategies`' `-sql` ids once nothing resolves a directory through them. |
 
@@ -30,7 +29,7 @@ Rule 1 says not to add to `pkg/backtest/study/*` and to move calculation into SQ
 | Sev | File | Violation |
 |---|---|---|
 | High | `mara_decision_tree.go:177` `computeMARASamples` (~1,145 lines); `mu_decision_tree.go:195` `computeMUSamples` (~1,194 lines) | Per-bar features (RSI at about line 223, SMA distances, returns) and a decision tree built in Go. These duplicate `sql/stages/tree_features` and the `train tree` path. Candidates for deletion rather than migration. |
-| High | `hmm_regime.go` (413 lines) | See `markov_hmm` above. |
+| High | `hmm_regime.go` (413 lines) | A standalone study that fits an HMM in Go. No strategy reads its `hmm_regime.db` output since the `markov_hmm` pipeline was removed. |
 | High | `gain_5pct_frequency.go:273` `computeTickerStats` (~1,300 lines) | Gain frequency, returns and annualised volatility (`:379-380`) computed per ticker in a Go loop. |
 | Medium | `qqq_tqqq_volume.go:92,120,352,363` | Log volume changes, mean and median in Go. |
 | Medium | `stats.go:246,369` | Incomplete beta and correlation in Go (a library for the test statistics). SQLite has no such function; accept as a Go helper, but feed it from SQL. |
@@ -51,7 +50,6 @@ Rule 1 says not to add to `pkg/backtest/study/*` and to move calculation into SQ
 | Sev | Code | Violation | Fix |
 |---|---|---|---|
 | Low | `pkg/backtest/universe/universe.go` | Classification of leverage, direction and category is Go string matching over Polygon results. | Store the raw Polygon rows and classify with a SQL `CASE` stage. |
-| Low | `pkg/backtest/park_sweep/rank.go`, `report.go` | Ranking and page assembly in Go; the data is read back from SQLite. | Rank with SQL `ORDER BY` into a result table. |
 | Low | `pkg/backtest/scoreboard/main.go` | Ranking in Go over result DBs. | Same. |
 
 ## Clean

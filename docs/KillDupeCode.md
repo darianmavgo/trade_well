@@ -44,7 +44,7 @@ Small items; the large ones (ingest, `dbsync`, secrets, token sync) are gone. Ro
 | 1.4 order id from Location | TO `submit_orders.go:47` | Export `schwab.LocationOrderID` and delete the TO copy | 6 lines |
 | 1.2 `.env` parse | BT `appenv.load()` | Call SW `config.ParseEnv`, or keep BT's and say why (BT is Calculation and must not import SW, see below) | 25 lines |
 | 2.6 CSV parse | TO `strategies.Parse`, `account_allowlist.Parse` | One shared "split, trim, dedupe, error if empty" helper, and delete `strategies.Contains` (use `slices.Contains`) | about 25 lines |
-| 2.10 pragma lists | SW `dbutil.Open`, BT `storage.OpenSQLite`, `park_sweep` | Decide one owner of the pragma list (see the layer note) | about 20 lines |
+| 2.10 pragma lists | SW `dbutil.Open`, BT `storage.OpenSQLite` | Decide one owner of the pragma list (see the layer note) | about 20 lines |
 | 2.4 `ResolveFromDB` | TO `account_allowlist/resolve_db.go` | Review only; likely stays in TO | n/a |
 | 2.3 `account_state` | TO | Review the remaining 386 lines for overlap with `accountstore` | unknown |
 

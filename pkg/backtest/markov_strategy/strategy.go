@@ -184,11 +184,7 @@ func (s *Strategy) GenerateSignals(barsBySymbol map[string][]models.Bar) []model
 	}
 	dir := s.PipelineDir
 	if dir == "" {
-		if strings.Contains(s.ID(), "hmm") {
-			dir = "sql/strategies/markov_hmm"
-		} else {
-			dir = pipelineDir
-		}
+		dir = pipelineDir
 	}
 	if dir == pipelineDir {
 		sym := strings.ToUpper(strings.TrimSpace(s.Row.SignalSymbol))

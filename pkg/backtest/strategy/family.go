@@ -166,11 +166,13 @@ func (f *RowFamily) IDs() ([]string, error) {
 	return refdb.IDs(db, f.Table)
 }
 
-// ListAll returns List() plus every member of every family, built on demand,
-// sorted by ID. Use it only where "all" must mean every row (a full backtest
-// or scoreboard); listings should print List() and FamilyCounts instead.
+// ListAll returns every member of every family, built on demand, sorted by ID. These are the
+// strategies defined in the reference database (strategies.db). A strategy registered in Go
+// with no row there is left out: it is still found by its own id, but "all" never runs it. Use
+// ListAll only where "all" must mean every row (a full backtest or scoreboard); listings should
+// print List() and FamilyCounts instead.
 func ListAll() []Strategy {
-	out := List()
+	var out []Strategy
 	for _, f := range Families() {
 		ids, err := f.IDs()
 		if err != nil {

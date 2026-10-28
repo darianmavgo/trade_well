@@ -310,14 +310,9 @@ func TestStepsWithNothingToDoAreSkippedUnlessNamed(t *testing.T) {
 	if why := opt.skipReason(rc); why != "" {
 		t.Errorf("a step named in -steps must run, got skip: %s", why)
 	}
-	for _, s := range []struct {
-		name string
-		when func(*runCtx) string
-	}{{"train", whenTrainable}, {"study", whenHMM}} {
-		rc.cfg.explicit = nil
-		if s.when(rc) == "" {
-			t.Errorf("%s should be skipped when no markov, tree or hmm strategy is in scope", s.name)
-		}
+	rc.cfg.explicit = nil
+	if whenTrainable(rc) == "" {
+		t.Error("train should be skipped when no markov or tree strategy is in scope")
 	}
 }
 

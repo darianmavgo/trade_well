@@ -26,7 +26,7 @@ and the only one that is on every backtest's path.
 - The dividend-adjusted copy is a per-bar scale (`AdjClose / Close`). `first_bar`
   already does the same scaling in SQL for its signal (`__TOTAL_RETURN__`), so the
   simulator would need the same scaling on the bars it reads.
-- `markov_hmm` still depends on `study hmm_regime`, which fits an HMM in Go.
+- `study hmm_regime` fits an HMM in Go. No strategy reads its output any more (the `markov_hmm` pipeline was removed).
   Fitting by iteration is not practical in SQL. Either keep it as a study or
   delete the strategy.
 - Slower pipelines worth tuning if they matter: `price_action_reclaim` (about 3

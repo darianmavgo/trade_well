@@ -37,7 +37,7 @@ One checklist of every strategy and tactic I have dived into, and every idea sti
 ### Markov regime models
 - [x] **`markov_model_<symbol>`**: label bull / bear / sideways by trailing 20-day return (±5%), build the 3×3 transition matrix, buy when it predicts bull, hold ≤15 days, take profit +5%, 25% of equity. Source: `UsingMarkovModels.md`, plan in `MarkovModel.md`.
 - [x] **Held-out year (2025-10-02 to 2026-10-01).** AMD 46.4% CAR / 8.0% DD, LITE 71.9% / 8.6%, MULL 90.5% / 16.0%. Caveat: those three were picked because they did well, out of about 22,000 results. In-sample the four-strategy stack made 52.2% CAR / 30.7% DD (Calmar 1.7).
-- [x] **HMM regime study** on QQQ (`study hmm_regime`, `markov_hmm`). Run; no recorded verdict.
+- [x] **HMM regime study** on QQQ (`study hmm_regime`; the `markov_hmm` strategy that read it was removed). Run; no recorded verdict.
 - [x] **GOOGL example.** "Completely sucked." *(outside)*
 - [x] **Confidence-sizing the Markov position** (size by signal strength). Done; "didn't help much" on GOOGL. *(outside)*
 - [ ] Run Markov on S&P 500 / VOO only, and use that to try the variations. *(outside)*

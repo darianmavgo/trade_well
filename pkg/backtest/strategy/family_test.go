@@ -49,6 +49,17 @@ func TestRowFamilyLooksUpWithoutRegisteringRows(t *testing.T) {
 	if !got["hold-zzfam-a"] || !got["hold-zzfam-b"] {
 		t.Fatalf("ListAll missing rows")
 	}
+	// A strategy registered in Go has no row in strategies.db: it is found by its id and listed by
+	// List, but "all" does not run it.
+	strategy.NewSQLPipelineStrategy("zz-go-only", "Go only", "registered in Go, no row", "sql/strategies/streak_strategy", strategy.StrategyConfig{AllocationPct: 0.1})
+	if _, ok := strategy.Get("zz-go-only"); !ok {
+		t.Fatal("a Go-registered strategy must still be found by its id")
+	}
+	for _, s := range strategy.ListAll() {
+		if s.ID() == "zz-go-only" {
+			t.Fatal("ListAll includes a strategy that is not a row of strategies.db")
+		}
+	}
 	found := false
 	for _, fc := range strategy.FamilyCounts() {
 		if fc.Name == "hold" && fc.Count == 2 {

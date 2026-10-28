@@ -208,7 +208,7 @@ func Main() {
 	d := conf
 	flag.StringVar(&conf.Db, "db", d.Db, "Path to source SQLite DB containing historical market bars")
 	flag.StringVar(&conf.Table, "table", d.Table, "Table name containing historical bars")
-	flag.StringVar(&conf.Strategy, "strategy", d.Strategy, "Strategy ID to run, comma-separated list, 'all', or 'strat1+strat2' for shared account")
+	flag.StringVar(&conf.Strategy, "strategy", d.Strategy, "Strategy ID to run, comma-separated list, 'all' (every row of every family in strategies.db), or 'strat1+strat2' for shared account")
 	var family string
 	flag.StringVar(&family, "family", "", "Run every strategy of one row-backed family (streak, hold, tree, markov, hmm, rotation, price_action_reclaim); same as -strategy <family>")
 	flag.BoolVar(&conf.SharedAccount, "shared-account", d.SharedAccount, "Run strategies in a single shared cash account with priority preemption")

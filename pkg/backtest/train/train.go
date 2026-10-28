@@ -11,8 +11,6 @@
 //	hold       nothing to train
 //	tree       trained: per-symbol 5 bucket CloudForest tree -> data/tree_models.db
 //	hmm        trained: Gaussian hidden Markov regime model (QQQ) -> data/hmm_models.db, not part of `all`
-//
-// markov_hmm strategies read hmm_regime.db, which `study hmm_regime` writes.
 package train
 
 import (
@@ -98,5 +96,4 @@ func usage(w io.Writer) {
 		fmt.Fprintf(w, "  %-10s %s\n", n, families[n].note)
 	}
 	fmt.Fprintf(w, "  %-10s %s\n", "check", "lists models trained on bars after the holdout cutoff; -fix retrains them")
-	fmt.Fprintln(w, "markov_hmm strategies read hmm_regime.db, written by `study hmm_regime`.")
 }
