@@ -51,6 +51,7 @@ var cronJobs = []struct {
 	{"stage_orders", handleCronStageOrders},
 	{"submit_orders", handleCronSubmitOrders},
 	{"trigger_limits", handleCronTriggerLimits},
+	{"cancel_stale_entries", handleCronCancelStaleEntries},
 	{"manage_exits", handleCronManageExits},
 	{"check_health", handleCronCheckHealth},
 	{"ready", handleCronReady},

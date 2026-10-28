@@ -209,6 +209,17 @@ func CancelWatchingOrder(db *sql.DB, id int64, reason string) error {
 	return err
 }
 
+// CancelStaleEntry marks the SUBMITTED / SUBMITTED_PENDING_FILL row of a broker entry order
+// CANCELLED after the order was cancelled at the broker, and returns how many rows changed.
+func CancelStaleEntry(db *sql.DB, accountNumber, orderID, reason string) (int64, error) {
+	res, err := db.Exec(orchestratorsql.Q("stage_orders/cancel_stale_entry"),
+		StagedOrderCancelled, reason, accountNumber, orderID, StagedOrderSubmitted, StagedOrderPendingFill)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
 // GetStagedOrder returns the stage_order row with this id, or nil when there is none.
 func GetStagedOrder(db *sql.DB, id int64) (*StagedOrder, error) {
 	rows, err := db.Query(`SELECT `+stagedOrderColumns+` FROM stage_order WHERE id = ?`, id)

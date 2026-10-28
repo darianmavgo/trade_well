@@ -262,6 +262,15 @@ Every managed position has a stored **exit date**: `max_trading_days` trading da
 - **`check_health` and `/check_health`** report `killswitch_engaged` (WARNING) instead of every job as missed, so a deliberate stop is not mistaken for a failure.
 - The scheduler itself keeps calling; the routes refuse. The CLI form only sets the flag on the database that process opens; cancelling running jobs happens inside the server.
 
+## `/cancel_stale_entries`: cancel entry orders that never filled
+
+`orchestrator cancel_stale_entries [--dry-run] [--account ...]`, `/cancel_stale_entries` (same Basic Auth) or `/cron/cancel_stale_entries` (09:05 ET, Mon-Fri). It cancels, **at the broker, in every managed account**, the entry orders that have been working for more than 24 hours: good-till-cancelled entries that never filled, which hold buying power. It is live unless given `--dry-run` (`?dry_run=1` on the cron route).
+
+- Only an entry is cancelled: a top-level order whose first leg is a BUY and that is still working. Sells, OCO exit parents, the exits of a filled position, and orders that have filled or ended are never touched. An order with no entered time is left alone.
+- After a cancel, the matching `stage_order` row (SUBMITTED / SUBMITTED_PENDING_FILL) becomes CANCELLED and a PENDING_FILL `manage_exit` row for the order is cancelled. A live run is recorded as a `cancel_stale_entries` `job_run`.
+- `GET /cancel_stale_entries` previews against the broker (HTML, or JSON with `?format=json`) and cancels nothing. A POST needs the page's single-use token and `mode=dry|live`.
+- Untested path: the broker list and cancel calls cannot be exercised without a real account. The age and entry filter, the database updates and the page rendering are tested; check the broker side with `--dry-run`.
+
 ## `/clear_stale`: stop reporting on strategies you no longer run
 
 `/clear_stale` (same Basic Auth) or `orchestrator clear_stale [--dry-run]`. A strategy that is not greenlit (not on `STRATEGY_ALLOWLIST`, directly or as a member of a greenlit stack) can no longer stage, submit or manage anything, so its leftovers only add warnings to `check_health`. This retires them, for every account, in the **local database only: the broker is never contacted and nothing is deleted.** It is live unless given `--dry-run`, and it refuses to run with an empty allowlist.

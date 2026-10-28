@@ -55,6 +55,8 @@ var Schedule = []JobSpec{
 	{Name: "scan_market", Days: sunThu, Times: []string{"18:00"}},
 	{Name: "stage_orders", Days: sunThu, Times: []string{"18:15"}},
 	{Name: "submit_orders", Days: monFri, Times: []string{"09:28", "09:45", "16:20"}},
+	// Cancels entries resting unfilled for over 24h before the morning submit, so they free buying power.
+	{Name: "cancel_stale_entries", Days: monFri, Times: []string{"09:05"}, NotBefore: "2026-10-29"},
 	{Name: "manage_exits", Days: monFri, Times: []string{"09:35", "15:50"}},
 	{Name: "check_health", Days: monFri, Times: []string{"10:00"}},
 	// Not pipeline stages: they report on it. Keep them last (downstreamOf leaves them out).

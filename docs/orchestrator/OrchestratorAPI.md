@@ -49,6 +49,7 @@ Derived on 2026-10-26 from `cmd/orchestrator/main.go` (subcommands), `pkg/orches
 | Turn every `/cron` route off (they answer 503) and cancel running jobs, or turn them back on | `killswitch on\|off\|status` | `GET /killswitch`, `POST /killswitch` | affects every `/cron/*` route |
 | Cancel all working orders and sell every long position at market | `exit_market` (`--dry-run` previews; never scheduled) | `GET /exit_market`, `POST /exit_market` | - |
 | Retire staged orders and orphan trades of strategies no longer greenlit (local database only; the broker is not contacted) | `clear_stale` (`--dry-run` previews; never scheduled) | `GET /clear_stale`, `POST /clear_stale` | - |
+| Cancel unfilled ENTRY orders resting at the broker for over 24 hours, in every managed account (exits are never touched) | `cancel_stale_entries` (`--dry-run` previews) | `GET /cancel_stale_entries`, `POST /cancel_stale_entries` | `GET /cron/cancel_stale_entries` (09:05 ET Mon-Fri; `?dry_run=1` previews) |
 | Rest day-limit buys far below the market until Schwab refuses one for buying power, report how many, cancel them all (no dry run) | `probe_seat` | - | - |
 | **Authentication and plumbing** | | | |
 | One-time Schwab OAuth setup | `auth` | `GET /auth/schwab` (Basic Auth, redirects to Schwab), `GET /auth/schwab/callback` (Schwab's redirect target) | - |

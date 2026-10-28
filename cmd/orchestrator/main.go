@@ -132,6 +132,8 @@ func main() {
 		runExitMarket(subArgs)
 	case "clear_stale":
 		runClearStale(subArgs)
+	case "cancel_stale_entries":
+		runCancelStaleEntries(subArgs)
 	case "health_checks":
 		runHealthChecks(subArgs)
 	case "run_all_jobs":
@@ -179,6 +181,7 @@ func printUsage() {
 	fmt.Printf("  %skillswitch%s     on|off|status: turns every /cron route off (and, in the server, cancels running jobs); also /killswitch\n", colGreen, colReset)
 	fmt.Printf("  %sexit_market%s    Cancels all working orders and sells every long position at market in every managed account (LIVE by default, --dry-run previews; also /exit_market; never scheduled)\n", colGreen, colReset)
 	fmt.Printf("  %sclear_stale%s    Retires the REJECTED/PENDING staged orders and orphan OPEN trades of strategies that are no longer greenlit, in Turso only (the broker is not contacted), so check_health stops reporting them (LIVE by default, --dry-run previews; also /clear_stale; never scheduled)\n", colGreen, colReset)
+	fmt.Printf("  %scancel_stale_entries%s Cancels unfilled ENTRY orders that have rested at the broker for over 24 hours, in every managed account, and marks their staged orders CANCELLED; exits are never touched (LIVE by default, --dry-run previews; also /cancel_stale_entries and /cron/cancel_stale_entries, daily 09:05 ET)\n", colGreen, colReset)
 	fmt.Printf("  %saccount_state%s      Fetches configured accounts, positions, orders, transactions into Turso (via schwaber)\n", colGreen, colReset)
 	fmt.Println("\nAutomated Trading Jobs:")
 	fmt.Printf("  %smanage_exits%s   Job 1: Checks open positions against the creating strategy's holding window and profit target\n", colGreen, colReset)

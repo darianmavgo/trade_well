@@ -11,6 +11,7 @@ import (
 
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/account_state"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/appserve"
+	"github.com/darianmavgo/trade_well/pkg/orchestrator/cancel_stale_entries"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/check_health"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/clear_stale"
 	"github.com/darianmavgo/trade_well/pkg/orchestrator/exit_market"
@@ -247,6 +248,38 @@ func runExitMarket(args []string) {
 		fail(fmt.Errorf("failed to resolve target account(s): %w", err))
 	}
 	res, err := exit_market.Run(context.Background(), os.Stdout, env.DB, tc, accounts, exit_market.Options{DryRun: *dryRun || !*live, Killswitch: *engage})
+	if err != nil {
+		env.DB.Close()
+		fail(err)
+	}
+	if res.Failed > 0 {
+		env.DB.Close()
+		os.Exit(1)
+	}
+}
+
+// runCancelStaleEntries is `orchestrator cancel_stale_entries [--dry-run]`: cancel the entry
+// orders that have rested unfilled at the broker for over 24 hours, in every managed account.
+func runCancelStaleEntries(args []string) {
+	fs := flag.NewFlagSet("cancel_stale_entries", flag.ExitOnError)
+	dryRun := fs.Bool("dry-run", false, "Preview only: list the stale entry orders, cancel nothing")
+	live := fs.Bool("live", true, "Actually cancel the orders (the default; --dry-run or --live=false previews)")
+	acc := accountFlags(fs, accountsUsage)
+	fs.Parse(args)
+
+	env := openEnv()
+	defer env.DB.Close()
+	targets, err := acc().Targets()
+	if err != nil {
+		env.DB.Close()
+		fail(err)
+	}
+	tc, accounts, err := jobenv.ResolveAccounts(context.Background(), env.Cfg, env.DB, targets)
+	if err != nil {
+		env.DB.Close()
+		fail(fmt.Errorf("failed to resolve target account(s): %w", err))
+	}
+	res, err := cancel_stale_entries.Run(context.Background(), os.Stdout, env.DB, tc, accounts, cancel_stale_entries.Options{DryRun: *dryRun || !*live})
 	if err != nil {
 		env.DB.Close()
 		fail(err)

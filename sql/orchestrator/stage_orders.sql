@@ -4,6 +4,9 @@
 -- name: cancel_watching_order
 UPDATE stage_order SET status = ?, reject_reason = ? WHERE id = ? AND status = ?
 
+-- name: cancel_stale_entry
+UPDATE stage_order SET status = ?, reject_reason = ? WHERE account_number = ? AND order_id = ? AND status IN (?, ?)
+
 -- name: claim_staged_order_for_submit
 UPDATE stage_order
 SET status = ?, client_order_id = ?

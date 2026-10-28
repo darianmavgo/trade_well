@@ -66,6 +66,9 @@ func Serve(ctx context.Context, port int) error {
 	if err := registerClearStale(root); err != nil {
 		return err
 	}
+	if err := registerCancelStaleEntries(root); err != nil {
+		return err
+	}
 	if err := registerManageExitsPage(root); err != nil {
 		return err
 	}

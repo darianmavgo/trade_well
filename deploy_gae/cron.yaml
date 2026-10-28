@@ -3,6 +3,11 @@
 # App Engine Cron always sends header X-Appengine-Cron: true.
 
 cron:
+  - description: "09:05 ET cancel entry orders that rested unfilled for over 24h (frees buying power before the 09:28 submit)"
+    url: /cron/cancel_stale_entries
+    schedule: every mon,tue,wed,thu,fri 09:05
+    timezone: America/New_York
+
   - description: "09:15 ET pre-market account/position sync"
     url: /cron/account_state
     schedule: every mon,tue,wed,thu,fri 09:15
