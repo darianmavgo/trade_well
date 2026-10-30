@@ -13,7 +13,6 @@ import (
 	"github.com/darianmavgo/trade_well/pkg/backtest/scoreboard"
 	"github.com/darianmavgo/trade_well/pkg/backtest/storage"
 	"github.com/darianmavgo/trade_well/pkg/backtest/strategy"
-	"github.com/darianmavgo/trade_well/pkg/backtest/strateval"
 	"github.com/darianmavgo/trade_well/pkg/backtest/train"
 	"github.com/darianmavgo/trade_well/pkg/backtest/validate"
 	"github.com/darianmavgo/trade_well/pkg/backtest/walk_forward"
@@ -61,7 +60,6 @@ func allSteps() []step {
 		{name: "gridsearch_promote", needsPrimary: true, run: stepPromote},
 		{name: "gridsearch_apply", run: stepApply},
 		{name: "validate", run: stepValidate},
-		{name: "strateval", run: stepStrateval},
 		{name: "stack", needsPrimary: true, run: stepStack},
 		{name: "stack_eval", needsPrimary: true, run: stepStackEval},
 		{name: "covered_call", network: true, needsKey: true, when: whenAskedFor, run: stepCoveredCall},
@@ -304,24 +302,6 @@ func stepValidate(r *runCtx) error {
 		},
 		RunID: r.runID,
 	})
-}
-
-func stepStrateval(r *runCtx) error {
-	sc := strateval.DefaultConfig()
-	sc.MarketDb = r.cfg.MarketDB
-	sc.RunFolder = r.runID
-	sc.Strategy = r.ids()
-	sc.Optimize = true
-	sc.MaxTrials = 50
-	errs := []error{strateval.Run(sc)}
-	for _, sub := range []string{"report", "status"} {
-		rc := strateval.DefaultConfig()
-		rc.RunFolder = r.runID
-		rc.Strategy = r.ids()
-		rc.Subcommand = sub
-		errs = append(errs, strateval.Run(rc))
-	}
-	return join(errs...)
 }
 
 // --- stacks ---

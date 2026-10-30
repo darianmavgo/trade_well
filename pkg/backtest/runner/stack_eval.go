@@ -3,6 +3,7 @@ package runner
 import (
 	"fmt"
 	"github.com/darianmavgo/trade_well/pkg/backtest/appenv"
+	"github.com/jmoiron/sqlx"
 	"log"
 	"os"
 	"path/filepath"
@@ -38,6 +39,7 @@ type OverlayEval struct {
 	SecondaryTrades   int
 	Preempted         int
 	TradedSymbols     []string
+	EntryDates        []string // days the overlay signals an entry, for the set analysis
 	Err               error
 }
 
@@ -49,6 +51,8 @@ type StackEvalResult struct {
 	BestStack      *SharedRunResult // greedy N-way stack of complementary overlays
 	BestStackIDs   []string
 	RankingsDBPath string
+	PrimaryDates   []string   // days the primary signals an entry
+	Set            *SetReport // collision and win-rate analysis of the primary and the chosen overlays
 }
 
 // OverlayCandidates returns existing registered strategies suitable as idle-cash
@@ -175,6 +179,7 @@ func ExecuteStackEval(opts StackEvalOptions) StackEvalResult {
 		DefaultAsset: opts.DefaultAsset,
 	})
 	res.Baseline = baseline
+	res.PrimaryDates = entryDates(primSignals)
 	baselineEquity := baseline.CombinedReport.FinalEquity
 
 	type job struct {
@@ -252,7 +257,7 @@ func ExecuteStackEval(opts StackEvalOptions) StackEvalResult {
 		}
 	}
 
-	res.RankingsDBPath = persistStackEval(opts.OutDir, res)
+	res.RankingsDBPath = persistStackEval(opts.OutDir, &res)
 	return res
 }
 
@@ -268,6 +273,7 @@ func evaluateOverlay(
 	cand.SetDatabases(opts.MarketDBPath, filepath.Join(calcDirPath, fmt.Sprintf("calc_%s.db", cand.ID())))
 	secSigs := tagSignals(cand.GenerateSignals(opts.BarsBySymbol), cand.ID(), 1)
 	eval.TradedSymbols = uniqueSignalSymbols(secSigs)
+	eval.EntryDates = entryDates(secSigs)
 
 	merged := append([]models.Signal{}, primSignals...)
 	merged = append(merged, secSigs...)
@@ -352,11 +358,12 @@ func uniqueSignalSymbols(sigs []models.Signal) []string {
 	return out
 }
 
-func persistStackEval(outDir string, res StackEvalResult) string {
+func persistStackEval(outDir string, res *StackEvalResult) string {
 	if res.Primary == nil {
 		return ""
 	}
 	path := filepath.Join(outDir, fmt.Sprintf("stack_eval_%s.db", sanitizeID(res.Primary.ID())))
+	freshFile(path)
 	db, err := storage.OpenSQLite(path)
 	if err != nil {
 		log.Printf("Warning: failed to open stack-eval rankings DB %s: %v", path, err)
@@ -419,7 +426,39 @@ func persistStackEval(outDir string, res StackEvalResult) string {
 		)
 	}
 	_ = tx.Commit()
+	analyzeStackSet(db, res)
 	return path
+}
+
+// analyzeStackSet runs the set analysis on the primary, the greedy stack's members and every
+// other overlay, into the rankings database, and keeps the report on res. A failure is logged
+// and leaves res.Set nil: the ranking is still valid without it.
+func analyzeStackSet(db *sqlx.DB, res *StackEvalResult) {
+	chosen := map[string]bool{}
+	for _, id := range res.BestStackIDs {
+		chosen[id] = true
+	}
+	set := []SetStrategy{{ID: res.Primary.ID(), Role: SetPrimary, EntryDates: res.PrimaryDates}}
+	for _, ov := range res.Overlays {
+		if ov.Err != nil {
+			continue
+		}
+		role := SetCandidate
+		if chosen[ov.Secondary.ID()] {
+			role = SetMember
+		}
+		set = append(set, SetStrategy{ID: ov.Secondary.ID(), Role: role, EntryDates: ov.EntryDates})
+	}
+	trades := res.Baseline.Trades
+	if res.BestStack != nil {
+		trades = res.BestStack.Trades
+	}
+	rep, err := AnalyzeSet(db, set, trades)
+	if err != nil {
+		log.Printf("Warning: set analysis failed: %v", err)
+		return
+	}
+	res.Set = &rep
 }
 
 func sanitizeID(id string) string {
@@ -502,5 +541,8 @@ func PrintStackEvalTearSheet(res StackEvalResult) {
 	if res.BestStack != nil && len(res.BestStackIDs) > 0 {
 		fmt.Printf("\nGreedy complementary stack: %s\n", res.BestStack.CombinedID)
 		PrintSharedAccountTearSheet(*res.BestStack)
+	}
+	if res.Set != nil {
+		PrintSetReport(*res.Set)
 	}
 }

@@ -59,7 +59,6 @@ In `models.Signal`, `TakeProfit` and `StopLoss` are absolute dollar prices (`150
 - Walk-forward and stack results depend on the market DB window: a stack found by screening many strategies on the full history is in-sample. Keep a held-out final period and report it separately (see `docs/omnifunds_benchmark.md` for the bar to beat).
 - Daily simulation reads rows with `length(Date) = 10`; minute bars share the same table and are skipped.
 - Result DBs are written per run: `data/reports/<id>.db`, then `<id>_2.db`, `<id>_3.db`. Do not assume a fixed filename.
-- `strateval`'s ledger is `strategies.db` in the run folder, `$APP_FOLDER/data/reports/<run>/`; `-db` overrides it. No environment overrides.
 - `data/` (except `README.md` and `ignore_over50MB.sh`), `bin/` and `reports/*.html` are gitignored; `data/` also has its own `.git`. Do not commit databases or binaries.
 
 ## Before you finish

@@ -69,6 +69,10 @@ func banner(title string) {
 // built) runs once on the held-out months, flat at the start, with results in
 // <out-dir>/oos. Pass -holdout-months 0 to simulate all history in one pass.
 func Run(conf Config) error {
+	if conf.Mode == "pick" {
+		// Only reads finished result databases: no run folder is started and no bars are loaded.
+		return runPickCommand(conf)
+	}
 	if conf.Serial {
 		conf.Concurrency = 1
 	}

@@ -13,7 +13,7 @@ import (
 const pipelineDir = "sql/strategies/streak_strategy"
 
 // Strategy is one streak_strategy row, runnable by backtest, gridsearch,
-// scoreboard, livescan, and strateval.
+// scoreboard, livescan.
 type Strategy struct {
 	Row          refdb.StreakStrategy
 	marketDBPath string

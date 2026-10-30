@@ -49,8 +49,6 @@ data/reports/          one SQLite file per run, plus HTML
 
 `cliutils.GetDefaultMarketDB` returns `MarketDB()`. `backtest`, `study`, and `livescan` use that helper. `market_history` and the batch tools call `MarketDB()` directly.
 
-`strateval`'s ledger is `strategies.db` in the run folder, `$APP_FOLDER/data/reports/<run>/` (`-run-id`); the `-db` flag names another file. There are no environment overrides.
-
 ## Market data
 
 `market_history.Run` opens `-db`, ensures the bar table, and upserts. With no `-symbols` it reads `SELECT DISTINCT symbol FROM <table>` in the settings DB (`leveraged_etf` by default, `-limit 50`). A `-symbols` name that is a `symbol_lists` id expands to that list's tickers (`expandSymbolLists`). Bare arguments are tickers when `-symbols` is empty: commas are separators, values are uppercased.
@@ -192,7 +190,7 @@ Written by `pkg/backtest/storage` into each strategy or shared DB:
 
 `running` and `failed` are retried. `done` is skipped unless `-force`. `gridsearch apply` reads the best row and applies it, including `DeclineDays` when the strategy implements `DeclineDaysConfigurable`. Many older rows have NULL `hold_days`; the label is `SYM/sigDaysd/holdd/+TP%-SL%/regime` or `SYM/Hold-Nd/TP+x%/SL-y%`. Older rows also have NULL `signal_symbol` and `allocation_pct`. `gridsearch promote` fills the watch symbol from the parent strategy's `ParameterSpace` when the column is NULL.
 
-`pkg/backtest/streak_strategy` is the `streak` family: `strategy.Get` builds a `streak_strategy` row from its `id` (`streak-<signal>-<up|down><days>-<trade>`). The package imports `pkg/backtest/strategy`, so registration is a call to `Register` from backtest, gridsearch, scoreboard, livescan, and strateval, right after `AutoRegisterSQLStrategies`. Signals come from `sql/strategies/streak_strategy/` (`__SIGNAL_SYMBOL__`, `__TRADE_SYMBOL__`, `__STREAK_COL__`, `__REGIME_PREDICATE__`). `gridsearch -strategy all` skips the `streak-` prefix unless `-include-streak`. Scoreboard and `backtest -strategy all` include the rows.
+`pkg/backtest/streak_strategy` is the `streak` family: `strategy.Get` builds a `streak_strategy` row from its `id` (`streak-<signal>-<up|down><days>-<trade>`). The package imports `pkg/backtest/strategy`, so registration is a call to `Register` from backtest, gridsearch, scoreboard, and livescan, right after `AutoRegisterSQLStrategies`. Signals come from `sql/strategies/streak_strategy/` (`__SIGNAL_SYMBOL__`, `__TRADE_SYMBOL__`, `__STREAK_COL__`, `__REGIME_PREDICATE__`). `gridsearch -strategy all` skips the `streak-` prefix unless `-include-streak`. Scoreboard and `backtest -strategy all` include the rows.
 
 `reports/stack_eval_<primary>.db` table `overlay_rankings` is replaced on each stack (`DELETE` then insert). Columns include combined equity, CAGR, Sharpe, max drawdown, incremental equity versus the primary alone, secondary PnL and trades, preempted count, and idle-cash percents.
 
@@ -244,8 +242,6 @@ Staleness (`pkg/backtest/runner/staleness.go`) is shared by `backtest stale` and
 | `HOLDS` | otherwise |
 
 It records the gates in `check_overfit_gate`.
-
-`strateval` is a separate ledger, not the walk-forward file. For each strategy it runs an in-sample window and a held-out tail of `-oos-months` (12). `-optimize` does a coarse in-sample sweep capped by `-max-trials` before the out-of-sample run; the sweep does not see the OOS bars. Rows go to `strategy_evals`. `strategies` and `deployments` track the allowlist snapshot from `sync-deployed`. Tier A requires OOS trades, win rate, and drawdown inside the gates (`-min-oos-trades 12`, `-min-oos-win-rate 0.55`, `-max-oos-dd 0.15`). Scratch sims use `reports/strateval_runs/`. `strategy_evals` also keeps `is_idle_days`, `is_days`, `oos_idle_days` and `oos_days`, and the scorecard shows the out-of-sample idle days.
 
 ## Other commands
 

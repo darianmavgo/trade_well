@@ -22,7 +22,7 @@ import (
 const pipelineDir = "sql/strategies/price_action_reclaim_strategy"
 
 // Strategy is one price_action_reclaim_strategy row, runnable by backtest, gridsearch,
-// scoreboard, livescan and strateval.
+// scoreboard, livescan.
 type Strategy struct {
 	Row          refdb.PriceActionReclaimStrategy
 	marketDBPath string

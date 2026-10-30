@@ -73,6 +73,13 @@ type Config struct {
 	OptSlip             float64  // -opt-slip
 	NoReinvestDividends bool     // -no-reinvest-dividends
 	DefaultAsset        string   // -default-asset
+	PickExclude         string   // -exclude
+	Pick                int      // -pick
+	MinWinRate          float64  // -min-win-rate
+	MinTrades           int      // -min-trades
+	MinOOSTrades        int      // -min-oos-trades
+	MaxOverlap          float64  // -max-overlap
+	TopCandidates       int      // -top-candidates
 	Mode                string   // subcommand (empty = default)
 	Args                []string // positional arguments
 
@@ -119,6 +126,12 @@ func DefaultConfig() Config {
 		OptSlip:             0.05,
 		NoReinvestDividends: false,
 		DefaultAsset:        "",
+		Pick:                10,
+		MinWinRate:          0.75,
+		MinTrades:           30,
+		MinOOSTrades:        8,
+		MaxOverlap:          0.30,
+		TopCandidates:       200,
 	}
 }
 
@@ -247,7 +260,14 @@ func Main() {
 	flag.Float64Var(&conf.OptSlip, "opt-slip", d.OptSlip, "(covered-call) $ per share given up vs the last-trade option price when selling")
 	flag.BoolVar(&conf.NoReinvestDividends, "no-reinvest-dividends", d.NoReinvestDividends, "Total-return strategies (e.g. schd-buy-hold): take dividends as idle cash instead of reinvesting them")
 	flag.StringVar(&conf.DefaultAsset, "default-asset", d.DefaultAsset, "Shared-account only: symbol that leftover cash is held in after each session (e.g. GOOGL)")
-	conf.Mode = cliutils.PopSubcommand(map[string]string{"covered-call": "covered-call", "stale": "stale", "stack": "stack-eval", "newrun": "newrun", "lastrun": "lastrun"})
+	flag.IntVar(&conf.Pick, "pick", d.Pick, "(pick) strategies to choose")
+	flag.Float64Var(&conf.MinWinRate, "min-win-rate", d.MinWinRate, "(pick) minimum win rate (0-1), required both in-sample and held-out")
+	flag.IntVar(&conf.MinTrades, "min-trades", d.MinTrades, "(pick) minimum in-sample trades")
+	flag.IntVar(&conf.MinOOSTrades, "min-oos-trades", d.MinOOSTrades, "(pick) minimum held-out trades")
+	flag.Float64Var(&conf.MaxOverlap, "max-overlap", d.MaxOverlap, "(pick) largest share of entry days a chosen strategy may have in common with another (0-1)")
+	flag.IntVar(&conf.TopCandidates, "top-candidates", d.TopCandidates, "(pick) best candidates by win rate that are compared for overlap (the comparison is quadratic)")
+	flag.StringVar(&conf.PickExclude, "exclude", "", "(pick) comma separated strategy ids that may not be chosen")
+	conf.Mode = cliutils.PopSubcommand(map[string]string{"covered-call": "covered-call", "stale": "stale", "stack": "stack-eval", "stack-eval": "stack-eval", "pick": "pick", "newrun": "newrun", "lastrun": "lastrun"})
 	flag.Parse()
 	conf.Args = flag.Args()
 	if family != "" {

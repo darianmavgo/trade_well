@@ -1,6 +1,6 @@
 ---
 name: stack-candidates
-description: Run train, backtest, gridsearch and strateval as needed on the backtestgosqlite repo, then report the top 20 strategies across all families (markov, tree, streak, hold, hold_bail, builtin) worth trying in a stack. Use when asked which strategies to stack, for a fresh cross-family ranking, or to refresh results after new market data.
+description: Run train, backtest and gridsearch as needed on the backtestgosqlite repo, then report the top 20 strategies across all families (markov, tree, streak, hold, hold_bail, builtin) worth trying in a stack. Use when asked which strategies to stack, for a fresh cross-family ranking, or to refresh results after new market data.
 ---
 
 # Stack candidates
@@ -88,16 +88,7 @@ data or the window changed. Streak rows search signal days, hold, take-profit, s
 regime. Tree and markov rows search exits only. `hold` and `hold_bail` run once. The
 columns are listed in `strategy_family_param` in `refdata/strategies.db`.
 
-## 4. strateval on the same candidates
-
-```bash
-```
-
-This does its own in-sample parameter sweep and a held-out evaluation and writes a tier
-(A is best) to `data/reports/strategies.db`. The ranking script shows that tier next to
-each strategy.
-
-## 5. report
+## 4. report
 
 ```bash
 .claude/skills/stack-candidates/top_strategies.sh $RUN 20
@@ -114,7 +105,7 @@ penny stocks that cannot take real size). It keeps one strategy per trade symbol
 Give the user:
 
 1. The table: rank, strategy, family, symbol, score, in-sample and held-out CAGR,
-   drawdown and trades, strateval tier, and the gridsearch best config.
+   drawdown and trades, and the gridsearch best config.
 2. The funnel the script prints (how many strategies survive each gate), and which
    steps you ran or skipped and why.
 3. How many of the 20 are in each family. If one family has them all, say so.
@@ -127,7 +118,7 @@ Give the user:
    - The score picks strategies one at a time. It does not check that they are
      complementary.
 
-## 6. optional: confirm as a stack
+## 5. optional: confirm as a stack
 
 Only when the user asks for it:
 

@@ -67,7 +67,7 @@ func (o Options) norm() Options {
 	return o
 }
 
-// TrialCount is the hold x take-profit x stop grid strateval would search.
+// TrialCount is the hold x take-profit x stop grid gridsearch would search.
 // A strategy with no declared ranges counts as one trial, its default config.
 func TrialCount(s strategy.Strategy) int {
 	sp := strategy.AssessParameterSpace(s)

@@ -24,7 +24,6 @@ Each command is one stage and answers one question. Run them left to right, or r
 | Run | How did it do? | `backtest` |
 | Tune | Which parameters? | `gridsearch` |
 | Validate | Is it real or overfit? | `validate` |
-| Score | In and out of sample, with a tier A to D and the deployed ledger | `strateval` |
 | Rank | Which is best? | `scoreboard` |
 | Go live | What do I buy next session? | `livescan` |
 
@@ -39,7 +38,6 @@ Each command is one stage and answers one question. Run them left to right, or r
 | Rank strategies as idle-cash overlays and build a greedy stack | `backtest stack` |
 | Sweep hold, take-profit and stop, then promote winners to new strategies | `gridsearch` |
 | Is it real or overfit: walk-forward folds plus a verdict per strategy | `validate` |
-| In-sample / out-of-sample ledger with tiers A to D | `strateval` |
 | Rank every registered strategy, or a list | `scoreboard` |
 | Live signal scan for the next session | `livescan` |
 | Research studies (clustering, HMM regimes, lead/lag, decision trees) | `study` |
@@ -93,7 +91,7 @@ Every command in this repo, in the order you use them to take one idea from raw 
 | 19 | Rank everything | `./bin/scoreboard -strategy <ids>`, `scoreboard status -strategy <ids>` | Backtests the listed strategies (all registered ones without `-strategy`) that lack a result and ranks them. | writes `data/reports/scoreboard.db` |
 | 20 | Keep fresh | `./bin/backtest stale` and `./bin/gridsearch stale` | Lists results made stale by new bars or edited SQL. Rerun steps 1, 5, 7 for those. | none |
 | 21 | Go live | `./bin/livescan -strategy streak-googl-down3-googl,googl_tree -json` | Signals for the next session from the last completed bar. `ENTER` means buy next session. `trade_orchestrator` consumes the JSON. | writes `data/reports/livescan.db` |
-| 23 | Rank in bulk | the `stack-candidates` skill | Runs `train`, `backtest`, `gridsearch` and `strateval` for all families and reports the top 20 to stack. See [Stack candidates skill](#stack-candidates-skill). | uses all of the above |
+| 23 | Rank in bulk | the `stack-candidates` skill | Runs `train`, `backtest` and `gridsearch` for all families and reports the top 20 to stack. See [Stack candidates skill](#stack-candidates-skill). | uses all of the above |
 
 Steps 6 and 22 were the `stratlist` and `transaction_calc` commands, which were removed; the other numbers are unchanged so references to them stay valid.
 
@@ -112,7 +110,6 @@ Notes:
 | `APP_FOLDER` | `.` | repository root. `data/`, `refdata/` and `data/reports/` are fixed subfolders of it |
 | `POLYGON_API_KEY` | empty | Polygon equity and option downloads, `universe` |
 | `ALPACA_KEY`, `ALPACA_SECRET` | empty | Alpaca bar downloads (`market_history -source alpaca`) |
-| `STRATEGY_ALLOWLIST` | empty | `strateval` live-list snapshot |
 
 Default files:
 
@@ -260,7 +257,9 @@ Print which `data/reports/*.db` results are stale (unknown strategy, newer marke
 
 ### backtest stack
 
-`backtest stack-eval` is the deprecated name. Rank registered strategies as idle-cash overlays on one primary, one shared ledger. Rankings go to `data/reports/stack_eval_<primary>.db` (table `overlay_rankings`). Pairwise runs do not each write a `shared_*.db`. `-persist-best` (default on) writes one `data/reports/shared_<primary>_<secondaries>_N.db` for the greedy stack.
+`backtest stack-eval` is accepted as another name for `backtest stack`. Rank registered strategies as idle-cash overlays on one primary, one shared ledger. Rankings go to `data/reports/stack_eval_<primary>.db` (table `overlay_rankings`). Pairwise runs do not each write a `shared_*.db`. `-persist-best` (default on) writes one `data/reports/shared_<primary>_<secondaries>_N.db` for the greedy stack.
+
+**Set analysis.** After the ranking, the primary, the greedy stack's members and every other overlay go through the SQL stage `sql/stages/set_analysis/` (loaded by `runner.AnalyzeSet`) and the result prints as `SET ANALYSIS` and stays as tables in `stack_eval_<primary>.db` (`set_pair_overlap`, `set_day_load`, `set_summary`, `set_pair_summary`, `set_strategy_days`, `set_strategy_stats`, `set_trade_summary`). It measures entry collision on signals, not fills: signal days per strategy and per year, the days on which two or more members signal (`collision_pct`), the entry-day overlap of every pair (shared days over the smaller strategy's days, and Jaccard), the primary against every candidate (least overlapping first), and the win rate, average and worst return of the trades the shared account took, per strategy and for the set. The database file is replaced on each run.
 
 Default candidates skip duplicate `*-sql` ids, `voo-buy-hold`, `genetic-momentum`, and any strategy that does not name its symbols. Pairs are ranked by added equity; the greedy stack is chosen the same way, not by drawdown. Rank the finalists by Calmar and max drawdown from the persisted DB. `-include-universe` adds symbol-scanning strategies. Pass `-secondary` with an explicit list when the registry holds tens of thousands of strategies; `-db`, `-auto-download=false` and `-out-dir` let a search run on a trimmed market DB without touching `data/`. `-stack-depth` (3) is how many complementary overlays are stacked after the ranking.
 
@@ -269,6 +268,20 @@ Default candidates skip duplicate `*-sql` ids, `voo-buy-hold`, `genetic-momentum
 ./bin/backtest stack -primary streak-voo-buy-tecl -secondary mara_tree,pdd_tree -persist-best
 ./bin/backtest stack -primary streak-voo-buy-tecl -stack-depth 5
 ```
+
+### backtest pick
+
+Chooses strategies from a finished family run that win most of their trades and rarely enter on the same days. Read-only on the results: it reads `<run>/<family>.db` (in-sample) and `<run>/oos/<family>.db` (held-out) and writes `<run>/pick_<family>.db`, replaced each run, with every slice table for inspection. `-family` names the family and `-run-id` the run (the latest by default).
+
+A strategy is a candidate when its win rate is at least `-min-win-rate` (0.75) in **both** windows, with at least `-min-trades` (30) in-sample and `-min-oos-trades` (8) held-out trades. The best `-top-candidates` (200) by the lower of the two win rates are compared (the comparison is quadratic). Then `-pick` (10) are chosen greedily: best win rate first, and each next one only if its entry-day overlap with every strategy already chosen is at most `-max-overlap` (0.30; overlap is shared entry days over the smaller strategy's days). It prints the choices with their overlaps, then the set analysis (collision days, pair overlaps, combined win rate) from their standalone trades, which is not a shared-account result: confirm with `backtest stack`. The SQL is `sql/stages/pick_candidates/` and `sql/stages/pick_next/`; the code is `runner.PickSet`.
+
+```bash
+./bin/backtest -family hmm -auto-download=false          # in-sample and held-out results
+./bin/backtest pick -family hmm -run-id 54
+./bin/backtest pick -family hmm -min-win-rate 0.70 -max-overlap 0.5 -pick 10
+```
+
+The held-out window is only 12 months and is used to choose here, so its numbers are optimistic. Win rate alone also rewards small take-profits with wide stops, so read the average and worst return next to it.
 
 ### Park member in a stack
 
@@ -356,7 +369,7 @@ Report which completed sweeps are stale. No new sweep.
 
 ### gridsearch promote
 
-Copy winning sweep rows into `refdata/strategies.db` table `streak_strategy`. Each row becomes a strategy id `streak-<signal>-<up|down><days>-<trade>` with the watch symbol, the symbol bought, and the swept hold, take-profit, stop, and regime. Backtest, scoreboard, livescan, and strateval load those rows on the next run.
+Copy winning sweep rows into `refdata/strategies.db` table `streak_strategy`. Each row becomes a strategy id `streak-<signal>-<up|down><days>-<trade>` with the watch symbol, the symbol bought, and the swept hold, take-profit, stop, and regime. Backtest, scoreboard, and livescan load those rows on the next run.
 
 ```bash
 ./bin/gridsearch promote -strategy voo-up3 -min-win-rate 0.6 -min-trades 30 -top 5
@@ -439,20 +452,6 @@ Registered ids: `hmm_regime_etf`, `market_context_20d`, `cluster_5pct`, `googl_m
 
 ---
 
-## strateval
-
-In-sample / out-of-sample ledger. It does not edit `STRATEGY_ALLOWLIST` or live jobs.
-
-**Reads:** `data/market_history_hourly.db`, table `backtest_start`. Allowlist from `-allowlist` or `STRATEGY_ALLOWLIST` (comma-separated ids).
-
-**Writes:** `strategies.db` (`strategies`, `strategy_evals`, `deployments`) in a run folder, `$APP_FOLDER/data/reports/<run_id>/`, unless `-db` names another file. `-run-id N` uses run N and without it an evaluation starts a new run (`report`, `status`, `path` use the latest). `report` and `status` take `-strategy` to show only those ids. Scratch artifacts under `strateval_runs/` in the same folder. Held-out window `-oos-months 12`. Capital `$100,000`. Start `2021-01-01`. Tier A gates: at least 12 OOS trades, win rate 0.55, max drawdown 0.15.
-
-```bash
-```
-
-`path` prints how to open the ledger. `sync-deployed` snapshots the allowlist into `deployments`. `-sync-deployed` on an eval run does the same snapshot after the eval.
-
----
 
 ## pipeline
 
@@ -476,7 +475,7 @@ Runs every stage for a set of stocks as one controlled run: download the bars, t
 
 **Downloads.** The pipeline downloads only what the scope reads: the run's symbols, every symbol its strategies declare, and each strategy's benchmark (the same `runner.RequiredSymbolsFor` the backtest uses), plus the park symbol when `stack_eval` is going to run. A symbol already in the market database is topped up with the bars it is missing, and one that is current is not fetched at all. Option history is downloaded only for the underlyings of covered-call strategies in scope, which no GOOGL strategy is. Steps with nothing to do for the scope are skipped with the reason printed: `market_history_options` (no covered-call strategy), `train` (no markov or tree strategy), and `covered_call`, which only runs when you name it. Naming a step in `-steps` always runs it.
 
-**Steps**, in order, each named like its command: `market_history`, `market_history_options` (needs `POLYGON_API_KEY`), `train` (markov and tree), `backtest`, `gridsearch_params`, `gridsearch`, `gridsearch_promote`, `gridsearch_apply`, `validate`, `strateval`, `stack`, `stack_eval`, `covered_call` (needs option bars), `scoreboard`, `stale`. `-steps` and `-skip` choose some of them.
+**Steps**, in order, each named like its command: `market_history`, `market_history_options` (needs `POLYGON_API_KEY`), `train` (markov and tree), `backtest`, `gridsearch_params`, `gridsearch`, `gridsearch_promote`, `gridsearch_apply`, `validate`, `stack`, `stack_eval`, `covered_call` (needs option bars), `scoreboard`, `stale`. `-steps` and `-skip` choose some of them.
 
 | Flag | Default | Meaning |
 |---|---|---|
@@ -724,4 +723,4 @@ Print the empirical bear / sideways / bull transition matrix and tomorrow's prob
 
 ## Stack candidates skill
 
-`.claude/skills/stack-candidates/` is a Claude Code skill that runs `train`, `backtest`, `gridsearch` and `strateval` as needed and reports the 20 best strategies across all families to try in a stack. `top_strategies.sh <run_dir> [n]` does the ranking on its own: the lower of in-sample and held-out Calmar, with gates on trades, profit and held-out drawdown, one strategy per trade symbol and at most 8 per family.
+`.claude/skills/stack-candidates/` is a Claude Code skill that runs `train`, `backtest` and `gridsearch` as needed and reports the 20 best strategies across all families to try in a stack. `top_strategies.sh <run_dir> [n]` does the ranking on its own: the lower of in-sample and held-out Calmar, with gates on trades, profit and held-out drawdown, one strategy per trade symbol and at most 8 per family.

@@ -20,7 +20,7 @@ import (
 const pipelineDir = "sql/strategies/markov_model"
 
 // Strategy is one markov_strategy row, runnable by backtest, gridsearch,
-// scoreboard, livescan, and strateval.
+// scoreboard, livescan.
 type Strategy struct {
 	Row          refdb.MarkovStrategy
 	marketDBPath string

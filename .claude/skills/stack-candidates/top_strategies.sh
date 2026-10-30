@@ -34,7 +34,6 @@ RANK_ON=${RANK_ON:-both}
 MIN_DV=${MIN_DOLLAR_VOL:-5000000}
 ROOT=${APP_FOLDER:-.}
 STRATS=$ROOT/refdata/strategies.db
-LEDGER=$ROOT/data/reports/strategies.db
 
 [[ -d $RUN ]] || { echo "no such run folder: $RUN" >&2; exit 1 }
 [[ -d $RUN/oos ]] || { echo "$RUN has no oos/ folder: rerun backtest without -holdout-months 0" >&2; exit 1 }
@@ -100,17 +99,11 @@ WHERE Date >= '$LIQ_SINCE' AND symbol IN (
 GROUP BY symbol;
 SQL
 
-TIER_JOIN=""
-TIER_COL="'-'"
-if [[ -f $LEDGER ]]; then
-  sqlite3 $DB "ATTACH '$LEDGER' AS l; SELECT 1 FROM l.sqlite_master WHERE name = 'v_latest_scores';" | grep -q 1 && { TIER_JOIN="LEFT JOIN l.v_latest_scores t ON t.strategy_id = s.strategy_id"; TIER_COL="COALESCE(t.tier, '-')" }
-fi
-ATTACH_LEDGER=""
-[[ -n $TIER_JOIN ]] && ATTACH_LEDGER="ATTACH '$LEDGER' AS l;"
+ATTACH_DBS=""
 GRID=$ROOT/data/reports/gridsearch.db
 GRID_COL="'-'"
 if [[ -f $GRID ]]; then
-  ATTACH_LEDGER="$ATTACH_LEDGER ATTACH '$GRID' AS g;"
+  ATTACH_DBS="$ATTACH_DBS ATTACH '$GRID' AS g;"
   GRID_COL="COALESCE((SELECT label FROM g.gridsearch_results WHERE strategy_id = s.strategy_id ORDER BY resilience_score DESC LIMIT 1), '-')"
 fi
 
@@ -133,7 +126,7 @@ if [[ -n ${IDS_ONLY:-} ]]; then
 fi
 OUT=$(
 sqlite3 $DB <<SQL
-$ATTACH_LEDGER
+$ATTACH_DBS
 CREATE TABLE gated AS
 SELECT c.*, $SCORE AS score, l.dv AS dv, l.px AS px FROM cand c LEFT JOIN liq l ON l.symbol = c.symbol
 WHERE $GATE_C
@@ -149,9 +142,8 @@ SELECT ROW_NUMBER() OVER (ORDER BY s.score DESC) AS rank, s.strategy_id AS strat
        printf('%.1f%%', s.is_cagr*100) AS is_cagr, printf('%.1f%%', s.is_dd*100) AS is_dd, s.is_trades,
        printf('%.1f%%', s.oos_cagr*100) AS oos_cagr, printf('%.1f%%', s.oos_dd*100) AS oos_dd, s.oos_trades,
        COALESCE(printf('$%.1fM', s.dv/1000000.0), '-') AS dollar_vol_day, COALESCE(printf('$%.2f', s.px), '-') AS price,
-       $TIER_COL AS strateval_tier,
        $GRID_COL AS gridsearch_best
-FROM ranked s $TIER_JOIN
+FROM ranked s
 WHERE s.sym_rank = 1 AND s.fam_rank <= $PER_FAMILY
 ORDER BY s.score DESC
 LIMIT $N;
