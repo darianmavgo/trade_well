@@ -167,6 +167,7 @@ func ExecuteStackEval(opts StackEvalOptions) StackEvalResult {
 	primSignals := tagSignals(opts.Primary.GenerateSignals(opts.BarsBySymbol), opts.Primary.ID(), 0)
 
 	baseline := ExecuteStack(StackRequest{
+		Priority:     true,
 		Primary:      opts.Primary,
 		BarsBySymbol: opts.BarsBySymbol,
 		SortedDates:  dates,
@@ -239,6 +240,7 @@ func ExecuteStackEval(opts StackEvalOptions) StackEvalResult {
 				merged = append(merged, secSigs...)
 			}
 			best := ExecuteStack(StackRequest{
+				Priority:     true,
 				Primary:      opts.Primary,
 				Secondaries:  secs,
 				BarsBySymbol: opts.BarsBySymbol,
@@ -279,6 +281,7 @@ func evaluateOverlay(
 	merged = append(merged, secSigs...)
 
 	run := ExecuteStack(StackRequest{
+		Priority:     true,
 		Primary:      opts.Primary,
 		Secondaries:  []strategy.Strategy{cand},
 		BarsBySymbol: opts.BarsBySymbol,

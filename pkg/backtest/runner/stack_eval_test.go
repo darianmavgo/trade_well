@@ -295,3 +295,42 @@ func TestPickComplementaryOverlays_SkipsSharedSymbols(t *testing.T) {
 		t.Errorf("picked %s, %s; want a, c", picked[0].Secondary.ID(), picked[1].Secondary.ID())
 	}
 }
+
+// Members are equals unless Priority is set: when the primary needs cash that a member
+// holds, only a priority stack sells that member's position.
+func TestExecuteStackEqualMembersDoNotPreempt(t *testing.T) {
+	const price = 100.0
+	dates := []string{"2026-01-02", "2026-01-05", "2026-01-06", "2026-01-07", "2026-01-08"}
+	bar := func() []models.Bar {
+		out := make([]models.Bar, len(dates))
+		for i, d := range dates {
+			out[i] = models.Bar{Date: d, Open: price, High: price, Low: price, Close: price}
+		}
+		return out
+	}
+	sig := func(id, sym, date string, priority int) models.Signal {
+		return models.Signal{Date: date, Symbol: sym, Close: price, BuyLimit: price, StrategyID: id, Priority: priority, OrderType: "limit"}
+	}
+	run := func(priority bool) SharedRunResult {
+		return ExecuteStack(StackRequest{
+			Primary:      streakRow("primary", "AAA", 1, 0.70, 0, 0),
+			Secondaries:  []strategy.Strategy{streakRow("secondary", "BBB", 1, 0.70, 0, 0)},
+			BarsBySymbol: map[string][]models.Bar{"AAA": bar(), "BBB": bar()},
+			SortedDates:  dates,
+			Capital:      100000,
+			Signals:      []models.Signal{sig("secondary", "BBB", "2026-01-02", 1), sig("primary", "AAA", "2026-01-05", 0)},
+			Override:     ConfigOverride{AllocPct: 0.70},
+			Priority:     priority,
+		})
+	}
+	equal, ranked := run(false), run(true)
+	if equal.Err != nil || ranked.Err != nil {
+		t.Fatal(equal.Err, ranked.Err)
+	}
+	if equal.PreemptedCount != 0 {
+		t.Errorf("equal members preempted %d trades, want 0", equal.PreemptedCount)
+	}
+	if ranked.PreemptedCount != 1 {
+		t.Errorf("priority stack preempted %d trades, want 1", ranked.PreemptedCount)
+	}
+}

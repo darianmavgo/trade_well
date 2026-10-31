@@ -29,6 +29,7 @@ type SharedRunResult struct {
 	DbPath             string
 	RunID              int64
 	PreemptedCount     int
+	Priority           bool // Primary had capital precedence; false means every member was an equal
 	Idle               analytics.IdleStats
 	// AllocPct is the per-position equity fraction applied to every member.
 	// 0 means each strategy kept its own DefaultConfig allocation.
@@ -59,9 +60,10 @@ func SharedAccountID(primary strategy.Strategy, secondaries []strategy.Strategy)
 }
 
 // StackRequest is a first-class multi-strategy run on one cash ledger.
-// List order is fill order: Primary = 0 (only it may preempt subordinates
-// for capital or a symbol), Secondaries[i] = i+1 (idle-cash utilization;
-// they never evict each other).
+// By default every member is an equal: they share one cash ledger, each is sized to the cash
+// that is left, and none sells another's position. With Priority, list order is rank: Primary = 0
+// (only it may preempt subordinates for capital or a symbol), Secondaries[i] = i+1 (idle-cash
+// utilization; they never evict each other).
 type StackRequest struct {
 	Primary      strategy.Strategy
 	Secondaries  []strategy.Strategy
@@ -84,6 +86,16 @@ type StackRequest struct {
 	Override ConfigOverride
 	// DefaultAsset, when set, buys that symbol with leftover cash after each session.
 	DefaultAsset string
+	// Priority gives Primary capital precedence over the Secondaries. Off, every member is equal.
+	Priority bool
+}
+
+// rank is the account priority of member i (0 is the primary). Equal members all share rank 1.
+func (r StackRequest) rank(i int) int {
+	if r.Priority {
+		return i
+	}
+	return 1
 }
 
 // ExecuteStack runs existing strategies as a priority stack on one cash ledger.
@@ -135,7 +147,7 @@ func ExecuteStack(req StackRequest) SharedRunResult {
 		primSignals := req.Primary.GenerateSignals(req.BarsBySymbol)
 		for i := range primSignals {
 			primSignals[i].StrategyID = req.Primary.ID()
-			primSignals[i].Priority = 0
+			primSignals[i].Priority = req.rank(0)
 		}
 		allSignals = append(allSignals, primSignals...)
 
@@ -144,7 +156,7 @@ func ExecuteStack(req StackRequest) SharedRunResult {
 			secSignals := sec.GenerateSignals(req.BarsBySymbol)
 			for i := range secSignals {
 				secSignals[i].StrategyID = sec.ID()
-				secSignals[i].Priority = secIdx + 1
+				secSignals[i].Priority = req.rank(secIdx + 1)
 			}
 			allSignals = append(allSignals, secSignals...)
 		}
@@ -162,12 +174,12 @@ func ExecuteStack(req StackRequest) SharedRunResult {
 	}
 
 	entries := []StrategyPriorityEntry{
-		{Strategy: req.Primary, Priority: 0, Config: req.Override.Apply(req.Primary.DefaultConfig())},
+		{Strategy: req.Primary, Priority: req.rank(0), Config: req.Override.Apply(req.Primary.DefaultConfig())},
 	}
 	for secIdx, sec := range req.Secondaries {
 		entries = append(entries, StrategyPriorityEntry{
 			Strategy: sec,
-			Priority: secIdx + 1,
+			Priority: req.rank(secIdx + 1),
 			Config:   req.Override.Apply(sec.DefaultConfig()),
 		})
 	}
@@ -207,7 +219,7 @@ func ExecuteStack(req StackRequest) SharedRunResult {
 		}
 		audit := storage.SharedAccountAudit{
 			CombinedID:          combinedID,
-			AccountModel:        "Shared Cash Ledger with Dynamic Priority Preemption",
+			AccountModel:        accountModel(req.Priority),
 			PrimaryStrategyID:   req.Primary.ID(),
 			PrimaryStrategyName: req.Primary.Name(),
 			PositionSizePct:     req.Override.AllocPct,
@@ -223,12 +235,12 @@ func ExecuteStack(req StackRequest) SharedRunResult {
 		}
 		priorities := []storage.SharedAccountPriority{{
 			CombinedID: combinedID, StrategyID: req.Primary.ID(), StrategyName: req.Primary.Name(),
-			Priority: 0, Role: "PRIMARY (P0)",
+			Priority: req.rank(0), Role: primaryRole(req.Priority),
 		}}
 		for i, sec := range req.Secondaries {
 			priorities = append(priorities, storage.SharedAccountPriority{
 				CombinedID: combinedID, StrategyID: sec.ID(), StrategyName: sec.Name(),
-				Priority: i + 1, Role: "SECONDARY (P1+)",
+				Priority: req.rank(i + 1), Role: secondaryRole(req.Priority),
 			})
 		}
 		var err error
@@ -258,6 +270,7 @@ func ExecuteStack(req StackRequest) SharedRunResult {
 		DbPath:             outDBPath,
 		RunID:              runID,
 		PreemptedCount:     ran.preempted,
+		Priority:           req.Priority,
 		Idle:               idle,
 		AllocPct:           req.Override.AllocPct,
 		Default:            parked,
@@ -271,15 +284,24 @@ func ExecuteStack(req StackRequest) SharedRunResult {
 func PrintSharedAccountTearSheet(res SharedRunResult) {
 	fmt.Printf("\n========================================================================================================================\n")
 	fmt.Printf("🏛️ SHARED-ACCOUNT MULTI-STRATEGY QUANTITATIVE AUDIT\n")
-	fmt.Printf("   Account Model:      Shared Cash Ledger with Dynamic Priority Preemption\n")
-	fmt.Printf("   Primary Strategy:   %s (ID: %s) [Priority 0 - Capital Precedence]\n", res.Primary.Name(), res.Primary.ID())
-	for i, sec := range res.Secondaries {
-		fmt.Printf("   Secondary Strategy: %s (ID: %s) [Priority %d - Idle Cash Utilization]\n", sec.Name(), sec.ID(), i+1)
+	fmt.Printf("   Account Model:      %s\n", accountModel(res.Priority))
+	if res.Priority {
+		fmt.Printf("   Primary Strategy:   %s (ID: %s) [Priority 0 - Capital Precedence]\n", res.Primary.Name(), res.Primary.ID())
+		for i, sec := range res.Secondaries {
+			fmt.Printf("   Secondary Strategy: %s (ID: %s) [Priority %d - Idle Cash Utilization]\n", sec.Name(), sec.ID(), i+1)
+		}
+	} else {
+		fmt.Printf("   Member Strategy:    %s (ID: %s)\n", res.Primary.Name(), res.Primary.ID())
+		for _, sec := range res.Secondaries {
+			fmt.Printf("   Member Strategy:    %s (ID: %s)\n", sec.Name(), sec.ID())
+		}
 	}
 	if res.AllocPct > 0 {
 		fmt.Printf("   Position Size:      %.0f%% of equity per position\n", res.AllocPct*100)
 	}
-	fmt.Printf("   Preempted Trades:   %d secondary positions liquidated to obey primary signals\n", res.PreemptedCount)
+	if res.Priority {
+		fmt.Printf("   Preempted Trades:   %d secondary positions liquidated to obey primary signals\n", res.PreemptedCount)
+	}
 	fmt.Printf("   Idle Cash:          avg %.1f%% of equity (%d idle days, fully flat %.1f%% of days, deployed %.1f%%)\n",
 		res.Idle.AvgCashPct*100, res.Idle.DaysFullyIdle, res.Idle.FullyIdlePct*100, res.Idle.AvgDeployedPct*100)
 	if res.Default.Symbol != "" {
@@ -307,7 +329,7 @@ func PrintSharedAccountTearSheet(res SharedRunResult) {
 	primID := res.Primary.ID()
 	primRep := res.PerStrategyReports[primID]
 	table.Append([]string{
-		"PRIMARY (P0)",
+		primaryRole(res.Priority),
 		primID,
 		fmt.Sprintf("%d", primRep.TotalTrades),
 		fmt.Sprintf("%d / %d", primRep.WinningTrades, primRep.LosingTrades),
@@ -333,7 +355,7 @@ func PrintSharedAccountTearSheet(res SharedRunResult) {
 		}
 
 		table.Append([]string{
-			"SECONDARY (P1+)",
+			secondaryRole(res.Priority),
 			secID,
 			fmt.Sprintf("%d", secRep.TotalTrades),
 			fmt.Sprintf("%d / %d", secRep.WinningTrades, secRep.LosingTrades),
@@ -382,4 +404,26 @@ func PrintSharedAccountTearSheet(res SharedRunResult) {
 
 	// Print Sample Recent Trades
 	PrintTradesTable(res.Trades, "")
+}
+
+// accountModel names how the members of a stack share the cash.
+func accountModel(priority bool) string {
+	if priority {
+		return "Shared Cash Ledger with Dynamic Priority Preemption"
+	}
+	return "Shared Cash Ledger, Equal Members"
+}
+
+func primaryRole(priority bool) string {
+	if priority {
+		return "PRIMARY (P0)"
+	}
+	return "MEMBER"
+}
+
+func secondaryRole(priority bool) string {
+	if priority {
+		return "SECONDARY (P1+)"
+	}
+	return "MEMBER"
 }

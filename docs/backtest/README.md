@@ -269,16 +269,31 @@ Default candidates skip duplicate `*-sql` ids, `voo-buy-hold`, `genetic-momentum
 ./bin/backtest stack -primary streak-voo-buy-tecl -stack-depth 5
 ```
 
+### Saved stacks
+
+A stack that is worth running again is saved in the `stack` table of `refdata/strategies.db`: `id` (generated, `stack-001`, `stack-002`, ...), `label` (the name you type, under 30 characters, no `+` or `,`, unique whatever the case) and `strategy_ids` (the members joined with `+`, in the order they were chosen: the same stack id `a+b+c` that `-strategy` takes and the result databases use; a `,` list is refused). `backtest` takes either the id or the label wherever it takes a strategy, and runs the members on one shared cash account, the same as `a+b+c`. The members are equals by default: each is sized to the cash that is left and none sells another's position. `-priority` gives the first member capital precedence, so it sells the others' positions when it needs cash (naming a `-primary` turns it on, and so does `backtest stack`, which ranks overlays on a primary):
+
+```
+./bin/backtest -alloc 0.10 -strategy stack-001
+./bin/backtest -alloc 0.10 -strategy "Win Rate Ten"
+./bin/backtest -alloc 0.20 -priority -strategy stack-002   # first member has priority
+```
+
+The id is the label looked up loosely (case, `-`, `_` and spaces are ignored in a label). A strategy id wins over a label spelled the same, and an inline `a+b+c` or `a,b` is never looked up. Add a stack with `backtest pick ... -save-stack "Win Rate Ten"` (it saves the picks in the order they were chosen and prints the id), or with SQL: `INSERT INTO stack (label, strategy_ids) VALUES ('My stack', 'a+b+c')`, which generates the id. A database made before ids were generated (`name`, `id` = members joined with `+`, `note`) is rebuilt the first time a command opens it: `name` becomes `label` (cut to 29 characters) and `id` becomes `strategy_ids`. `sql/seed/stack.sql` seeds the first stack. `livescan` accepts a stack id or label too. `-strategies-db` chooses the database.
+
 ### backtest pick
 
 Chooses strategies from a finished family run that win most of their trades and rarely enter on the same days. Read-only on the results: it reads `<run>/<family>.db` (in-sample) and `<run>/oos/<family>.db` (held-out) and writes `<run>/pick_<family>.db`, replaced each run, with every slice table for inspection. `-family` names the family and `-run-id` the run (the latest by default).
 
-A strategy is a candidate when its win rate is at least `-min-win-rate` (0.75) in **both** windows, with at least `-min-trades` (30) in-sample and `-min-oos-trades` (8) held-out trades. The best `-top-candidates` (200) by the lower of the two win rates are compared (the comparison is quadratic). Then `-pick` (10) are chosen greedily: best win rate first, and each next one only if its entry-day overlap with every strategy already chosen is at most `-max-overlap` (0.30; overlap is shared entry days over the smaller strategy's days). It prints the choices with their overlaps, then the set analysis (collision days, pair overlaps, combined win rate) from their standalone trades, which is not a shared-account result: confirm with `backtest stack`. The SQL is `sql/stages/pick_candidates/` and `sql/stages/pick_next/`; the code is `runner.PickSet`.
+A strategy is a candidate when its win rate is at least `-min-win-rate` (0.75) in **both** windows, with at least `-min-trades` (30) in-sample and `-min-oos-trades` (8) held-out trades. The best `-top-candidates` (200) by the lower of the two win rates are compared (the comparison is quadratic). Then `-pick` (10) are chosen greedily: best win rate first, and each next one only if its entry-day overlap with every strategy already chosen is at most `-max-overlap` (0.30; overlap is shared entry days over the smaller strategy's days). It prints the choices with their overlaps, then the set analysis (collision days, pair overlaps, combined win rate) from their standalone trades, which is not a shared-account result: confirm with `backtest stack`. The SQL is the stages `pick_init`, `pick_gate`, `pick_top`, `pick_source_days`, `pick_overlap` and `pick_next` under `sql/stages/`; the code is `runner.PickSet`.
+
+`-family` takes several families, `hmm,streak` or `hmm@54,streak@44,tree@55` (`family@N` reads that family from run N, so the families may come from different runs, as long as their in-sample and held-out windows match). With several, the pick database is `pick_multi.db` in the first family's run folder. `-exclude id,id` keeps strategies out of the choice (for results of strategies that were since deleted). `-save-stack "label"` saves the chosen strategies as a stack (see Saved stacks).
 
 ```bash
 ./bin/backtest -family hmm -auto-download=false          # in-sample and held-out results
 ./bin/backtest pick -family hmm -run-id 54
 ./bin/backtest pick -family hmm -min-win-rate 0.70 -max-overlap 0.5 -pick 10
+./bin/backtest pick -family hmm@54,streak@44,tree@55 -exclude some-old-id -save-stack "Win Rate Ten"
 ```
 
 The held-out window is only 12 months and is used to choose here, so its numbers are optimistic. Win rate alone also rewards small take-profits with wide stops, so read the average and worst return next to it.

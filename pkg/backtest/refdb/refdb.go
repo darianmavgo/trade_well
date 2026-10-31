@@ -10,12 +10,31 @@ import (
 	"os"
 	"strings"
 
+	"github.com/darianmavgo/trade_well/pkg/backtest/stackid"
 	"github.com/darianmavgo/trade_well/pkg/backtest/storage"
 	"github.com/jmoiron/sqlx"
 )
 
 // DefaultPath is the reference DB location (APP_FOLDER/refdata/strategies.db).
 var DefaultPath = appenv.RefDB()
+
+// stackTable is a named set of strategies that backtest runs on one shared cash
+// account. num numbers a stack in the order it was added, and id is generated from it
+// ("stack-001"), so an id is never typed. label is the name people type (under 30
+// characters, no "+" or ","). strategy_ids is the members, primary first, joined with "+":
+// the stack id of stackid.Join, which every result DB uses.
+const stackTable = `
+CREATE TABLE IF NOT EXISTS stack (
+	num          INTEGER PRIMARY KEY AUTOINCREMENT,
+	id           TEXT GENERATED ALWAYS AS ('stack-' || printf('%03d', num)) VIRTUAL,
+	label        TEXT NOT NULL UNIQUE COLLATE NOCASE
+	             CHECK (length(label) BETWEEN 1 AND 29 AND label NOT GLOB '*[+,]*'),
+	strategy_ids TEXT NOT NULL CHECK (length(trim(strategy_ids)) > 0 AND strategy_ids NOT GLOB '*,*'),
+	note         TEXT NOT NULL DEFAULT '',
+	created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_stack_id ON stack(id);
+`
 
 const schema = `
 -- One runnable streak strategy per row. pkg/streak_strategy registers each
@@ -180,14 +199,8 @@ CREATE TABLE IF NOT EXISTS symbol_lists (
 	list         TEXT NOT NULL
 );
 
--- Named stacks. name is the friendly label people type; id is the stack's
--- members joined with "+" (strategy.StackID), the key every result DB uses.
--- sql/seed/stack.sql fills it.
-CREATE TABLE IF NOT EXISTS stack (
-	name         TEXT PRIMARY KEY,
-	id           TEXT NOT NULL UNIQUE,
-	note         TEXT NOT NULL DEFAULT ''
-);
+-- Named stacks. See stackTable.
+` + stackTable + `
 
 -- Where each strategy's most recent backtest lives. result_db is relative to the
 -- app folder (data/reports/3/streak.db). Written by "backtest lastrun"; rows for
@@ -219,6 +232,10 @@ func Open(path string) (*sqlx.DB, error) {
 	if err := upgradeHold(db); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("refdb hold upgrade: %w", err)
+	}
+	if err := upgradeStack(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("refdb stack upgrade: %w", err)
 	}
 	// strategy_family_param: what gridsearch can vary per family (sql/stages/family_params).
 	if err := storage.RunStage(db, "family_params", nil); err != nil {
@@ -1018,30 +1035,87 @@ func SymbolList(db *sqlx.DB, symbolListID string) ([]string, bool, error) {
 	return out, true, nil
 }
 
-// Stack is a named strategy stack. Name is the friendly label, ID the members
-// joined with "+".
+// Stack is a named strategy stack.
 type Stack struct {
-	Name string `db:"name"`
-	ID   string `db:"id"`
-	Note string `db:"note"`
+	Num         int    `db:"num"`
+	ID          string `db:"id"`
+	Label       string `db:"label"`
+	StrategyIDs string `db:"strategy_ids"`
+	Note        string `db:"note"`
 }
 
-// StackByName finds a stack by its name or its id, ignoring case, "-", "_" and
-// spaces in the name.
+// Members are the strategy ids of the stack, primary first (stackid.Parse).
+func (st Stack) Members() []string { return stackid.Parse(st.StrategyIDs) }
+
+// StackByName finds a stack by its id ("stack-001") or its label, ignoring case, "-", "_"
+// and spaces in the label.
 func StackByName(db *sqlx.DB, key string) (Stack, bool, error) {
 	var st Stack
+	key = strings.TrimSpace(key)
 	norm := strings.NewReplacer("-", "", "_", "", " ", "").Replace(strings.ToLower(key))
-	err := db.Get(&st, "SELECT name, id, note FROM stack WHERE id = ? OR "+
-		"replace(replace(replace(lower(name),'-',''),'_',''),' ','') = ? ORDER BY name LIMIT 1", key, norm)
+	err := db.Get(&st, "SELECT num, id, label, strategy_ids, note FROM stack WHERE lower(id) = lower(?) OR "+
+		"replace(replace(replace(lower(label),'-',''),'_',''),' ','') = ? ORDER BY num LIMIT 1", key, norm)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Stack{}, false, nil
 	}
 	return st, err == nil, err
 }
 
-// Stacks returns every named stack, ordered by name.
+// AddStack saves a stack and returns it with the id it was given. The label must be under 30
+// characters and unused. Members keep their order (the first is the primary).
+func AddStack(db *sqlx.DB, label string, members []string, note string) (Stack, error) {
+	label = strings.TrimSpace(label)
+	if len(label) == 0 || len(label) > 29 || strings.ContainsAny(label, "+,") {
+		return Stack{}, fmt.Errorf("stack label %q: use 1 to 29 characters and no '+' or ','", label)
+	}
+	st := Stack{Label: label, StrategyIDs: stackid.Join(members...), Note: note}
+	if len(st.Members()) == 0 {
+		return Stack{}, fmt.Errorf("stack %q has no strategies", label)
+	}
+	st.StrategyIDs = stackid.Join(st.Members()...)
+	res, err := db.Exec(`INSERT INTO stack (label, strategy_ids, note) VALUES (?, ?, ?)`, st.Label, st.StrategyIDs, st.Note)
+	if err != nil {
+		return Stack{}, fmt.Errorf("add stack %q: %w", label, err)
+	}
+	num, err := res.LastInsertId()
+	if err != nil {
+		return Stack{}, err
+	}
+	err = db.Get(&st, `SELECT num, id, label, strategy_ids, note FROM stack WHERE num = ?`, num)
+	return st, err
+}
+
+// Stacks returns every named stack, in the order they were added.
 func Stacks(db *sqlx.DB) ([]Stack, error) {
 	var out []Stack
-	err := db.Select(&out, "SELECT name, id, note FROM stack ORDER BY name")
+	err := db.Select(&out, "SELECT num, id, label, strategy_ids, note FROM stack ORDER BY num")
 	return out, err
+}
+
+// upgradeStack rebuilds a stack table made before ids were generated (name, id = members
+// joined with "+", note): the name becomes the label and the "+" list a "," list.
+func upgradeStack(db *sqlx.DB) error {
+	var cols []string
+	if err := db.Select(&cols, `SELECT name FROM pragma_table_info('stack')`); err != nil {
+		return err
+	}
+	for _, c := range cols {
+		if c == "strategy_ids" {
+			return nil
+		}
+	}
+	if len(cols) == 0 {
+		return nil
+	}
+	if _, err := db.Exec(`ALTER TABLE stack RENAME TO stack_before_ids`); err != nil {
+		return err
+	}
+	if _, err := db.Exec(stackTable); err != nil {
+		return err
+	}
+	if _, err := db.Exec(`INSERT INTO stack (label, strategy_ids, note) SELECT substr(replace(replace(name, '+', ' '), ',', ' '), 1, 29), id, note FROM stack_before_ids ORDER BY name`); err != nil {
+		return err
+	}
+	_, err := db.Exec(`DROP TABLE stack_before_ids`)
+	return err
 }

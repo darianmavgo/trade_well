@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/darianmavgo/trade_well/pkg/backtest/refdb"
 	"github.com/darianmavgo/trade_well/pkg/backtest/runner"
 	"github.com/darianmavgo/trade_well/pkg/backtest/storage"
 )
@@ -63,6 +64,33 @@ func runPickCommand(conf Config) error {
 		return err
 	}
 	runner.PrintPickResult(res, opts)
+	if conf.SaveStack != "" {
+		return saveStack(conf, res)
+	}
+	return nil
+}
+
+// saveStack adds the picks, in the order they were chosen, to the stack table of the strategies
+// database under the label -save-stack. Run it with -run-id/-family to see what is saved first.
+func saveStack(conf Config, res runner.PickResult) error {
+	if len(res.Picks) == 0 {
+		return fmt.Errorf("-save-stack %q: pick chose nothing to save", conf.SaveStack)
+	}
+	ids := make([]string, len(res.Picks))
+	for i, p := range res.Picks {
+		ids[i] = p.ID
+	}
+	db, err := refdb.Open(conf.StrategiesDb)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	note := fmt.Sprintf("backtest pick: win rate >= %.0f%% in-sample and held-out, overlap <= %.0f%%", conf.MinWinRate*100, conf.MaxOverlap*100)
+	st, err := refdb.AddStack(db, conf.SaveStack, ids, note)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("   Saved as %s \"%s\" in %s. Backtest it with: backtest -strategy %s\n", st.ID, st.Label, conf.StrategiesDb, st.ID)
 	return nil
 }
 

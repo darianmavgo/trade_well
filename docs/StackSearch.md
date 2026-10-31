@@ -34,13 +34,24 @@ Set analysis of the ten (signals, trades taken on their own): 546 signal days, 1
 
 ### 3.1 The structural problem with the hmm family
 
-Every `hmm_strategy` row reads the **same QQQ regime series**. A `calm_filter` row enters on QQQ's calm days whatever symbol it trades, so every such row has about the same ~955 signal days. Changing `trade_symbol` does not diversify entry days. Only the rule (`calm_filter`, `calm_down`, `normal_filter`, `stress_filter`) and `hold_days` separate them. Low collision cannot come from the symbol column.
+The QQQ model has **three regimes**, found by volatility rank and not by state number: calm, normal and stressed. A row's `rule` is how it uses them, and there are **four rules**:
+
+| rule | enters when |
+|---|---|
+| `calm_filter` | the stressed probability is under the threshold (0.5) |
+| `normal_filter` | the middle (normal) regime is the most likely one |
+| `stress_filter` | the stressed probability is at or over the threshold |
+| `calm_down` | the stressed probability is under the threshold and the session before it was at or over it (stress has just eased) |
+
+`calm_down` is a transition rule over the same regimes, not a fourth regime. `calm_filter` and `calm_down` both fire in the calm regime, so they are not independent of each other.
+
+Every `hmm_strategy` row reads the **same QQQ regime series**. A `calm_filter` row enters on QQQ's calm days whatever symbol it trades, so every such row has about the same ~955 signal days. Changing `trade_symbol` does not diversify entry days. Only the rule and `hold_days` separate them. Low collision cannot come from the symbol column.
 
 The one-model design is deliberate (the owner does not trust per-symbol regimes), so collision had to come from other families.
 
 ### 3.2 Win rate is hard to get from a uniform exit
 
-The 7,747 migrated `calm_filter` rows used one exit (hold 3 days, no take-profit, 8% stop). In run 54 (7,477 rows with results): 19 reached 70% with at least 30 trades and 120 reached 65%. None reached 75% in both windows. The three other regimes (3,000 more rows) added no qualifier. Only `hmm-stressed-svix` (an existing row, stress_filter, hold 6, TP 2%, stop 10%) passed.
+The 7,747 migrated `calm_filter` rows used one exit (hold 3 days, no take-profit, 8% stop). In run 54 (7,477 rows with results): 19 reached 70% with at least 30 trades and 120 reached 65%. None reached 75% in both windows. The other three rules (`normal_filter`, `stress_filter`, `calm_down`; 3,000 more rows) added no qualifier. Only `hmm-stressed-svix` (an existing row, stress_filter, hold 6, TP 2%, stop 10%) passed.
 
 ### 3.3 What produced the answer
 
@@ -108,12 +119,16 @@ The owner does not trust the markov family (discrete bull/bear/sideways states, 
 
 ### 4.4 More hmm rows
 
-- `sql/seed/hmm_other_regimes.sql`: `normal_filter`, `stress_filter` and `calm_down` rows for the 1,000 symbols with the most calm-filter trades in a given result database (3,000 rows). Same exits as the calm rows.
+- `sql/seed/hmm_other_regimes.sql` (the name says regimes, but it adds rules): `normal_filter`, `stress_filter` and `calm_down` rows for the 1,000 symbols with the most calm-filter trades in a given result database (3,000 rows). Same exits as the calm rows.
 - `sql/seed/hmm_tuned.sql`: one `-g` row per swept strategy, using the best in-sample gridsearch result with at least 30 trades and a 0.75 win rate. 215 rows were created (213 calm_filter, 2 stress_filter). `gridsearch promote` only writes streak rows, which is why this seed exists.
 
 ### 4.5 `strateval` removed
 
 `pkg/backtest/strateval` and its pipeline step were deleted as not useful. The `stack-candidates` skill and the docs were updated. Historical mentions remain in `docs/LearningLog.md`, `FlattenAssessment.md`, `KillDupeCode.md`, `ArchitectureViolation.md`, `MakeMoneyNextDevCycle.html` and `docs/archive`.
+
+### 4.6 Saved stacks
+
+The `stack` table in `strategies.db` (generated `id`, `label` under 30 characters, `strategy_ids` joined with `+`) replaces the old `name`/`id`/`note` table. `backtest -strategy <stack id or label>` runs the members on one shared account, and `backtest pick -save-stack "<label>"` saves a set. Details in `docs/backtest/README.md`, "Saved stacks". The migration was tried on a copy of the real database. The real `refdata/strategies.db` is rebuilt the next time a command opens it.
 
 ## 5. How to repeat it
 
@@ -124,7 +139,7 @@ sqlite3 refdata/strategies.db < sql/seed/hmm_from_markov.sql
 # 2. Backtest the family: in-sample, then the held-out year, into a new run folder
 ./bin/backtest -family hmm -auto-download=false
 
-# 3. Add the other regimes for the symbols with the most history, backtest only the new rows
+# 3. Add the other rules for the symbols with the most history, backtest only the new rows
 sqlite3 refdata/strategies.db "ATTACH 'data/reports/<N>/hmm.db' AS calm;" ".read sql/seed/hmm_other_regimes.sql"
 ./bin/backtest -family hmm -run-id <N> -auto-download=false
 
@@ -135,7 +150,10 @@ sqlite3 refdata/strategies.db "ATTACH 'data/reports/<N>/gridsearch.db' AS grid;"
 
 # 5. Backtest the other families, then pick across all of them
 ./bin/backtest -family tree -auto-download=false
-./bin/backtest pick -family hmm@<N>,streak@<M>,hold@<M>,tree@<K>
+./bin/backtest pick -family hmm@<N>,streak@<M>,hold@<M>,tree@<K> -save-stack "Win Rate Ten"
+
+# 6. Backtest the saved stack on one shared account (in-sample, then the held-out year)
+./bin/backtest -auto-download=false -alloc 0.10 -strategy "Win Rate Ten"
 ```
 
 The candidate list for step 4 was the top 300 hmm strategies by in-sample win rate with at least 30 trades, read from the in-sample result database only:
@@ -153,7 +171,7 @@ Runs used in this session: hmm in run 54 (`data/reports/54/hmm.db` and `oos/hmm.
 | step | backup |
 |---|---|
 | markov to hmm migration | `strategies_before_hmm_migration.db` |
-| other regimes (+3,000 rows) | `strategies_before_hmm_regimes.db` |
+| other rules (+3,000 rows) | `strategies_before_hmm_regimes.db` |
 | tuned rows (+215 rows) | `strategies_before_hmm_tuned.db` |
 | warrant removal | `strategies_before_warrant_removal.db`, `universe_before_warrant_removal.db` |
 
@@ -183,6 +201,17 @@ The saved result databases (runs 44, 49, 54, 55) still contain the removed warra
 6. **Liquidity is unchecked.** `TELO`, `UMAC`, `NWTG` and `TKNO` are small caps. The shared-account result assumes fills at the simulator's prices.
 7. **Some hmm picks have thin samples.** `hmm-calm-psfd-g` has 33 in-sample trades and `hmm-calm-mayt-g` 35, just over the 30-trade gate.
 
+## 8b. The set on one shared account
+
+Saved as `stack-002` "Win Rate Ten" and run with `./bin/backtest -auto-download=false -alloc 0.10 -strategy stack-002` (run 56, `data/reports/56/stack.db` in-sample and `oos/stack.db` held-out; 10% of equity per position, $100,000 start, the members are equals; the order of the table above only matters with `-priority`, where the first has capital priority). The held-out pass starts flat.
+
+| | window | trades | win rate | CAGR | max drawdown | Sharpe | net profit |
+|---|---|---|---|---|---|---|---|
+| in-sample | 2021-01-04 to 2025-10-10 | 535 | 83.6% | 19.5% | 10.3% | 1.99 | $133,371 |
+| held-out | 2025-10-13 to 2026-10-23 | 164 | 86.6% | 33.6% | 3.8% | 3.32 | $34,833 |
+
+No trade was preempted by a higher-priority strategy in the held-out pass. The win rate holds up on a shared account (83.6% against 84.4% from standalone trades), so the low collision did what it was chosen for. The held-out figures are not independent: the set was chosen on that year, so read the in-sample row as the better estimate. Run 56 prints fills at the simulator's prices. NWTG entered at $1.11 to $1.24 in the held-out year and TELO at $1.24, where real fills and spreads would cost more than the simulator charges. The reported 33.6% should not be expected live.
+
 ## 9. What to do next
 
 In rough order of value:
@@ -190,7 +219,7 @@ In rough order of value:
 - Check bar history, price and traded volume for each pick, and add a minimum price and volume gate to `pick`, then rerun.
 - Re-train or extend the HMM so its training end is before the held-out start, or move the held-out start after 2025-10-22, and rerun the hmm rows.
 - Reserve a final period that no step above touches (for example the months after 2026-10-23 as bars arrive) and report the set's result there only.
-- Run `backtest stack` with the ten as a real shared account to get fills, drawdown and capital use. The set analysis here uses signals and standalone trades.
+- Stress the shared-account result of section 8b: lower `-alloc`, wider slippage on the micro-caps, and drop one strategy at a time to see which carry the result.
 - Add return correlation to the set analysis (needs per-strategy daily returns kept in the result databases).
 - Decide the "stack" to "book" rename (rule 3: one change across code, docs, CLI and skill).
 - Clean up the markov family (package, `train markov`, `data/markov_models.db`, the 500 MB bundle, orchestrator code, `STRATEGY_ALLOWLIST` entries) once nothing live uses it.

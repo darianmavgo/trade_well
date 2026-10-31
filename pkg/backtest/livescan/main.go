@@ -83,7 +83,7 @@ func Run(ctx context.Context, cfg Config) (*runner.SignalScanResult, error) {
 	spec := cfg.Strategy
 	if db, err := refdb.OpenExisting(refdb.DefaultPath); err == nil && db != nil {
 		if st, ok, _ := refdb.StackByName(db, strings.TrimSpace(spec)); ok {
-			spec = st.ID
+			spec = strings.Join(st.Members(), ",")
 		}
 		db.Close()
 	}

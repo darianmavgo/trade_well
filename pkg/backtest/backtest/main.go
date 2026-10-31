@@ -39,6 +39,7 @@ type Config struct {
 	Strategy            string   // -strategy
 	SharedAccount       bool     // -shared-account
 	Primary             string   // -primary
+	Priority            bool     // -priority
 	Secondary           string   // -secondary
 	StrategiesDb        string   // -strategies-db (lastrun: the database that gets strategy_last_backtest)
 	OutDir              string   // -out-dir (the reports root: each run gets a numbered folder in it)
@@ -74,6 +75,7 @@ type Config struct {
 	NoReinvestDividends bool     // -no-reinvest-dividends
 	DefaultAsset        string   // -default-asset
 	PickExclude         string   // -exclude
+	SaveStack           string   // -save-stack
 	Pick                int      // -pick
 	MinWinRate          float64  // -min-win-rate
 	MinTrades           int      // -min-trades
@@ -225,9 +227,10 @@ func Main() {
 	var family string
 	flag.StringVar(&family, "family", "", "Run every strategy of one row-backed family (streak, hold, tree, markov, hmm, rotation, price_action_reclaim); same as -strategy <family>")
 	flag.BoolVar(&conf.SharedAccount, "shared-account", d.SharedAccount, "Run strategies in a single shared cash account with priority preemption")
-	flag.StringVar(&conf.Primary, "primary", d.Primary, "Primary strategy ID for shared-account execution (has capital priority)")
+	flag.StringVar(&conf.Primary, "primary", d.Primary, "Primary strategy ID for shared-account execution (has capital priority; naming one turns -priority on)")
+	flag.BoolVar(&conf.Priority, "priority", d.Priority, "Stack: the first member has capital priority and sells other members' positions when it needs cash. Off, every member is an equal")
 	flag.StringVar(&conf.Secondary, "secondary", d.Secondary, "Secondary strategy ID(s) for shared-account execution (comma-separated)")
-	flag.StringVar(&conf.StrategiesDb, "strategies-db", d.StrategiesDb, "(lastrun) strategies database that receives the strategy_last_backtest table")
+	flag.StringVar(&conf.StrategiesDb, "strategies-db", d.StrategiesDb, "Strategies database: lastrun writes strategy_last_backtest to it, and a stack id or label given as the strategy is looked up in its stack table")
 	flag.StringVar(&conf.OutDir, "out-dir", d.OutDir, "Reports root. Each backtest run writes to a new numbered folder here, <out-dir>/<run_id>/<family>.db, and held-out results to <run_id>/oos/")
 	flag.StringVar(&conf.CPUProfile, "cpuprofile", d.CPUProfile, "Write a CPU profile of the run to this file (read it with go tool pprof)")
 	flag.IntVar(&conf.RunID, "run-id", d.RunID, "Use this existing run folder instead of starting a new one: finish an interrupted run (strategies already done in it are skipped unless -force) or read it (stale)")
@@ -267,6 +270,7 @@ func Main() {
 	flag.Float64Var(&conf.MaxOverlap, "max-overlap", d.MaxOverlap, "(pick) largest share of entry days a chosen strategy may have in common with another (0-1)")
 	flag.IntVar(&conf.TopCandidates, "top-candidates", d.TopCandidates, "(pick) best candidates by win rate that are compared for overlap (the comparison is quadratic)")
 	flag.StringVar(&conf.PickExclude, "exclude", "", "(pick) comma separated strategy ids that may not be chosen")
+	flag.StringVar(&conf.SaveStack, "save-stack", "", "(pick) save the chosen strategies as a stack with this label (under 30 characters) in the strategies database stack table")
 	conf.Mode = cliutils.PopSubcommand(map[string]string{"covered-call": "covered-call", "stale": "stale", "stack": "stack-eval", "stack-eval": "stack-eval", "pick": "pick", "newrun": "newrun", "lastrun": "lastrun"})
 	flag.Parse()
 	conf.Args = flag.Args()
@@ -401,6 +405,11 @@ func runOnce(conf Config) error {
 	posArgs := conf.Args
 	if stratArg == "" && len(posArgs) > 0 {
 		stratArg = strings.Join(posArgs, ",")
+	}
+	// A saved stack's id or label (refdata stack table) stands for its members.
+	stratArg, err := resolveStackRef(stratArg, conf.StrategiesDb)
+	if err != nil {
+		return err
 	}
 
 	// -signals-only: same path as cmd/livescan (wrapper around RunSignalScan).
@@ -564,6 +573,7 @@ func runOnce(conf Config) error {
 			Persist:      true,
 			Override:     runOverride(conf),
 			DefaultAsset: defaultAsset,
+			Priority:     conf.Priority || conf.Primary != "",
 		})
 		if sharedRes.Err != nil {
 			return fmt.Errorf("Shared account backtest failed: %v", sharedRes.Err)
